@@ -10,7 +10,7 @@ import {
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
-      <div className="relative flex min-h-screen">
+      <div className="relative flex min-h-screen bg-gray-50">
         <div className="hidden lg:flex">
             <Sidebar>
                 <AppSidebar />
@@ -27,4 +27,5 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   );
 }
 
+    
     

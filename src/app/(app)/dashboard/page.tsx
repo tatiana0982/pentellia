@@ -13,14 +13,6 @@ import {
   Server,
   Zap,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -38,7 +30,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 
 type AttackSurfaceStat = {
@@ -142,31 +133,6 @@ export default function DashboardPage() {
         }))
     : [];
 
-  const vulnerabilityChartData = summaryData
-    ? [
-        {
-          name: "Critical",
-          count: summaryData.vulnerabilitySummary.critical,
-          fill: "var(--color-critical)",
-        },
-        {
-          name: "High",
-          count: summaryData.vulnerabilitySummary.high,
-          fill: "var(--color-high)",
-        },
-        {
-          name: "Medium",
-          count: summaryData.vulnerabilitySummary.medium,
-          fill: "var(--color-medium)",
-        },
-        {
-          name: "Low",
-          count: summaryData.vulnerabilitySummary.low,
-          fill: "var(--color-low)",
-        },
-      ]
-    : [];
-
   if (loading) {
     return (
       <div className="flex h-[calc(100vh-10rem)] items-center justify-center">
@@ -258,10 +224,10 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
                 <div className="h-48 flex items-end justify-center gap-4">
-                     <div style={{height: `${Math.min(100, (summaryData?.vulnerabilitySummary.critical || 0) * 2)}%`, backgroundColor: 'var(--color-critical)'}} className="w-8 rounded-t-sm" />
-                     <div style={{height: `${Math.min(100, (summaryData?.vulnerabilitySummary.high || 0) * 2)}%`, backgroundColor: 'var(--color-high)'}} className="w-8 rounded-t-sm" />
+                     <div style={{height: `${Math.min(100, (summaryData?.vulnerabilitySummary.critical || 0) * 10)}%`, backgroundColor: 'var(--color-critical)'}} className="w-8 rounded-t-sm" />
+                     <div style={{height: `${Math.min(100, (summaryData?.vulnerabilitySummary.high || 0) * 5)}%`, backgroundColor: 'var(--color-high)'}} className="w-8 rounded-t-sm" />
                      <div style={{height: `${Math.min(100, (summaryData?.vulnerabilitySummary.medium || 0) * 2)}%`, backgroundColor: 'var(--color-medium)'}} className="w-8 rounded-t-sm" />
-                     <div style={{height: `${Math.min(100, (summaryData?.vulnerabilitySummary.low || 0) * 2)}%`, backgroundColor: 'var(--color-low)'}} className="w-8 rounded-t-sm" />
+                     <div style={{height: `${Math.min(100, (summaryData?.vulnerabilitySummary.low || 0) * 1)}%`, backgroundColor: 'var(--color-low)'}} className="w-8 rounded-t-sm" />
                 </div>
               <div className="flex flex-wrap justify-center gap-4 text-xs mt-4">
                 <div className="flex items-center gap-1.5">
@@ -318,3 +284,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
