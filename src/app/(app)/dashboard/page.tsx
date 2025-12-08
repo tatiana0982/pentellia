@@ -158,11 +158,11 @@ export default function DashboardPage() {
   return (
     <div className="flex-1 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-3xl font-semibold text-gray-900">Dashboard</h1>
+        <h1 className="text-3xl font-semibold">Dashboard</h1>
       </div>
       
       <Tabs defaultValue="overview" className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 pb-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-6">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="whats-new">What's new</TabsTrigger>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
                 <SelectItem value="30">Last 30 days</SelectItem>
               </SelectContent>
             </Select>
-            <Link href="#" className="text-sm text-blue-600 hover:underline">
+            <Link href="#" className="text-sm text-primary hover:underline">
               Workspace overview
             </Link>
           </div>
@@ -187,9 +187,9 @@ export default function DashboardPage() {
         
         <TabsContent value="overview" className="mt-0 space-y-6">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-            <Card className="bg-white border-gray-200 shadow-none">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-lg font-semibold text-gray-900">
+                <CardTitle className="text-lg font-semibold">
                   Attack Surface Summary
                 </CardTitle>
               </CardHeader>
@@ -198,19 +198,19 @@ export default function DashboardPage() {
                   {attackSurfaceStats.map((stat) => (
                     <Card
                       key={stat.label}
-                      className="bg-white border-gray-200 p-4 flex flex-col justify-between rounded-lg shadow-none"
+                      className="p-4 flex flex-col justify-between rounded-lg"
                     >
-                      <div className="flex justify-end text-gray-400">
+                      <div className="flex justify-end text-muted-foreground">
                         <stat.icon className="h-6 w-6" />
                       </div>
                       <div>
-                        <div className="text-3xl font-bold text-gray-800">
+                        <div className="text-3xl font-bold text-foreground">
                           {stat.value}
                         </div>
-                        <p className="text-xs uppercase text-gray-500">
+                        <p className="text-xs uppercase text-muted-foreground">
                           {stat.label}
                         </p>
-                        <p className="text-xs text-gray-400">{stat.trend}</p>
+                        <p className="text-xs text-muted-foreground">{stat.trend}</p>
                       </div>
                     </Card>
                   ))}
@@ -218,9 +218,9 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-white border-gray-200 shadow-none">
+            <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-lg font-semibold text-gray-900">
+                <CardTitle className="text-lg font-semibold">
                   Vulnerability summary
                 </CardTitle>
                 <Select defaultValue="30">
@@ -238,19 +238,19 @@ export default function DashboardPage() {
                 <div className="h-48 flex items-end justify-center gap-4">
                   <div
                     style={{ height: getBarHeight(vulnSummary?.critical || 0, maxVuln) }}
-                    className="w-8 rounded-t-sm bg-red-500"
+                    className="w-8 rounded-t-sm bg-red-500/70"
                   />
                   <div
                     style={{ height: getBarHeight(vulnSummary?.high || 0, maxVuln) }}
-                    className="w-8 rounded-t-sm bg-orange-400"
+                    className="w-8 rounded-t-sm bg-orange-400/70"
                   />
                   <div
                     style={{ height: getBarHeight(vulnSummary?.medium || 0, maxVuln) }}
-                    className="w-8 rounded-t-sm bg-yellow-300"
+                    className="w-8 rounded-t-sm bg-yellow-300/70"
                   />
                   <div
                     style={{ height: getBarHeight(vulnSummary?.low || 0, maxVuln) }}
-                    className="w-8 rounded-t-sm bg-blue-400"
+                    className="w-8 rounded-t-sm bg-cyan-500/70"
                   />
                 </div>
                 <div className="mt-4 flex flex-wrap justify-center gap-4 text-xs">
@@ -267,7 +267,7 @@ export default function DashboardPage() {
                     <span>Medium</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-blue-400"></span>
+                    <span className="h-2 w-2 rounded-full bg-cyan-500"></span>
                     <span>Low</span>
                   </div>
                 </div>
@@ -275,37 +275,37 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          <Card className="bg-white border-gray-200 shadow-none">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900">
+              <CardTitle className="text-lg font-semibold">
                 Scan Activity
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col items-center justify-center gap-6 md:flex-row">
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative flex h-32 w-32 flex-col items-center justify-center rounded-full border-4 border-gray-200 bg-white">
-                    <div className="text-2xl font-bold text-gray-800">
+                  <div className="relative flex h-32 w-32 flex-col items-center justify-center rounded-full border-4 border-border bg-card">
+                    <div className="text-2xl font-bold text-foreground">
                       {activityData?.scanActivity.scannedAssets}
                     </div>
                   </div>
-                  <p className="mt-2 text-sm text-gray-500">Scanned Assets</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Scanned Assets</p>
                 </div>
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative flex h-32 w-32 flex-col items-center justify-center rounded-full border-4 border-gray-200 bg-white">
-                    <div className="text-2xl font-bold text-gray-800">
+                  <div className="relative flex h-32 w-32 flex-col items-center justify-center rounded-full border-4 border-border bg-card">
+                    <div className="text-2xl font-bold text-foreground">
                       {activityData?.scanActivity.runningScans}
                     </div>
                   </div>
-                  <p className="mt-2 text-sm text-gray-500">Running Scans</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Running Scans</p>
                 </div>
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative flex h-32 w-32 flex-col items-center justify-center rounded-full border-4 border-gray-200 bg-white">
-                    <div className="text-2xl font-bold text-gray-800">
+                  <div className="relative flex h-32 w-32 flex-col items-center justify-center rounded-full border-4 border-border bg-card">
+                    <div className="text-2xl font-bold text-foreground">
                       {activityData?.scanActivity.waitingScans}
                     </div>
                   </div>
-                  <p className="mt-2 text-sm text-gray-500">Waiting Scans</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Waiting Scans</p>
                 </div>
               </div>
             </CardContent>
