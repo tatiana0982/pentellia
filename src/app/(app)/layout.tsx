@@ -1,4 +1,3 @@
-
 import type { ReactNode } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Header } from "@/components/header";
@@ -26,6 +25,3 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-
-    
-    

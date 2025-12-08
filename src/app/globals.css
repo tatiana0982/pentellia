@@ -33,10 +33,6 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 217 19% 18%;
     --sidebar-ring: 217.2 91.2% 59.8%;
-    --color-critical: #ef4444;
-    --color-high: #f97316;
-    --color-medium: #eab308;
-    --color-low: #3b82f6;
   }
 
   .dark {
@@ -79,4 +75,3 @@
     @apply bg-background text-foreground;
   }
 }
-    
