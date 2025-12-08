@@ -1,4 +1,3 @@
-
 import Link from "next/link";
 import Image from "next/image";
 import { Bell, Rocket, User } from "lucide-react";
@@ -22,7 +21,7 @@ const userAvatar = PlaceHolderImages.find((img) => img.id === "user-avatar");
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-white/5 bg-background/50 backdrop-blur-sm px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-gray-200 bg-white px-4 md:px-6">
       <div className="lg:hidden">
         <Sheet>
             <SheetTrigger asChild>
