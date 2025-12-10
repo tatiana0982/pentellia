@@ -26,7 +26,6 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { useLayout } from '@/context/layout-context';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useMemo } from 'react';
@@ -48,9 +47,8 @@ const configItems = [
   { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
   const pathname = usePathname();
-  const { isSidebarOpen } = useLayout();
   const userAvatar = useMemo(
     () => PlaceHolderImages.find((img) => img.id === 'user-avatar'),
     []
@@ -59,7 +57,7 @@ export function AppSidebar() {
   return (
     <aside
       className={cn(
-        'fixed top-16 z-30 h-[calc(100vh-4rem)] bg-[#111827] text-slate-100 border-r border-slate-800 transition-all duration-300',
+        'fixed top-16 z-30 h-[calc(100vh-4rem)] bg-slate-950 text-slate-100 border-r border-slate-800 transition-all duration-300',
         isSidebarOpen ? 'w-64' : 'w-[70px]'
       )}
     >

@@ -13,17 +13,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ShieldIcon } from './icons';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useMemo } from 'react';
-import { useLayout } from '@/context/layout-context';
 
-export function Header() {
-  const { toggleSidebar } = useLayout();
+export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   const userAvatar = useMemo(
     () => PlaceHolderImages.find((img) => img.id === 'user-avatar'),
     []
   );
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 flex h-16 items-center justify-between border-b border-slate-800 bg-[#111827] px-4 text-white">
+    <header className="fixed top-0 left-0 right-0 z-40 flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-4 text-white">
       {/* Left side: menu + logo */}
       <div className="flex items-center gap-3">
         <Button

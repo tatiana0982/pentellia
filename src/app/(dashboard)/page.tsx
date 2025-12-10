@@ -36,7 +36,7 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold text-gray-700 mb-4">Attack surface summary</h2>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
               {attackSurfaceStats.map((stat) => (
-                <Card key={stat.label} className="bg-white shadow-sm border border-gray-200">
+                <Card key={stat.label} className="bg-white shadow-sm">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-xs font-medium uppercase text-gray-500">
                       {stat.label}
@@ -53,7 +53,7 @@ export default function DashboardPage() {
           <div>
              <h2 className="text-lg font-semibold text-gray-700 mb-4">Scan activity</h2>
              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                 <Card className="bg-white shadow-sm border border-gray-200">
+                 <Card className="bg-white shadow-sm">
                      <CardHeader>
                          <CardTitle className="text-sm font-medium text-gray-500">Scanned assets</CardTitle>
                      </CardHeader>
@@ -69,7 +69,7 @@ export default function DashboardPage() {
                          </div>
                      </CardContent>
                  </Card>
-                 <Card className="bg-white shadow-sm border border-gray-200">
+                 <Card className="bg-white shadow-sm">
                      <CardHeader>
                          <CardTitle className="text-sm font-medium text-gray-500">Running scans</CardTitle>
                      </CardHeader>
@@ -85,7 +85,7 @@ export default function DashboardPage() {
                          </div>
                      </CardContent>
                  </Card>
-                 <Card className="bg-white shadow-sm border border-gray-200">
+                 <Card className="bg-white shadow-sm">
                      <CardHeader>
                          <CardTitle className="text-sm font-medium text-gray-500">Waiting scans</CardTitle>
                      </CardHeader>
