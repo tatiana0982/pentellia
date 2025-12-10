@@ -1,7 +1,6 @@
 
 import Link from "next/link";
-import { ChevronDown, LifeBuoy, LogOut, Settings, User, Rocket } from "lucide-react";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { ChevronDown, LifeBuoy, LogOut, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,15 +15,10 @@ import { cn } from "@/lib/utils";
 
 export function Header() {
   return (
-    <header className={cn("sticky top-0 z-30 flex h-16 shrink-0 items-center gap-x-4 border-b bg-card px-4 sm:gap-x-6 sm:px-6 lg:px-8")}>
-      <div className="flex items-center gap-4">
-        <SidebarTrigger className="shrink-0" />
-        <Link href="/dashboard" className="flex items-center gap-2">
-            <Rocket className="w-8 h-8 text-primary" />
-            <h1 className="text-xl font-semibold text-foreground">Pentellia</h1>
-        </Link>
+    <header className={cn("sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-card px-4 sm:px-6")}>
+      <div className="flex-1">
+        <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
       </div>
-
       <div className="flex flex-1 items-center justify-end gap-4">
         <Button variant="outline" size="sm" className="hidden sm:inline-flex">Unlock full features</Button>
         <Button size="sm" className="hidden sm:inline-flex bg-primary hover:bg-primary/90 text-primary-foreground">Book a Demo</Button>

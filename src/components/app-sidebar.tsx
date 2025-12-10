@@ -15,15 +15,14 @@ import {
   Blocks,
   Settings,
   LayoutDashboard,
+  Rocket,
 } from "lucide-react";
 import {
-  SidebarHeader,
-  SidebarContent,
-  SidebarFooter,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-} from "@/components/ui/sidebar";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +34,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Badge } from "./ui/badge";
+import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -47,7 +47,6 @@ const navItems = [
   { href: "/robots", icon: Bot, label: "Robots" },
   { href: "/team", icon: Users, label: "Team" },
   { href: "/integrations", icon: Blocks, label: "Integrations" },
-  { href: "/settings", icon: Settings, label: "Settings" },
 ];
 
 const userAvatar = PlaceHolderImages.find((img) => img.id === "user-avatar");
@@ -56,60 +55,52 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <>
-      <SidebarHeader className="h-16 flex items-center justify-center">
-        {/* This space is intentionally left for alignment with the header */}
-      </SidebarHeader>
-      <SidebarContent className="p-2">
-        <SidebarMenu>
+    <aside className="fixed inset-y-0 left-0 z-10 flex w-14 flex-col border-r bg-card">
+      <TooltipProvider>
+        <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
+          <Link
+            href="/dashboard"
+            className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
+          >
+            <Rocket className="h-4 w-4 transition-all group-hover:scale-110" />
+            <span className="sr-only">Pentellia</span>
+          </Link>
           {navItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <Link href={item.href}>
-                <SidebarMenuButton
-                  isActive={pathname.startsWith(item.href)}
-                  tooltip={item.label}
+            <Tooltip key={item.href}>
+              <TooltipTrigger asChild>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8",
+                    { "bg-accent text-accent-foreground": pathname.startsWith(item.href) }
+                  )}
                 >
-                  <item.icon />
-                  <span className="truncate">{item.label}</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
+                  <item.icon className="h-5 w-5" />
+                  <span className="sr-only">{item.label}</span>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">{item.label}</TooltipContent>
+            </Tooltip>
           ))}
-        </SidebarMenu>
-      </SidebarContent>
-      <SidebarFooter>
-        <div className="border-t border-sidebar-border p-2 flex flex-col items-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center justify-center gap-3 w-full p-2 rounded-md hover:bg-sidebar-accent relative group-data-[state=collapsed]/sidebar-wrapper:p-0">
-                {userAvatar && (
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage
-                      src={userAvatar.imageUrl}
-                      alt={userAvatar.description}
-                      width={32}
-                      height={32}
-                      data-ai-hint={userAvatar.imageHint}
-                    />
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
+        </nav>
+        <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/settings"
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8",
+                  { "bg-accent text-accent-foreground": pathname.startsWith("/settings") }
                 )}
-                <span className="truncate text-sm group-data-[state=collapsed]/sidebar-wrapper:hidden">My Account</span>
-                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 justify-center p-0 group-data-[state=expanded]/sidebar-wrapper:-top-1 group-data-[state=expanded]/sidebar-wrapper:-right-1 group-data-[state=collapsed]/sidebar-wrapper:top-0 group-data-[state=collapsed]/sidebar-wrapper:right-0">3</Badge>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 mb-2" align="end" side="top">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Billing</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Log out</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </SidebarFooter>
-    </>
+              >
+                <Settings className="h-5 w-5" />
+                <span className="sr-only">Settings</span>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">Settings</TooltipContent>
+          </Tooltip>
+        </nav>
+      </TooltipProvider>
+    </aside>
   );
 }
