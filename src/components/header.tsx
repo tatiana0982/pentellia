@@ -1,5 +1,6 @@
 
-import { ChevronDown, LifeBuoy, LogOut, Settings, User } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, LifeBuoy, LogOut, Settings, User, Rocket } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,41 +12,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { AppSidebar } from "@/components/app-sidebar";
 import { cn } from "@/lib/utils";
-import { Rocket } from "lucide-react";
 
 export function Header() {
   return (
-    <header className={cn("sticky top-0 z-30 flex h-16 shrink-0 items-center gap-x-4 border-b bg-[#242a34] px-4 sm:gap-x-6 sm:px-6 lg:px-8")}>
-      
-      {/* Mobile sidebar menu - uses a sheet */}
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="lg:hidden -ml-2">
-            <SidebarTrigger />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-[260px] p-0">
-          <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-            <AppSidebar />
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Desktop sidebar trigger */}
-      <div className="hidden lg:flex">
-        <SidebarTrigger />
+    <header className={cn("sticky top-0 z-30 flex h-16 shrink-0 items-center gap-x-4 border-b bg-card px-4 sm:gap-x-6 sm:px-6 lg:px-8")}>
+      <div className="flex items-center gap-4">
+        <SidebarTrigger className="shrink-0" />
+        <Link href="/dashboard" className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold text-foreground">Pentellia</h1>
+        </Link>
       </div>
-
-      {/* Separator for mobile */}
-      <div className="h-6 w-px bg-gray-200/20 lg:hidden" aria-hidden="true" />
-
 
       <div className="flex flex-1 items-center justify-end gap-4">
         <Button variant="outline" size="sm" className="hidden sm:inline-flex">Unlock full features</Button>
-        <Button size="sm" className="hidden sm:inline-flex">Book a Demo</Button>
+        <Button size="sm" className="hidden sm:inline-flex bg-primary hover:bg-primary/90 text-primary-foreground">Book a Demo</Button>
         
         <DropdownMenu>
             <DropdownMenuTrigger asChild>

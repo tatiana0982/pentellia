@@ -11,14 +11,13 @@ import {
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
-      <div className="relative flex min-h-screen bg-[#1a1f28]">
+      <div className="relative flex min-h-screen bg-background">
         <Sidebar>
           <AppSidebar />
-          <SidebarRail />
         </Sidebar>
-        <div className="flex-1 flex flex-col transition-[padding-left] ease-in-out duration-300 lg:pl-[260px] group-data-[state=collapsed]/sidebar-wrapper:lg:pl-12">
+        <div className="flex-1 flex flex-col transition-all ease-in-out duration-300 lg:pl-12 group-data-[state=expanded]/sidebar-wrapper:lg:pl-[260px]">
           <Header />
-          <main className="flex-1 mx-auto w-full max-w-6xl p-4 lg:p-8">
+          <main className="flex-1 mx-auto w-full max-w-7xl p-4 lg:p-8">
             {children}
           </main>
         </div>

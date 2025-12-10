@@ -159,11 +159,11 @@ export default function DashboardPage() {
   return (
     <div className="flex-1 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-3xl font-semibold">Dashboard</h1>
+        <h1 className="text-3xl font-semibold text-foreground">Dashboard</h1>
       </div>
       
       <Tabs defaultValue="overview" className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-6 border-border">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="whats-new">What's new</TabsTrigger>
@@ -180,9 +180,6 @@ export default function DashboardPage() {
                 <SelectItem value="30">Last 30 days</SelectItem>
               </SelectContent>
             </Select>
-            <Link href="#" className="text-sm text-primary hover:underline">
-              Workspace overview
-            </Link>
           </div>
         </div>
         
@@ -199,7 +196,7 @@ export default function DashboardPage() {
                   {attackSurfaceStats.map((stat) => (
                     <Card
                       key={stat.label}
-                      className="p-4 flex flex-col justify-between rounded-lg"
+                      className="p-4 flex flex-col justify-between rounded-lg bg-background"
                     >
                       <div className="flex justify-end text-muted-foreground">
                         <stat.icon className="h-6 w-6" />
@@ -285,7 +282,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative flex h-32 w-32 items-center justify-center rounded-full border-4 border-border bg-card">
+                  <div className="relative flex h-32 w-32 items-center justify-center rounded-full border-2 border-border bg-card">
                     <div className="text-3xl font-bold text-foreground">
                       {activityData?.scanActivity.scannedAssets}
                     </div>
@@ -293,7 +290,7 @@ export default function DashboardPage() {
                   <p className="mt-2 text-sm text-muted-foreground">Scanned Assets</p>
                 </div>
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative flex h-32 w-32 items-center justify-center rounded-full border-4 border-border bg-card">
+                  <div className="relative flex h-32 w-32 items-center justify-center rounded-full border-2 border-border bg-card">
                     <div className="text-3xl font-bold text-primary">
                       {activityData?.scanActivity.runningScans}
                     </div>
@@ -301,7 +298,7 @@ export default function DashboardPage() {
                   <p className="mt-2 text-sm text-muted-foreground">Running Scans</p>
                 </div>
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative flex h-32 w-32 items-center justify-center rounded-full border-4 border-border bg-card">
+                  <div className="relative flex h-32 w-32 items-center justify-center rounded-full border-2 border-border bg-card">
                     <div className="text-3xl font-bold text-accent">
                       {activityData?.scanActivity.waitingScans}
                     </div>
