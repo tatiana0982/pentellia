@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -145,19 +144,6 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
                 </Link>
               ))}
             </nav>
-          </div>
-        </div>
-
-        <div className="mt-auto p-3">
-          <div className="flex items-center justify-center">
-            <Avatar className="h-8 w-8">
-              <AvatarImage
-                src={userAvatar?.imageUrl}
-                alt={userAvatar?.description}
-                data-ai-hint={userAvatar?.imageHint}
-              />
-              <AvatarFallback>U</AvatarFallback>
-            </Avatar>
           </div>
         </div>
       </div>
