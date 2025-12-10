@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Rocket } from "lucide-react";
+import { ShieldIcon } from "@/components/icons";
 
 export default function LoginPage() {
   async function signIn(formData: FormData) {
@@ -27,8 +27,8 @@ export default function LoginPage() {
     <Card>
       <CardHeader className="items-center text-center">
         <div className="flex items-center gap-2 mb-2">
-          <Rocket className="w-8 h-8 text-primary" />
-          <h1 className="text-xl font-semibold text-foreground">Pentellia</h1>
+          <ShieldIcon className="w-8 h-8 text-gray-800" />
+          <h1 className="text-xl font-semibold text-foreground">Pentest Tools</h1>
         </div>
         <CardTitle>Login</CardTitle>
         <CardDescription>

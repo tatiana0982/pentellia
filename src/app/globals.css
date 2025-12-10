@@ -5,13 +5,13 @@
 
 @layer base {
   :root {
-    --background: 240 5% 96%; /* Light Gray */
+    --background: 220 20% 98%; /* Light Gray for main content */
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%; /* Dark Blue for buttons/primary actions */
+    --primary: 222.2 47.4% 11.2%; 
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -25,6 +25,9 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+
+    --chart-1: hsl(188 95% 42%);
+    --chart-2: hsl(222.2 47.4% 11.2%);
   }
 
   .dark {
@@ -49,14 +52,8 @@
     --ring: 188 95% 42%; /* cyan */
     --radius: 0.5rem;
 
-    --sidebar-background: 224 23% 9%;
-    --sidebar-foreground: 216 12% 62%;
-    --sidebar-primary: 188 95% 42%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 220 13% 18%;
-    --sidebar-accent-foreground: 215 14% 92%;
-    --sidebar-border: 219 5% 18%;
-    --sidebar-ring: 188 95% 42%;
+    --chart-1: hsl(188 95% 42%);
+    --chart-2: hsl(158 84% 39%);
   }
 }
 

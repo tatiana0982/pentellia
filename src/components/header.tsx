@@ -1,32 +1,41 @@
 
-import Link from "next/link";
-import { ChevronDown, LifeBuoy, LogOut, Settings, User } from "lucide-react";
+import { Menu, Star, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { ShieldIcon } from "./icons";
 
 export function Header() {
   return (
-    <header className={cn("sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-card px-4 sm:px-6")}>
-      <div className="flex-1">
-        <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
+    <header className="sticky top-0 z-10 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-4 md:px-6">
+      <div className="flex items-center gap-x-4">
+        <Button variant="ghost" size="icon" className="md:hidden">
+          <Menu className="h-6 w-6" />
+          <span className="sr-only">Toggle menu</span>
+        </Button>
+        <div className="hidden items-center gap-2 md:flex">
+             <Menu className="h-6 w-6 text-gray-600" />
+             <ShieldIcon className="h-6 w-6 text-gray-800" />
+             <span className="text-lg font-semibold text-gray-800">Pentest Tools</span>
+        </div>
       </div>
-      <div className="flex flex-1 items-center justify-end gap-4">
-        <Button variant="outline" size="sm" className="hidden sm:inline-flex">Unlock full features</Button>
-        <Button size="sm" className="hidden sm:inline-flex bg-primary hover:bg-primary/90 text-primary-foreground">Book a Demo</Button>
+
+      <div className="flex items-center gap-x-4">
+        <Button variant="warning" className="hidden sm:inline-flex">
+          <Star className="mr-2 h-4 w-4" />
+          Unlock full features
+        </Button>
+        <Button variant="dark" className="hidden sm:inline-flex">Book a Demo</Button>
         
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="flex items-center gap-1">
-                    Resources
+                <Button variant="ghost" className="flex items-center gap-1 text-sm font-semibold text-gray-600">
+                    RESOURCES
                     <ChevronDown className="h-4 w-4" />
                 </Button>
             </DropdownMenuTrigger>
@@ -34,52 +43,27 @@ export function Header() {
                 <DropdownMenuItem>Blog</DropdownMenuItem>
                 <DropdownMenuItem>API Reference</DropdownMenuItem>
                 <DropdownMenuItem>Changelog</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                    <LifeBuoy className="mr-2 h-4 w-4" />
-                    <span>Support</span>
-                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+            <button className="flex items-center gap-2">
                 <Avatar className="h-8 w-8">
                   <AvatarImage
                     src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwZXJzb24lMjBmYWNlfGVufDB8fHx8MTc2NTE4MzEwM3ww&ixlib=rb-4.1.0&q=80&w=1080"
                     alt="User avatar"
-                    width={32}
-                    height={32}
-                    data-ai-hint="person face"
                   />
                   <AvatarFallback>U</AvatarFallback>
                 </Avatar>
-            </Button>
+                <ChevronDown className="h-4 w-4 text-gray-600" />
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">User</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  user@pentellia.com
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
-            </DropdownMenuItem>
+            <DropdownMenuItem>Profile</DropdownMenuItem>
+            <DropdownMenuItem>Settings</DropdownMenuItem>
+            <DropdownMenuContent />
+            <DropdownMenuItem>Log out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -15,25 +15,16 @@ import {
   Blocks,
   Settings,
   LayoutDashboard,
-  Rocket,
+  Zap,
+  ChevronDown,
 } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Button } from "./ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Badge } from "./ui/badge";
+} from "./ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -43,64 +34,75 @@ const navItems = [
   { href: "/findings", icon: FileSearch, label: "Findings" },
   { href: "/attack-surface", icon: Crosshair, label: "Attack Surface" },
   { href: "/handlers", icon: Server, label: "Handlers" },
-  { href: "/reports", icon: FileText, label: "Reports" },
-  { href: "/robots", icon: Bot, label: "Robots" },
-  { href: "/team", icon: Users, label: "Team" },
-  { href: "/integrations", icon: Blocks, label: "Integrations" },
 ];
 
-const userAvatar = PlaceHolderImages.find((img) => img.id === "user-avatar");
+const configItems = [
+    { href: "/reports", icon: FileText, label: "Reports" },
+    { href: "/robots", icon: Bot, label: "Robots" },
+    { href: "/team", icon: Users, label: "Team" },
+    { href: "/integrations", icon: Blocks, label: "Integrations" },
+    { href: "/settings", icon: Settings, label: "Settings" },
+]
 
 export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-10 flex w-14 flex-col border-r bg-card">
-      <TooltipProvider>
-        <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
+    <aside className="fixed inset-y-0 left-0 z-20 hidden h-full w-64 flex-col border-r border-gray-200 bg-gray-800 text-white md:flex">
+      <div className="flex flex-col gap-y-6 p-4">
+        <Button variant="warning" className="w-full justify-start">
+            <Zap className="mr-2 h-4 w-4" />
+            New scan
+        </Button>
+        <div>
+            <span className="text-xs font-semibold uppercase text-gray-400">Workspaces</span>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="mt-2 w-full justify-between text-white hover:bg-gray-700 hover:text-white">
+                        My Workspace
+                        <ChevronDown className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                    <DropdownMenuItem>Workspace 1</DropdownMenuItem>
+                    <DropdownMenuItem>Workspace 2</DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+      </div>
+      <nav className="flex-1 space-y-2 px-4">
+        {navItems.map((item) => (
           <Link
-            href="/dashboard"
-            className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-700 hover:text-white",
+              { "bg-gray-900 text-white": pathname.startsWith(item.href) }
+            )}
           >
-            <Rocket className="h-4 w-4 transition-all group-hover:scale-110" />
-            <span className="sr-only">Pentellia</span>
+            <item.icon className="h-4 w-4" />
+            <span>{item.label}</span>
           </Link>
-          {navItems.map((item) => (
-            <Tooltip key={item.href}>
-              <TooltipTrigger asChild>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8",
-                    { "bg-accent text-accent-foreground": pathname.startsWith(item.href) }
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span className="sr-only">{item.label}</span>
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right">{item.label}</TooltipContent>
-            </Tooltip>
-          ))}
-        </nav>
-        <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
-          <Tooltip>
-            <TooltipTrigger asChild>
+        ))}
+      </nav>
+      <div className="px-4 py-6">
+        <span className="text-xs font-semibold uppercase text-gray-400">Configurations</span>
+        <nav className="mt-2 space-y-2">
+            {configItems.map((item) => (
               <Link
-                href="/settings"
+                key={item.href}
+                href={item.href}
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8",
-                  { "bg-accent text-accent-foreground": pathname.startsWith("/settings") }
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-700 hover:text-white",
+                  { "bg-gray-900 text-white": pathname.startsWith(item.href) }
                 )}
               >
-                <Settings className="h-5 w-5" />
-                <span className="sr-only">Settings</span>
+                <item.icon className="h-4 w-4" />
+                <span>{item.label}</span>
               </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right">Settings</TooltipContent>
-          </Tooltip>
+            ))}
         </nav>
-      </TooltipProvider>
+      </div>
     </aside>
   );
 }
