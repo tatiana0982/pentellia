@@ -28,7 +28,7 @@ export default function LoginPage() {
       <CardHeader className="items-center text-center">
         <div className="flex items-center gap-2 mb-2">
           <ShieldIcon className="w-8 h-8 text-gray-800" />
-          <h1 className="text-xl font-semibold text-foreground">Pentest Tools</h1>
+          <h1 className="text-xl font-semibold text-foreground">Pentellia</h1>
         </div>
         <CardTitle>Login</CardTitle>
         <CardDescription>
