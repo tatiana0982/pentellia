@@ -22,7 +22,7 @@ export function Header() {
       {/* Mobile sidebar menu */}
       <Sheet>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="lg:hidden">
+          <Button variant="ghost" size="icon" className="lg:hidden -ml-2">
             <SidebarTrigger />
           </Button>
         </SheetTrigger>
