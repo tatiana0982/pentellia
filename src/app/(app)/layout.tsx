@@ -1,3 +1,4 @@
+
 import type { ReactNode } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Header } from "@/components/header";
@@ -9,7 +10,7 @@ import {
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
-      <div className="relative flex min-h-screen dark bg-[#1a1f28]">
+      <div className="relative flex min-h-screen bg-background">
         <div className="hidden lg:flex">
             <Sidebar>
                 <AppSidebar />

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -194,7 +195,7 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {attackSurfaceStats.map((stat) => (
                     <Card
                       key={stat.label}
@@ -250,7 +251,7 @@ export default function DashboardPage() {
                   />
                   <div
                     style={{ height: getBarHeight(vulnSummary?.low || 0, maxVuln) }}
-                    className="w-8 rounded-t-sm bg-accent/70"
+                    className="w-8 rounded-t-sm bg-primary/70"
                   />
                 </div>
                 <div className="mt-4 flex flex-wrap justify-center gap-4 text-xs">
@@ -267,7 +268,7 @@ export default function DashboardPage() {
                     <span>Medium</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-accent"></span>
+                    <span className="h-2 w-2 rounded-full bg-primary"></span>
                     <span>Low</span>
                   </div>
                 </div>
@@ -282,26 +283,26 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center gap-6 md:flex-row">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative flex h-32 w-32 flex-col items-center justify-center rounded-full border-4 border-border bg-card">
-                    <div className="text-2xl font-bold text-foreground">
+                  <div className="relative flex h-32 w-32 items-center justify-center rounded-full border-4 border-border bg-card">
+                    <div className="text-3xl font-bold text-foreground">
                       {activityData?.scanActivity.scannedAssets}
                     </div>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">Scanned Assets</p>
                 </div>
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative flex h-32 w-32 flex-col items-center justify-center rounded-full border-4 border-border bg-card">
-                    <div className="text-2xl font-bold text-foreground">
+                  <div className="relative flex h-32 w-32 items-center justify-center rounded-full border-4 border-border bg-card">
+                    <div className="text-3xl font-bold text-primary">
                       {activityData?.scanActivity.runningScans}
                     </div>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">Running Scans</p>
                 </div>
                 <div className="flex flex-col items-center gap-2">
-                  <div className="relative flex h-32 w-32 flex-col items-center justify-center rounded-full border-4 border-border bg-card">
-                    <div className="text-2xl font-bold text-foreground">
+                  <div className="relative flex h-32 w-32 items-center justify-center rounded-full border-4 border-border bg-card">
+                    <div className="text-3xl font-bold text-accent">
                       {activityData?.scanActivity.waitingScans}
                     </div>
                   </div>
