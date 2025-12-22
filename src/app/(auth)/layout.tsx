@@ -29,7 +29,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             </div>
 
             {/* Right Column: Auth Form */}
-            <div className="w-full max-w-md mx-auto">{children}</div>
+            <div className="w-full">{children}</div>
           </div>
         </div>
       </main>
