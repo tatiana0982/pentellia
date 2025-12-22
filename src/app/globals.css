@@ -11,49 +11,49 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%; 
+    --primary: 260 60% 50%; /* Pentellia Purple */
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
+    --accent: 45 90% 55%; /* Muted Amber/Gold */
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 45 90% 55%; /* Muted Amber/Gold for focus */
     --radius: 0.5rem;
 
-    --chart-1: hsl(188 95% 42%);
-    --chart-2: hsl(222.2 47.4% 11.2%);
+    --chart-1: hsl(260 60% 50%);
+    --chart-2: hsl(45 90% 55%);
   }
 
   .dark {
-    --background: 222 24% 10%; /* #1a1f28 */
+    --background: 224 25% 8%; /* Deep Navy/Graphite */
     --foreground: 220 14% 80%; /* #c5cfe0 */
-    --card: 224 23% 14%;      /* Card background #242a34 */
+    --card: 224 23% 12%;      /* Card background */
     --card-foreground: 220 14% 80%;
     --popover: 224 23% 9%;
     --popover-foreground: 215 25% 85%;
-    --primary: 188 95% 42%; /* #06b6d4 - cyan */
-    --primary-foreground: 224 23% 9%;
-    --secondary: 220 15% 20%; /* #2b303b */
+    --primary: 260 60% 60%; /* Pentellia Purple */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 220 15% 15%; /* Darker secondary */
     --secondary-foreground: 210 20% 98%;
-    --muted: 215 16% 47%;    /* #6b7280 */
-    --muted-foreground: 215 20% 65%; /* #9ca3af */
-    --accent: 158 84% 39%; /* #10b981 - emerald green */
-    --accent-foreground: 210 20% 98%;
-    --destructive: 0 63% 31%;
+    --muted: 215 16% 47%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 45 90% 60%; /* Muted Amber/Gold */
+    --accent-foreground: 224 25% 8%;
+    --destructive: 0 63% 40%;
     --destructive-foreground: 210 20% 98%;
-    --border: 220 10% 23%;     /* #3a3f47 */
-    --input: 220 13% 25%;
-    --ring: 188 95% 42%; /* cyan */
+    --border: 220 10% 23%;
+    --input: 220 13% 18%;
+    --ring: 45 90% 60%; /* Muted Amber/Gold for focus */
     --radius: 0.5rem;
 
-    --chart-1: hsl(188 95% 42%);
-    --chart-2: hsl(158 84% 39%);
+    --chart-1: hsl(260 60% 60%);
+    --chart-2: hsl(45 90% 60%);
   }
 }
 

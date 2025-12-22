@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { redirect } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { GoogleIcon } from './icons';
 
@@ -80,62 +79,28 @@ export default function AuthForm({
     console.log('Signing in with:', values);
     // **BACKEND INTEGRATION POINT**
     // TODO: Replace with Firebase signInWithEmailAndPassword
-    // Example:
-    // try {
-    //   const { email, password } = values;
-    //   await signInWithEmailAndPassword(auth, email, password);
-    //   // Redirect is handled by the auth state listener
-    // } catch (error) {
-    //   console.error("Login failed:", error);
-    //   // Handle and display error to the user
-    // } finally {
-    //   setIsSubmitting(false);
-    // }
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsSubmitting(false);
-    redirect('/dashboard');
+    // On success, auth state listener should redirect to /dashboard
   }
 
   async function handleSignup(values: z.infer<typeof signupSchema>) {
     setIsSubmitting(true);
     console.log('Signing up with:', values);
     // **BACKEND INTEGRATION POINT**
-    // TODO: Replace with Firebase createUserWithEmailAndPassword
-    // Example:
-    // try {
-    //   const { email, password, firstName, lastName } = values;
-    //   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    //   await updateProfile(userCredential.user, { displayName: `${firstName} ${lastName}` });
-    //   // You might also want to create a user document in Firestore here
-    // } catch (error) {
-    //   console.error("Signup failed:", error);
-    //   // Handle and display error to the user
-    // } finally {
-    //   setIsSubmitting(false);
-    // }
+    // TODO: Replace with Firebase createUserWithEmailAndPassword & updateProfile
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsSubmitting(false);
-    // For demo, redirect to dashboard. In a real app, you might go to a "verify email" page.
-    redirect('/dashboard');
+    // On success, auth state listener should redirect to /dashboard
   }
 
   async function handleGoogleSignIn() {
     setOauthSubmitting(true);
      // **BACKEND INTEGRATION POINT**
-    // TODO: Replace with Firebase signInWithPopup
-    // Example:
-    // try {
-    //   const provider = new GoogleAuthProvider();
-    //   await signInWithPopup(auth, provider);
-    //   // Redirect is handled by the auth state listener
-    // } catch (error) {
-    //   console.error("Google Sign-In failed:", error);
-    // } finally {
-    //    setOauthSubmitting(false);
-    // }
+    // TODO: Replace with Firebase signInWithPopup(new GoogleAuthProvider())
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setOauthSubmitting(false);
-    redirect('/dashboard');
+    // On success, auth state listener should redirect to /dashboard
   }
 
   const isLoginView = view === 'login';
@@ -144,29 +109,25 @@ export default function AuthForm({
     <>
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-slate-700" />
+            <span className="w-full border-t border-border" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-slate-900 px-2 text-slate-500">
+            <span className="bg-card px-2 text-muted-foreground">
               Or continue with
             </span>
           </div>
         </div>
         <div className="grid gap-3">
-          <Button variant="outline-dark" className="w-full justify-center" onClick={handleGoogleSignIn} disabled={isSubmitting || isOauthSubmitting}>
+          <Button variant="outline" className="w-full justify-center" onClick={handleGoogleSignIn} disabled={isSubmitting || isOauthSubmitting}>
              {isOauthSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
             Sign in with Google
           </Button>
-          {/* Optional: Placeholder for Microsoft */}
-          {/* <Button variant="outline-dark" className="w-full justify-center" disabled>
-            Sign in with Microsoft
-          </Button> */}
         </div>
     </>
   );
 
   return (
-    <Card className="relative w-full max-w-md overflow-hidden border-slate-800 bg-slate-900/50 text-white backdrop-blur-lg">
+    <Card className="relative w-full max-w-md overflow-hidden border-border bg-card text-card-foreground shadow-lg">
       <div
         className={cn(
           'flex transition-transform duration-300 ease-in-out',
@@ -198,7 +159,7 @@ export default function AuthForm({
                           placeholder="m@example.com"
                           autoComplete="email"
                           {...field}
-                          className="bg-slate-800 border-slate-700 focus:ring-amber-400 text-white"
+                          className="bg-input border-border focus:ring-ring"
                         />
                       </FormControl>
                       <FormMessage />
@@ -215,7 +176,7 @@ export default function AuthForm({
                         <button
                           type="button"
                           onClick={() => alert('Forgot password clicked')}
-                          className="ml-auto inline-block text-sm text-slate-400 hover:text-white underline"
+                          className="ml-auto inline-block text-sm text-muted-foreground hover:text-foreground underline"
                         >
                           Forgot your password?
                         </button>
@@ -225,7 +186,7 @@ export default function AuthForm({
                           type="password"
                           autoComplete="current-password"
                           {...field}
-                          className="bg-slate-800 border-slate-700 focus:ring-amber-400 text-white"
+                          className="bg-input border-border focus:ring-ring"
                         />
                       </FormControl>
                       <FormMessage />
@@ -235,7 +196,7 @@ export default function AuthForm({
                 <Button
                   type="submit"
                   disabled={isSubmitting || isOauthSubmitting}
-                  className="w-full bg-amber-500 text-slate-900 hover:bg-amber-400"
+                  className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
                 >
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Login
@@ -243,12 +204,12 @@ export default function AuthForm({
               </form>
             </Form>
             <AuthProviders />
-            <p className="mt-6 text-center text-sm text-slate-400">
+            <p className="mt-6 text-center text-sm text-muted-foreground">
               Don&apos;t have an account?{' '}
               <button
                 type="button"
                 onClick={() => setView('signup')}
-                className="font-semibold text-amber-400 hover:text-amber-300 underline"
+                className="font-semibold text-accent hover:text-accent/90 underline"
                 disabled={isSubmitting || isOauthSubmitting}
               >
                 Sign up
@@ -283,7 +244,7 @@ export default function AuthForm({
                             placeholder="Max"
                             autoComplete="given-name"
                             {...field}
-                            className="bg-slate-800 border-slate-700 focus:ring-amber-400 text-white"
+                            className="bg-input border-border focus:ring-ring"
                           />
                         </FormControl>
                         <FormMessage />
@@ -301,7 +262,7 @@ export default function AuthForm({
                             placeholder="Robinson"
                             autoComplete="family-name"
                             {...field}
-                            className="bg-slate-800 border-slate-700 focus:ring-amber-400 text-white"
+                            className="bg-input border-border focus:ring-ring"
                           />
                         </FormControl>
                         <FormMessage />
@@ -321,7 +282,7 @@ export default function AuthForm({
                           placeholder="m@example.com"
                           autoComplete="email"
                           {...field}
-                           className="bg-slate-800 border-slate-700 focus:ring-amber-400 text-white"
+                           className="bg-input border-border focus:ring-ring"
                         />
                       </FormControl>
                       <FormMessage />
@@ -339,7 +300,7 @@ export default function AuthForm({
                           type="password"
                           autoComplete="new-password"
                           {...field}
-                           className="bg-slate-800 border-slate-700 focus:ring-amber-400 text-white"
+                           className="bg-input border-border focus:ring-ring"
                         />
                       </FormControl>
                       <FormMessage />
@@ -349,7 +310,7 @@ export default function AuthForm({
                 <Button
                   type="submit"
                   disabled={isSubmitting || isOauthSubmitting}
-                  className="w-full bg-amber-500 text-slate-900 hover:bg-amber-400"
+                  className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
                 >
                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create an account
@@ -357,23 +318,23 @@ export default function AuthForm({
               </form>
             </Form>
             <AuthProviders />
-             <p className="mt-6 px-4 text-center text-xs text-slate-400">
+             <p className="mt-6 px-4 text-center text-xs text-muted-foreground">
                 By signing up, you agree to our{' '}
-                <a href="#" className="underline hover:text-white">
+                <a href="#" className="underline hover:text-foreground">
                   Terms of Service
                 </a>{' '}
                 and{' '}
-                <a href="#" className="underline hover:text-white">
+                <a href="#" className="underline hover:text-foreground">
                   Privacy Policy
                 </a>
                 , and consent to data processing and hosting in accordance with applicable Indian data protection laws.
             </p>
-            <p className="mt-6 text-center text-sm text-slate-400">
+            <p className="mt-6 text-center text-sm text-muted-foreground">
               Already have an account?{' '}
               <button
                 type="button"
                 onClick={() => setView('login')}
-                className="font-semibold text-amber-400 hover:text-amber-300 underline"
+                className="font-semibold text-accent hover:text-accent/90 underline"
                 disabled={isSubmitting || isOauthSubmitting}
               >
                 Login
@@ -385,5 +346,3 @@ export default function AuthForm({
     </Card>
   );
 }
-
-    
