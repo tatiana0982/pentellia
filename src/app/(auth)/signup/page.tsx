@@ -1,3 +1,6 @@
+
+'use client';
+
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -12,11 +15,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-export default function LoginPage() {
-  async function signIn(formData: FormData) {
-    'use server';
-    // Fake sign-in logic
-    console.log('Signing in with:', {
+export default function SignupPage() {
+  async function signUp(formData: FormData) {
+    // Fake sign-up logic
+    console.log('Signing up with:', {
+      firstName: formData.get('first-name'),
+      lastName: formData.get('last-name'),
       email: formData.get('email'),
       password: '[redacted]',
     });
@@ -26,13 +30,35 @@ export default function LoginPage() {
   return (
     <Card className="border-slate-800 bg-slate-900/50 text-white backdrop-blur-lg">
       <CardHeader>
-        <CardTitle className="text-2xl">Welcome back</CardTitle>
+        <CardTitle className="text-2xl">Create an account</CardTitle>
         <CardDescription>
-          Enter your credentials to access your account.
+          Enter your information to create your Pentellia account.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={signIn} className="grid gap-4">
+        <form action={signUp} className="grid gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="first-name">First name</Label>
+              <Input
+                id="first-name"
+                name="first-name"
+                placeholder="Max"
+                required
+                className="bg-slate-800 border-slate-700 focus:ring-cyan-500 text-white"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="last-name">Last name</Label>
+              <Input
+                id="last-name"
+                name="last-name"
+                placeholder="Robinson"
+                required
+                className="bg-slate-800 border-slate-700 focus:ring-cyan-500 text-white"
+              />
+            </div>
+          </div>
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -45,15 +71,7 @@ export default function LoginPage() {
             />
           </div>
           <div className="grid gap-2">
-            <div className="flex items-center">
-              <Label htmlFor="password">Password</Label>
-              <Link
-                href="#"
-                className="ml-auto inline-block text-sm underline"
-              >
-                Forgot your password?
-              </Link>
-            </div>
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
@@ -63,17 +81,14 @@ export default function LoginPage() {
             />
           </div>
           <Button type="submit" className="w-full bg-cyan-500 text-slate-900 hover:bg-cyan-400">
-            Login
-          </Button>
-          <Button variant="outline" className="w-full border-slate-700 hover:bg-slate-800">
-            Login with Google
+            Create an account
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="text-center text-sm">
-        Don&apos;t have an account?{' '}
-        <Link href="/signup" className="underline ml-1">
-          Sign up
+       <CardFooter className="text-center text-sm">
+        Already have an account?{' '}
+        <Link href="/login" className="underline ml-1">
+          Login
         </Link>
       </CardFooter>
     </Card>
