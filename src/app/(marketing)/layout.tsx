@@ -3,16 +3,22 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ShieldIcon } from '@/components/icons';
+import { Button } from '@/components/ui/button';
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground dark">
-      <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/90 backdrop-blur-sm">
+      <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-slate-900/50 backdrop-blur-sm">
         <div className="container mx-auto flex h-16 items-center px-4 md:px-6">
           <Link href="/" className="flex items-center gap-2">
             <ShieldIcon className="h-6 w-6 text-primary" />
             <span className="text-lg font-semibold text-foreground">Pentellia</span>
           </Link>
+          <div className="ml-auto">
+            <Button variant="dark">
+              Book a Demo
+            </Button>
+          </div>
         </div>
       </header>
       <main className="flex-1 flex flex-col">{children}</main>
