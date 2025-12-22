@@ -79,9 +79,20 @@ export default function AuthForm({
     console.log('Signing in with:', values);
     // **BACKEND INTEGRATION POINT**
     // TODO: Replace with Firebase signInWithEmailAndPassword
+    // Example:
+    // try {
+    //   const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+    //   // On success, the auth state listener will redirect to /dashboard
+    // } catch (error) {
+    //   // Handle errors (e.g., wrong password, user not found)
+    //   console.error("Firebase Login Error:", error);
+    //   // Optionally, set a form error:
+    //   // loginForm.setError("root.serverError", { type: "manual", message: "Invalid credentials" });
+    // } finally {
+    //   setIsSubmitting(false);
+    // }
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsSubmitting(false);
-    // On success, auth state listener should redirect to /dashboard
   }
 
   async function handleSignup(values: z.infer<typeof signupSchema>) {
@@ -89,18 +100,39 @@ export default function AuthForm({
     console.log('Signing up with:', values);
     // **BACKEND INTEGRATION POINT**
     // TODO: Replace with Firebase createUserWithEmailAndPassword & updateProfile
+    // Example:
+    // try {
+    //   const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+    //   await updateProfile(userCredential.user, {
+    //     displayName: `${values.firstName} ${values.lastName}`
+    //   });
+    //   // On success, the auth state listener will redirect to /dashboard
+    // } catch (error) {
+    //   // Handle errors (e.g., email already in use)
+    //   console.error("Firebase Signup Error:", error);
+    // } finally {
+    //   setIsSubmitting(false);
+    // }
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsSubmitting(false);
-    // On success, auth state listener should redirect to /dashboard
   }
 
   async function handleGoogleSignIn() {
     setOauthSubmitting(true);
      // **BACKEND INTEGRATION POINT**
     // TODO: Replace with Firebase signInWithPopup(new GoogleAuthProvider())
+    // Example:
+    // try {
+    //    const provider = new GoogleAuthProvider();
+    //    const result = await signInWithPopup(auth, provider);
+    //    // On success, the auth state listener will redirect to /dashboard
+    // } catch (error) {
+    //    console.error("Google Sign-In Error:", error);
+    // } finally {
+    //    setOauthSubmitting(false);
+    // }
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setOauthSubmitting(false);
-    // On success, auth state listener should redirect to /dashboard
   }
 
   const isLoginView = view === 'login';
@@ -346,3 +378,5 @@ export default function AuthForm({
     </Card>
   );
 }
+
+    
