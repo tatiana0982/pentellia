@@ -6,11 +6,11 @@ import animationData from '@/lib/cyber-animation.json';
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-white">
-      <header className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-sm">
+    <div className="flex min-h-screen flex-col bg-slate-900 text-white">
+      <header className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-sm">
         <div className="container mx-auto flex h-16 items-center px-4 md:px-6">
           <Link href="/" className="flex items-center gap-2">
-            <ShieldIcon className="h-6 w-6 text-cyan-400" />
+            <ShieldIcon className="h-6 w-6 text-amber-400" />
             <span className="text-lg font-semibold">Pentellia</span>
           </Link>
         </div>

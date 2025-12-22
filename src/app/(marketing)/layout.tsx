@@ -22,7 +22,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2">
-              <ShieldIcon className="h-6 w-6 text-cyan-400" />
+              <ShieldIcon className="h-6 w-6 text-amber-400" />
               <span className="text-lg font-semibold">Pentellia</span>
             </Link>
           </div>
@@ -43,7 +43,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
             <Button asChild variant="secondary" className="bg-slate-800 hover:bg-slate-700">
               <Link href="/dashboard">Launch dashboard</Link>
             </Button>
-            <Button asChild className="bg-cyan-500 text-slate-900 hover:bg-cyan-400">
+            <Button asChild className="bg-amber-500 text-slate-900 hover:bg-amber-400">
               <Link href="#demo">Book a demo</Link>
             </Button>
           </div>
@@ -58,7 +58,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
               <SheetContent side="right" className="bg-slate-950 text-white">
                 <div className="flex flex-col gap-6 p-6">
                   <Link href="/" className="flex items-center gap-2">
-                     <ShieldIcon className="h-6 w-6 text-cyan-400" />
+                     <ShieldIcon className="h-6 w-6 text-amber-400" />
                     <span className="text-lg font-semibold">Pentellia</span>
                   </Link>
                   <nav className="flex flex-col gap-4">
@@ -76,7 +76,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
                     <Button asChild variant="secondary">
                       <Link href="/dashboard">Launch dashboard</Link>
                     </Button>
-                    <Button asChild className="bg-cyan-500 text-slate-900 hover:bg-cyan-400">
+                    <Button asChild className="bg-amber-500 text-slate-900 hover:bg-amber-400">
                       <Link href="#demo">Book a demo</Link>
                     </Button>
                   </div>
@@ -93,7 +93,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
             &copy; {new Date().getFullYear()} EncodersPro. All rights reserved.
           </p>
           <div className="flex items-center gap-2">
-            <ShieldIcon className="h-5 w-5 text-cyan-400" />
+            <ShieldIcon className="h-5 w-5 text-amber-400" />
             <p className="font-semibold">Pentellia</p>
           </div>
         </div>

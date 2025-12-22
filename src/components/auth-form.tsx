@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { redirect } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { GoogleIcon } from './icons';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address.').trim(),
@@ -93,6 +94,31 @@ export default function AuthForm({
 
   const isLoginView = view === 'login';
 
+  const AuthProviders = () => (
+    <>
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-slate-700" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-slate-900 px-2 text-slate-500">
+              Or continue with
+            </span>
+          </div>
+        </div>
+        <div className="grid gap-3">
+          <Button variant="outline-dark" className="w-full justify-center">
+            <GoogleIcon className="mr-2 h-4 w-4" />
+            Sign in with Google
+          </Button>
+          {/* Optional: Placeholder for Microsoft */}
+          {/* <Button variant="outline-dark" className="w-full justify-center" disabled>
+            Sign in with Microsoft
+          </Button> */}
+        </div>
+    </>
+  );
+
   return (
     <Card className="relative w-full max-w-md overflow-hidden border-slate-800 bg-slate-900/50 text-white backdrop-blur-lg">
       <div
@@ -126,7 +152,7 @@ export default function AuthForm({
                           placeholder="m@example.com"
                           autoComplete="email"
                           {...field}
-                          className="bg-slate-800 border-slate-700 focus:ring-cyan-500 text-white"
+                          className="bg-slate-800 border-slate-700 focus:ring-amber-400 text-white"
                         />
                       </FormControl>
                       <FormMessage />
@@ -143,7 +169,7 @@ export default function AuthForm({
                         <button
                           type="button"
                           onClick={() => alert('Forgot password clicked')}
-                          className="ml-auto inline-block text-sm underline"
+                          className="ml-auto inline-block text-sm text-slate-400 hover:text-white underline"
                         >
                           Forgot your password?
                         </button>
@@ -153,7 +179,7 @@ export default function AuthForm({
                           type="password"
                           autoComplete="current-password"
                           {...field}
-                          className="bg-slate-800 border-slate-700 focus:ring-cyan-500 text-white"
+                          className="bg-slate-800 border-slate-700 focus:ring-amber-400 text-white"
                         />
                       </FormControl>
                       <FormMessage />
@@ -163,19 +189,20 @@ export default function AuthForm({
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-cyan-500 text-slate-900 hover:bg-cyan-400"
+                  className="w-full bg-amber-500 text-slate-900 hover:bg-amber-400"
                 >
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Login
                 </Button>
               </form>
             </Form>
-            <p className="mt-4 text-center text-sm">
+            <AuthProviders />
+            <p className="mt-6 text-center text-sm text-slate-400">
               Don&apos;t have an account?{' '}
               <button
                 type="button"
                 onClick={() => setView('signup')}
-                className="underline"
+                className="font-semibold text-amber-400 hover:text-amber-300 underline"
                 disabled={isSubmitting}
               >
                 Sign up
@@ -210,7 +237,7 @@ export default function AuthForm({
                             placeholder="Max"
                             autoComplete="given-name"
                             {...field}
-                            className="bg-slate-800 border-slate-700 focus:ring-cyan-500 text-white"
+                            className="bg-slate-800 border-slate-700 focus:ring-amber-400 text-white"
                           />
                         </FormControl>
                         <FormMessage />
@@ -228,7 +255,7 @@ export default function AuthForm({
                             placeholder="Robinson"
                             autoComplete="family-name"
                             {...field}
-                            className="bg-slate-800 border-slate-700 focus:ring-cyan-500 text-white"
+                            className="bg-slate-800 border-slate-700 focus:ring-amber-400 text-white"
                           />
                         </FormControl>
                         <FormMessage />
@@ -248,7 +275,7 @@ export default function AuthForm({
                           placeholder="m@example.com"
                           autoComplete="email"
                           {...field}
-                           className="bg-slate-800 border-slate-700 focus:ring-cyan-500 text-white"
+                           className="bg-slate-800 border-slate-700 focus:ring-amber-400 text-white"
                         />
                       </FormControl>
                       <FormMessage />
@@ -266,7 +293,7 @@ export default function AuthForm({
                           type="password"
                           autoComplete="new-password"
                           {...field}
-                           className="bg-slate-800 border-slate-700 focus:ring-cyan-500 text-white"
+                           className="bg-slate-800 border-slate-700 focus:ring-amber-400 text-white"
                         />
                       </FormControl>
                       <FormMessage />
@@ -276,19 +303,31 @@ export default function AuthForm({
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-cyan-500 text-slate-900 hover:bg-cyan-400"
+                  className="w-full bg-amber-500 text-slate-900 hover:bg-amber-400"
                 >
                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create an account
                 </Button>
               </form>
             </Form>
-            <p className="mt-4 text-center text-sm">
+            <AuthProviders />
+             <p className="mt-6 px-4 text-center text-xs text-slate-400">
+                By signing up, you agree to our{' '}
+                <a href="#" className="underline hover:text-white">
+                  Terms of Service
+                </a>{' '}
+                and{' '}
+                <a href="#" className="underline hover:text-white">
+                  Privacy Policy
+                </a>
+                , and consent to data processing and hosting in accordance with applicable Indian data protection laws.
+            </p>
+            <p className="mt-6 text-center text-sm text-slate-400">
               Already have an account?{' '}
               <button
                 type="button"
                 onClick={() => setView('login')}
-                className="underline"
+                className="font-semibold text-amber-400 hover:text-amber-300 underline"
                 disabled={isSubmitting}
               >
                 Login
