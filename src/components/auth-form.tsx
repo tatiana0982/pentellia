@@ -25,6 +25,9 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { GoogleIcon } from './icons';
+import { auth, googleProvider } from '@/config/firebaseClient';
+import { createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address.').trim(),
@@ -56,6 +59,9 @@ export default function AuthForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOauthSubmitting, setOauthSubmitting] = useState(false);
 
+  const router = useRouter();
+
+
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -76,62 +82,96 @@ export default function AuthForm({
 
   async function handleLogin(values: z.infer<typeof loginSchema>) {
     setIsSubmitting(true);
-    console.log('Signing in with:', values);
-    // **BACKEND INTEGRATION POINT**
-    // TODO: Replace with Firebase signInWithEmailAndPassword
-    // Example:
-    // try {
-    //   const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-    //   // On success, the auth state listener will redirect to /dashboard
-    // } catch (error) {
-    //   // Handle errors (e.g., wrong password, user not found)
-    //   console.error("Firebase Login Error:", error);
-    //   // Optionally, set a form error:
-    //   // loginForm.setError("root.serverError", { type: "manual", message: "Invalid credentials" });
-    // } finally {
-    //   setIsSubmitting(false);
-    // }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        values.email,
+        values.password
+      );
+
+      if (!userCredential.user.emailVerified) {
+        await sendEmailVerification(userCredential.user);
+        await signOut(auth); // Log them out immediately
+        alert("Please verify your email. A verification link has been sent to your email address.");
+      }
+
+      else {
+        const token = await userCredential.user.getIdToken();
+
+        await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token  }),
+        });
+        
+        return router.push('/dashboard');
+      }
+
+    } catch (error) {
+
+      alert("Invalid email or password");
+    }
+
     setIsSubmitting(false);
   }
 
   async function handleSignup(values: z.infer<typeof signupSchema>) {
     setIsSubmitting(true);
-    console.log('Signing up with:', values);
-    // **BACKEND INTEGRATION POINT**
-    // TODO: Replace with Firebase createUserWithEmailAndPassword & updateProfile
-    // Example:
-    // try {
-    //   const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-    //   await updateProfile(userCredential.user, {
-    //     displayName: `${values.firstName} ${values.lastName}`
-    //   });
-    //   // On success, the auth state listener will redirect to /dashboard
-    // } catch (error) {
-    //   // Handle errors (e.g., email already in use)
-    //   console.error("Firebase Signup Error:", error);
-    // } finally {
-    //   setIsSubmitting(false);
-    // }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        values.email,
+        values.password
+      );
+
+
+      const token = await userCredential.user.getIdToken();
+
+      await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          firstName: values.firstName,
+          lastName: values.lastName,
+          email: values.email,
+        }),
+      });
+
+
+      await sendEmailVerification(userCredential.user);
+      await signOut(auth);
+
+        alert("Please verify your email. A verification link has been sent to your email address.");
+
+
+    } catch (error: any) {
+
+      alert("Email already registered. Please login instead.");
+
+    }
+
+
     setIsSubmitting(false);
   }
 
   async function handleGoogleSignIn() {
     setOauthSubmitting(true);
-     // **BACKEND INTEGRATION POINT**
-    // TODO: Replace with Firebase signInWithPopup(new GoogleAuthProvider())
-    // Example:
-    // try {
-    //    const provider = new GoogleAuthProvider();
-    //    const result = await signInWithPopup(auth, provider);
-    //    // On success, the auth state listener will redirect to /dashboard
-    // } catch (error) {
-    //    console.error("Google Sign-In Error:", error);
-    // } finally {
-    //    setOauthSubmitting(false);
-    // }
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    
+    try {
+      // const userCredential = await signInWithPopup(auth, googleProvider);
+      
+    } catch (error) {
+      
+    }
+    
+    
+    
+
     setOauthSubmitting(false);
   }
 
@@ -139,22 +179,22 @@ export default function AuthForm({
 
   const AuthProviders = () => (
     <>
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-border" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">
-              Or continue with
-            </span>
-          </div>
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-border" />
         </div>
-        <div className="grid gap-3">
-          <Button variant="outline" className="w-full justify-center" onClick={handleGoogleSignIn} disabled={isSubmitting || isOauthSubmitting}>
-             {isOauthSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
-            Sign in with Google
-          </Button>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-card px-2 text-muted-foreground">
+            Or continue with
+          </span>
         </div>
+      </div>
+      <div className="grid gap-3">
+        <Button variant="outline" className="w-full justify-center" onClick={handleGoogleSignIn} disabled={isSubmitting || isOauthSubmitting}>
+          {isOauthSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
+          Sign in with Google
+        </Button>
+      </div>
     </>
   );
 
@@ -314,7 +354,7 @@ export default function AuthForm({
                           placeholder="m@example.com"
                           autoComplete="email"
                           {...field}
-                           className="bg-input border-border focus:ring-ring"
+                          className="bg-input border-border focus:ring-ring"
                         />
                       </FormControl>
                       <FormMessage />
@@ -332,7 +372,7 @@ export default function AuthForm({
                           type="password"
                           autoComplete="new-password"
                           {...field}
-                           className="bg-input border-border focus:ring-ring"
+                          className="bg-input border-border focus:ring-ring"
                         />
                       </FormControl>
                       <FormMessage />
@@ -344,22 +384,22 @@ export default function AuthForm({
                   disabled={isSubmitting || isOauthSubmitting}
                   className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
                 >
-                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create an account
                 </Button>
               </form>
             </Form>
             <AuthProviders />
-             <p className="mt-6 px-4 text-center text-xs text-muted-foreground">
-                By signing up, you agree to our{' '}
-                <a href="#" className="underline hover:text-foreground">
-                  Terms of Service
-                </a>{' '}
-                and{' '}
-                <a href="#" className="underline hover:text-foreground">
-                  Privacy Policy
-                </a>
-                , and consent to data processing and hosting in accordance with applicable Indian data protection laws.
+            <p className="mt-6 px-4 text-center text-xs text-muted-foreground">
+              By signing up, you agree to our{' '}
+              <a href="#" className="underline hover:text-foreground">
+                Terms of Service
+              </a>{' '}
+              and{' '}
+              <a href="#" className="underline hover:text-foreground">
+                Privacy Policy
+              </a>
+              , and consent to data processing and hosting in accordance with applicable Indian data protection laws.
             </p>
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Already have an account?{' '}
@@ -379,4 +419,3 @@ export default function AuthForm({
   );
 }
 
-    
