@@ -115,7 +115,7 @@ export default function DashboardPage() {
       
       <Card>
         <CardHeader className='p-3 pb-2'>
-            <CardTitle className='text-sm font-semibold'>Security Posture & Compliance</CardTitle>
+            <CardTitle className='text-sm font-semibold'>Security Posture &amp; Compliance</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 p-3 pt-0">
             <StatusIndicator label="Operational Status" value="Live" status="ok" />
@@ -391,5 +391,3 @@ function StatusIndicator({ label, value, status }: StatusIndicatorProps) {
         </div>
     );
 }
-
-    
