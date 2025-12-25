@@ -4,7 +4,12 @@
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
+  Legend,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,6 +19,8 @@ import type {ChartConfig} from '@/components/ui/chart';
 import {
   ChartContainer,
   ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
 } from '@/components/ui/chart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowUp, ArrowDown } from 'lucide-react';
@@ -32,24 +39,31 @@ const exposureTrendData = [
 ];
 
 const chartConfig = {
-  vulnerabilities: {
-    label: 'Vulnerabilities',
-    color: 'hsl(var(--primary))',
-  },
-  critical: {
-    label: 'Critical Findings',
-    color: 'hsl(var(--destructive))',
-  },
-  newAssets: {
-    label: 'New Assets',
-    color: 'hsl(var(--secondary))',
-  },
-  riskScore: {
-    label: 'Risk Score',
-    color: 'hsl(var(--warning))',
-  },
+  vulnerabilities: { label: 'Vulnerabilities', color: 'hsl(var(--primary))' },
+  critical: { label: 'Critical', color: 'hsl(var(--destructive))' },
+  high: { label: 'High', color: 'hsl(var(--warning))' },
+  medium: { label: 'Medium', color: 'hsl(var(--secondary))' },
+  low: { label: 'Low', color: 'hsl(var(--muted-foreground))' },
+  newAssets: { label: 'New Assets', color: 'hsl(var(--secondary))' },
+  riskScore: { label: 'Risk Score', color: 'hsl(var(--warning))' },
 } satisfies ChartConfig;
 
+const findingsTrendData = [
+    { period: 'Previous 7 Days', critical: 12, high: 34 },
+    { period: 'Last 24 Hours', critical: 8, high: 21 },
+];
+
+const assetRiskData = [
+    { risk: 'high', assets: 15, fill: 'var(--color-high)' },
+    { risk: 'medium', assets: 45, fill: 'var(--color-medium)' },
+    { risk: 'low', assets: 120, fill: 'var(--color-low)' },
+]
+
+const vulnerabilityAgeData = [
+    { age: '> 30d', count: 18 },
+    { age: '> 60d', count: 9 },
+    { age: '> 90d', count: 3 },
+]
 
 export default function DashboardPage() {
   return (
@@ -160,6 +174,57 @@ export default function DashboardPage() {
              <KpiCard title="Technologies" metric="29" delta="+2" deltaType="increase" />
         </div>
       </div>
+      
+       <Card>
+        <CardHeader>
+            <CardTitle>Comparative Risk Signals</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className='flex flex-col gap-2'>
+                <p className='text-sm text-muted-foreground font-medium'>Findings Trend</p>
+                <div className='h-[200px] w-full'>
+                    <ChartContainer config={chartConfig} className="w-full h-full">
+                        <BarChart data={findingsTrendData} accessibilityLayer margin={{left: -20, right: 20}}>
+                            <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
+                            <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} />
+                            <YAxis tickLine={false} axisLine={false} tickMargin={8} width={30} />
+                            <Tooltip cursor={{fill: 'hsl(var(--accent))'}} content={<ChartTooltipContent />} />
+                            <Legend content={<ChartLegendContent />} />
+                            <Bar dataKey="critical" stackId="a" fill="var(--color-critical)" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="high" stackId="a" fill="var(--color-high)" radius={[0, 0, 0, 0]} />
+                        </BarChart>
+                    </ChartContainer>
+                </div>
+            </div>
+             <div className='flex flex-col gap-2'>
+                <p className='text-sm text-muted-foreground font-medium'>Asset Risk Distribution</p>
+                <div className='h-[200px] w-full flex items-center justify-center'>
+                    <ChartContainer config={chartConfig} className="w-full h-full">
+                        <PieChart>
+                            <Tooltip content={<ChartTooltipContent nameKey="assets" hideLabel />} />
+                            <Pie data={assetRiskData} dataKey="assets" nameKey='risk' innerRadius={50} outerRadius={80} >
+                                 <Legend content={<ChartLegendContent />} />
+                            </Pie>
+                        </PieChart>
+                    </ChartContainer>
+                </div>
+            </div>
+            <div className='flex flex-col gap-2'>
+                <p className='text-sm text-muted-foreground font-medium'>Open Vulnerability Age</p>
+                <div className='h-[200px] w-full'>
+                     <ChartContainer config={chartConfig} className="w-full h-full">
+                        <BarChart data={vulnerabilityAgeData} accessibilityLayer margin={{left: -20, right: 20}}>
+                             <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
+                            <XAxis dataKey="age" tickLine={false} axisLine={false} tickMargin={8} />
+                            <YAxis tickLine={false} axisLine={false} tickMargin={8} width={30} />
+                            <Tooltip cursor={{fill: 'hsl(var(--accent))'}} content={<ChartTooltipContent />} />
+                            <Bar dataKey="count" fill="var(--color-medium)" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ChartContainer>
+                </div>
+            </div>
+        </CardContent>
+       </Card>
 
       <Card>
         <CardHeader>
@@ -287,3 +352,5 @@ function KpiCard({ title, metric, delta, deltaType, invertDeltaColor = false }: 
         </Card>
     );
 }
+
+    
