@@ -218,5 +218,3 @@ function KpiCard({ title, metric, delta, deltaType }: KpiCardProps) {
         </Card>
     );
 }
-
-    
