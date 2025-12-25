@@ -38,6 +38,16 @@ const exposureTrendData = [
   {date: '2024-07-07', vulnerabilities: 26, critical: 7, newAssets: 4, riskScore: 52},
 ];
 
+const complianceTrendData = [
+  { month: "Jan", coverage: 75 },
+  { month: "Feb", coverage: 78 },
+  { month: "Mar", coverage: 82 },
+  { month: "Apr", coverage: 80 },
+  { month: "May", coverage: 85 },
+  { month: "Jun", coverage: 88 },
+];
+
+
 const chartConfig = {
   vulnerabilities: { label: 'Vulnerabilities', color: 'hsl(var(--primary))' },
   critical: { label: 'Critical', color: 'hsl(var(--destructive))' },
@@ -46,6 +56,7 @@ const chartConfig = {
   low: { label: 'Low', color: 'hsl(var(--muted-foreground))' },
   newAssets: { label: 'New Assets', color: 'hsl(var(--secondary))' },
   riskScore: { label: 'Risk Score', color: 'hsl(var(--warning))' },
+  coverage: { label: 'Coverage', color: 'hsl(var(--primary))' },
 } satisfies ChartConfig;
 
 const findingsTrendData = [
@@ -100,6 +111,40 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      
+      <Card>
+        <CardHeader>
+            <CardTitle>Security Posture & Compliance</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <StatusIndicator label="Operational Status" value="Live" status="ok" />
+            <StatusIndicator label="Scan Coverage" value="94%" status="ok" />
+            <StatusIndicator label="NIST CSF Alignment" value="Partial" status="warning" />
+            <StatusIndicator label="SLA Health" value="At Risk" status="danger" />
+
+            <div className="md:col-span-2 lg:col-span-1 flex flex-col gap-2">
+                <p className="text-sm font-medium text-muted-foreground">Control Coverage Trend</p>
+                <div className="h-[40px]">
+                    <ChartContainer config={chartConfig} className="w-full h-full">
+                        <AreaChart accessibilityLayer data={complianceTrendData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="fillCoverage" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
+                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
+                                </linearGradient>
+                            </defs>
+                            <Tooltip
+                                cursor={false}
+                                content={<ChartTooltipContent indicator="dot" hideLabel />}
+                            />
+                            <Area dataKey="coverage" type="natural" fill="url(#fillCoverage)" stroke="hsl(var(--primary))" stackId="a" />
+                        </AreaChart>
+                    </ChartContainer>
+                </div>
+            </div>
+        </CardContent>
+      </Card>
+
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
         <Card className="lg:col-span-4">
@@ -304,6 +349,30 @@ function KpiCard({ title, metric, delta, deltaType, invertDeltaColor = false }: 
     );
 }
 
+type StatusIndicatorProps = {
+    label: string;
+    value: string;
+    status: 'ok' | 'warning' | 'danger';
+};
+
+function StatusIndicator({ label, value, status }: StatusIndicatorProps) {
+    const statusColor = {
+        ok: 'bg-success',
+        warning: 'bg-warning',
+        danger: 'bg-destructive',
+    };
+
+    return (
+        <div className="flex flex-col gap-2 p-4 rounded-lg bg-card border border-border">
+            <p className="text-sm font-medium text-muted-foreground">{label}</p>
+            <div className="flex items-center gap-2">
+                <span className={cn('h-2.5 w-2.5 rounded-full', statusColor[status])} />
+                <span className="text-lg font-semibold">{value}</span>
+            </div>
+        </div>
+    );
+}
     
 
     
+
