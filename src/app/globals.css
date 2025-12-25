@@ -5,15 +5,15 @@
 
 @layer base {
   :root {
-    --background: 222 47% 11%; /* #0B0F1A */
+    --background: 224 71% 4%; /* #0B0F1A */
     --foreground: 210 40% 96.1%;
-    --card: 222 43% 15%; /* #121826 */
+    --card: 224 43% 15%; /* #161E2E */
     --card-foreground: 210 40% 96.1%;
-    --popover: 222 47% 11%;
+    --popover: 224 71% 4%;
     --popover-foreground: 210 40% 96.1%;
     --primary: 252 100% 74%; /* #7C5CFF */
     --primary-foreground: 210 40% 98%;
-    --secondary: 199 89% 60%; /* #38BDF8 */
+    --secondary: 200 89% 60%; /* #38BDF8 */
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
@@ -29,19 +29,21 @@
     --radius: 12px;
 
     --chart-1: hsl(252 100% 74%);
-    --chart-2: hsl(199 89% 60%);
+    --chart-2: hsl(200 89% 60%);
+    --chart-3: hsl(38 92% 50%);
+    --chart-4: hsl(0 84% 60%);
   }
 
   .dark {
-    --background: 222 47% 11%; /* #0B0F1A */
+    --background: 224 71% 4%; /* #0B0F1A */
     --foreground: 210 40% 96.1%;
-    --card: 222 43% 15%; /* #121826 */
+    --card: 224 43% 15%; /* #161E2E */
     --card-foreground: 210 40% 96.1%;
-    --popover: 222 47% 11%;
+    --popover: 224 71% 4%;
     --popover-foreground: 210 40% 96.1%;
     --primary: 252 100% 74%; /* #7C5CFF */
     --primary-foreground: 210 40% 98%;
-    --secondary: 199 89% 60%; /* #38BDF8 */
+    --secondary: 200 89% 60%; /* #38BDF8 */
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;

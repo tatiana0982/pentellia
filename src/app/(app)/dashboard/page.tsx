@@ -269,7 +269,7 @@ type SummaryCardProps = {
 
 function SummaryCard({label, value}: SummaryCardProps) {
   return (
-    <div className="relative overflow-hidden rounded-lg bg-card-surface p-4 shadow-soft border border-border">
+    <div className="relative overflow-hidden rounded-lg bg-card p-4 shadow-soft border border-border">
       <div className="relative z-10 flex flex-col justify-between h-full">
         <span className="text-xs font-medium tracking-wide uppercase text-muted-foreground">
           {label}
