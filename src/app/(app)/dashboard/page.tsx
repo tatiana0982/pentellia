@@ -15,10 +15,10 @@ import {
   ChartContainer,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { BrainCircuit } from 'lucide-react';
+import { Activity } from 'lucide-react';
 
 const chartData = [
-  {date: '2024-07-01', low: 1, medium: 2, high: 0, critical: 1},
+  {date: '2024-07-01', low: 1, medium: 2, high: 3, critical: 1},
   {date: '2024-07-02', low: 2, medium: 3, high: 1, critical: 0},
   {date: '2024-07-03', low: 3, medium: 1, high: 2, critical: 1},
   {date: '2024-07-04', low: 2, medium: 4, high: 1, critical: 0},
@@ -59,23 +59,20 @@ const chartConfig = {
 export default function DashboardPage() {
   return (
     <div className="flex-1 space-y-8 p-4 pt-6 md:p-8">
-      {/* Top section title */}
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Security Posture Snapshot</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-xl font-semibold text-foreground">Security Posture Snapshot</h1>
+        <p className="text-sm text-muted-foreground">
           An overview of your organization's attack surface and risk exposure.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:gap-8">
-        {/* Exposure Trend Chart */}
-        <div className="lg:col-span-3 xl:col-span-3 bg-card rounded-lg shadow-soft border border-border transition-transform duration-200 hover:-translate-y-1">
-            <div className="flex items-center justify-between p-4 md:p-6 border-b border-border">
+        <div className="lg:col-span-3 xl:col-span-3 bg-card rounded-lg border border-border transition-transform duration-200 hover:-translate-y-1">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-border h-16">
               <div className='flex items-center gap-4 h-8'>
-                <h2 className="text-lg font-semibold text-foreground">
+                <h2 className="text-base font-semibold text-foreground">
                   Exposure Trend
                 </h2>
-                <span className="text-xs font-semibold uppercase tracking-wider bg-accent text-accent-foreground/80 px-2 py-1 rounded-full">AI Insight</span>
               </div>
               <span className="text-xs text-muted-foreground">
                 Last 14 days
@@ -168,10 +165,26 @@ export default function DashboardPage() {
                   content={<ChartTooltipContent indicator="dot" />}
                 />
                 <Area
+                  dataKey="critical"
+                  type="natural"
+                  fill="url(#fillCritical)"
+                  fillOpacity={0.6}
+                  stroke="hsl(var(--chart-4))"
+                  stackId="a"
+                />
+                <Area
+                  dataKey="high"
+                  type="natural"
+                  fill="url(#fillHigh)"
+                  fillOpacity={0.6}
+                  stroke="hsl(var(--chart-3))"
+                  stackId="a"
+                />
+                <Area
                   dataKey="medium"
                   type="natural"
                   fill="url(#fillMedium)"
-                  fillOpacity={0.5}
+                  fillOpacity={0.6}
                   stroke="hsl(var(--chart-2))"
                   stackId="a"
                 />
@@ -179,24 +192,8 @@ export default function DashboardPage() {
                   dataKey="low"
                   type="natural"
                   fill="url(#fillLow)"
-                  fillOpacity={0.5}
+                  fillOpacity={0.6}
                   stroke="hsl(var(--chart-1))"
-                  stackId="a"
-                />
-                 <Area
-                  dataKey="high"
-                  type="natural"
-                  fill="url(#fillHigh)"
-                  fillOpacity={0.4}
-                  stroke="hsl(var(--chart-3))"
-                  stackId="a"
-                />
-                <Area
-                  dataKey="critical"
-                  type="natural"
-                  fill="url(#fillCritical)"
-                  fillOpacity={0.4}
-                  stroke="hsl(var(--chart-4))"
                   stackId="a"
                 />
               </AreaChart>
@@ -204,11 +201,10 @@ export default function DashboardPage() {
             </div>
         </div>
         
-        {/* Active Risk Signals */}
         <div className="lg:col-span-1 xl:col-span-1 space-y-8">
             <AiInsightCard />
             <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-foreground">
+                <h2 className="text-base font-semibold text-foreground">
                     Active Risk Signals
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 lg:gap-4">
@@ -221,9 +217,8 @@ export default function DashboardPage() {
         </div>
       </div>
       
-      {/* Attack surface summary */}
       <section>
-        <h2 className="text-lg font-semibold text-foreground mb-4">
+        <h2 className="text-base font-semibold text-foreground mb-4">
           Attack Surface Summary
         </h2>
         <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4 xl:grid-cols-6">
@@ -236,10 +231,9 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Latest scans table */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2 className="text-base font-semibold text-foreground">
             Latest Scans
           </h2>
           <button className="text-sm text-primary hover:underline">
@@ -247,16 +241,16 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        <div className="bg-card rounded-lg shadow-soft border border-border overflow-hidden">
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-white/5">
               <tr>
-                <th className="px-6 py-3 text-left font-medium text-muted-foreground">Tool</th>
-                <th className="px-6 py-3 text-left font-medium text-muted-foreground">Target</th>
-                <th className="px-6 py-3 text-left font-medium text-muted-foreground">Workspace</th>
-                <th className="px-6 py-3 text-left font-medium text-muted-foreground">Start date</th>
-                <th className="px-6 py-3 text-left font-medium text-muted-foreground">Status</th>
-                <th className="px-6 py-3 text-right font-medium text-muted-foreground">View</th>
+                <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Tool</th>
+                <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Target</th>
+                <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Workspace</th>
+                <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Start date</th>
+                <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Status</th>
+                <th className="px-6 py-3 text-right font-semibold text-muted-foreground">View</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -291,16 +285,14 @@ export default function DashboardPage() {
   );
 }
 
-/* --- Small components to keep things clean --- */
-
 function AiInsightCard() {
     return (
-        <div className="relative overflow-hidden rounded-lg bg-card p-4 shadow-soft border border-primary/20 transition-transform duration-200 hover:-translate-y-1">
+        <div className="relative overflow-hidden rounded-lg bg-card p-4 border border-primary/20 transition-transform duration-200 hover:-translate-y-1">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-card to-card" />
             <div className="relative">
                 <div className="flex items-start gap-4">
                     <div className="bg-primary/10 p-2 rounded-lg border border-primary/20">
-                        <BrainCircuit className="h-5 w-5 text-primary" />
+                        <Activity className="h-5 w-5 text-primary" />
                     </div>
                     <div className='flex-1'>
                         <h3 className="text-md font-semibold text-foreground">Potential Risk Cluster Detected</h3>
@@ -321,12 +313,12 @@ type SummaryCardProps = {
 
 function SummaryCard({label, value}: SummaryCardProps) {
   return (
-    <div className="relative overflow-hidden rounded-lg bg-card p-4 shadow-soft border border-border transition-transform duration-200 hover:-translate-y-1">
+    <div className="relative overflow-hidden rounded-lg bg-card p-4 border border-border transition-transform duration-200 hover:-translate-y-1">
       <div className="relative z-10 flex flex-col justify-between h-full">
         <span className="text-xs font-medium tracking-wide uppercase text-muted-foreground">
           {label}
         </span>
-        <span className="mt-6 text-4xl font-semibold text-primary">{value}</span>
+        <span className="mt-6 text-5xl font-semibold text-primary">{value}</span>
       </div>
     </div>
   );
@@ -339,7 +331,7 @@ type ActivityCardProps = {
 
 function ActivityCard({title, value}: ActivityCardProps) {
   return (
-    <div className="bg-card rounded-lg shadow-soft border border-border p-4 flex flex-col h-full transition-transform duration-200 hover:-translate-y-1">
+    <div className="bg-card rounded-lg border border-border p-4 flex flex-col h-full transition-transform duration-200 hover:-translate-y-1">
       <span className="text-sm text-muted-foreground mb-2">{title}</span>
       <div className="flex items-baseline gap-2 mt-auto">
         <span className="text-4xl font-semibold text-foreground">{value}</span>
@@ -347,5 +339,3 @@ function ActivityCard({title, value}: ActivityCardProps) {
     </div>
   );
 }
-
-    
