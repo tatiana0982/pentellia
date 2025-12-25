@@ -23,10 +23,16 @@
     --destructive-foreground: 0 0% 98%;
     --warning: 28 80% 50%; /* Calmer Orange */
     --success: 142 71% 45%;
+    --success-foreground: 142 90% 95%;
     --border: 217 27% 20%; /* Muted Border #1F2937 -> ~#293141 */
     --input: 217 27% 20%;
     --ring: 243 80% 65%;
     --radius: 6px;
+
+    --color-critical: hsl(var(--destructive));
+    --color-high: hsl(var(--warning));
+    --color-medium: hsl(var(--secondary));
+    --color-low: hsl(var(--muted-foreground));
 
     --chart-1: hsl(220 70% 60%);
     --chart-2: hsl(230 60% 55%);
@@ -53,6 +59,7 @@
     --destructive-foreground: 0 0% 98%;
     --warning: 28 80% 50%;
     --success: 142 71% 45%;
+    --success-foreground: 142 90% 95%;
     --border: 217 27% 20%;
     --input: 217 27% 20%;
     --ring: 243 80% 65%;

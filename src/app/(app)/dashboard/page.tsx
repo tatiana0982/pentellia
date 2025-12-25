@@ -57,6 +57,7 @@ const chartConfig = {
   newAssets: { label: 'New Assets', color: 'hsl(var(--secondary))' },
   riskScore: { label: 'Risk Score', color: 'hsl(var(--warning))' },
   coverage: { label: 'Coverage', color: 'hsl(var(--primary))' },
+  count: { label: 'Count' },
 } satisfies ChartConfig;
 
 const findingsTrendData = [
@@ -186,7 +187,7 @@ export default function DashboardPage() {
                         <ChartContainer config={chartConfig} className="w-full h-full">
                             <BarChart data={findingsTrendData} accessibilityLayer margin={{left: -20, right: 20}}>
                                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
-                                <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} />
+                                <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} tick={{fontSize: 12}} />
                                 <YAxis tickLine={false} axisLine={false} tickMargin={8} width={30} />
                                 <Tooltip cursor={{fill: 'hsl(var(--accent))'}} content={<ChartTooltipContent />} />
                                 <Legend content={<ChartLegendContent />} />
@@ -215,7 +216,7 @@ export default function DashboardPage() {
                          <ChartContainer config={chartConfig} className="w-full h-full">
                             <BarChart data={vulnerabilityAgeData} accessibilityLayer margin={{left: -20, right: 20}}>
                                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
-                                <XAxis dataKey="age" tickLine={false} axisLine={false} tickMargin={8} />
+                                <XAxis dataKey="age" tickLine={false} axisLine={false} tickMargin={8} tick={{fontSize: 12}} />
                                 <YAxis tickLine={false} axisLine={false} tickMargin={8} width={30} />
                                 <Tooltip cursor={{fill: 'hsl(var(--accent))'}} content={<ChartTooltipContent />} />
                                 <Bar dataKey="count" fill="var(--color-medium)" radius={[4, 4, 0, 0]} />
@@ -246,7 +247,7 @@ export default function DashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                 <tr className="transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-secondary">
+                    <td className="px-6 py-4 whitespace-nowrap text-secondary-foreground">
                     Website Scanner
                     </td>
                     <td className="px-6 py-4 text-foreground/80">
@@ -257,7 +258,7 @@ export default function DashboardPage() {
                     Oct 30, 2025 – 20:20
                     </td>
                     <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium text-success">
+                    <span className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium text-success-foreground bg-success/10 border border-success/20">
                         <span className="h-2 w-2 rounded-full bg-success" />
                         Completed
                     </span>
@@ -282,7 +283,7 @@ function AnalyticsChart({ dataKey }: { dataKey: keyof typeof chartConfig }) {
             <AreaChart
                 accessibilityLayer
                 data={exposureTrendData}
-                margin={{ left: -20, right: 20, top: 10, bottom: 10, }}
+                margin={{ left: 12, right: 12, top: 10, bottom: 10, }}
             >
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
                 <XAxis
@@ -291,8 +292,9 @@ function AnalyticsChart({ dataKey }: { dataKey: keyof typeof chartConfig }) {
                     axisLine={false}
                     tickMargin={8}
                     tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    tick={{fontSize: 12}}
                 />
-                <YAxis tickLine={false} axisLine={false} tickMargin={8} width={30} />
+                <YAxis tickLine={false} axisLine={false} tickMargin={8} width={30} tick={{fontSize: 12}} />
                 <Tooltip
                     cursor={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
                     content={<ChartTooltipContent indicator="dot" />}
@@ -375,4 +377,5 @@ function StatusIndicator({ label, value, status }: StatusIndicatorProps) {
     
 
     
+
 
