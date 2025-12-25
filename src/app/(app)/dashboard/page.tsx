@@ -23,7 +23,7 @@ import {
   ChartLegendContent,
 } from '@/components/ui/chart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowUp, ArrowDown, CalendarDays, Filter } from 'lucide-react';
+import { ArrowUp, ArrowDown, CalendarDays, Filter, Pipeline, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -115,13 +115,14 @@ export default function DashboardPage() {
       
       <Card>
         <CardHeader className='p-3 pb-2'>
-            <CardTitle className='text-sm font-semibold'>Security Posture &amp; Compliance</CardTitle>
+            <CardTitle className='text-sm font-semibold'>Security Posture &amp; Trust Signals</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 p-3 pt-0">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 p-3 pt-0">
             <StatusIndicator label="Operational Status" value="Live" status="ok" />
-            <StatusIndicator label="Scan Coverage" value="94%" status="ok" />
-            <StatusIndicator label="NIST CSF Alignment" value="Partial" status="warning" />
+            <StatusIndicator label="Detection Pipeline" value="Operational" status="ok" Icon={Pipeline} />
+            <StatusIndicator label="Last Scan" value="2h ago" status="ok" Icon={Clock}/>
             <StatusIndicator label="SLA Health" value="At Risk" status="danger" />
+            <StatusIndicator label="NIST CSF Alignment" value="Partial" status="warning" />
 
             <div className="md:col-span-2 lg:col-span-1 flex flex-col gap-1 p-2 rounded-lg bg-card border-none">
                 <p className="text-xs font-medium text-muted-foreground">Control Coverage Trend</p>
@@ -372,9 +373,10 @@ type StatusIndicatorProps = {
     label: string;
     value: string;
     status: 'ok' | 'warning' | 'danger';
+    Icon?: React.ElementType;
 };
 
-function StatusIndicator({ label, value, status }: StatusIndicatorProps) {
+function StatusIndicator({ label, value, status, Icon }: StatusIndicatorProps) {
     const statusColor = {
         ok: 'bg-success',
         warning: 'bg-warning',
@@ -386,8 +388,11 @@ function StatusIndicator({ label, value, status }: StatusIndicatorProps) {
             <p className="text-xs font-medium text-muted-foreground">{label}</p>
             <div className="flex items-center gap-2">
                 <span className={cn('h-2 w-2 rounded-full', statusColor[status])} />
+                {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
                 <span className="text-base font-semibold">{value}</span>
             </div>
         </div>
     );
 }
+
+    
