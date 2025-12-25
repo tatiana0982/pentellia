@@ -4,6 +4,8 @@
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -15,327 +17,284 @@ import {
   ChartContainer,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { Activity } from 'lucide-react';
+import { Activity, AlertTriangle, FileWarning, Target, Bot, ShieldAlert, FileText, Server, Users, Blocks, Settings } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import Link from 'next/link';
 
-const chartData = [
-  {date: '2024-07-01', low: 1, medium: 2, high: 3, critical: 1},
-  {date: '2024-07-02', low: 2, medium: 3, high: 1, critical: 0},
-  {date: '2024-07-03', low: 3, medium: 1, high: 2, critical: 1},
-  {date: '2024-07-04', low: 2, medium: 4, high: 1, critical: 0},
-  {date: '2024-07-05', low: 4, medium: 2, high: 3, critical: 1},
-  {date: '2024-07-06', low: 3, medium: 3, high: 2, critical: 0},
-  {date: '2024-07-07', low: 5, medium: 4, high: 1, critical: 2},
-  {date: '2024-07-08', low: 4, medium: 3, high: 2, critical: 1},
-  {date: '2024-07-09', low: 6, medium: 5, high: 3, critical: 0},
-  {date: '2024-07-10', low: 5, medium: 4, high: 2, critical: 1},
-  {date: '2024-07-11', low: 7, medium: 6, high: 4, critical: 2},
-  {date: '2024-07-12', low: 6, medium: 5, high: 3, critical: 1},
-  {date: '2024-07-13', low: 8, medium: 7, high: 5, critical: 2},
-  {date: '2024-07-14', low: 7, medium: 6, high: 4, critical: 3},
+const exposureTrendData = [
+  {date: '2024-07-01', vulnerabilities: 21},
+  {date: '2024-07-02', vulnerabilities: 23},
+  {date: '2024-07-03', vulnerabilities: 22},
+  {date: '2024-07-04', vulnerabilities: 25},
+  {date: '2024-07-05', vulnerabilities: 24},
+  {date: '2024-07-06', vulnerabilities: 28},
+  {date: '2024-07-07', vulnerabilities: 26},
 ];
 
-const chartConfig = {
+const exposureTrendConfig = {
   vulnerabilities: {
     label: 'Vulnerabilities',
+    color: 'hsl(var(--primary))',
   },
-  low: {
-    label: 'Low',
-    color: 'hsl(var(--chart-1))',
-  },
-  medium: {
-    label: 'Medium',
+} satisfies ChartConfig;
+
+
+const newAssetsData = [
+  {date: 'Mon', assets: 2},
+  {date: 'Tue', assets: 3},
+  {date: 'Wed', assets: 1},
+  {date: 'Thu', assets: 4},
+  {date: 'Fri', assets: 2},
+  {date: 'Sat', assets: 5},
+  {date: 'Sun', assets: 3},
+];
+
+const newAssetsConfig = {
+  assets: {
+    label: 'New Assets',
     color: 'hsl(var(--chart-2))',
-  },
-  high: {
-    label: 'High',
-    color: 'hsl(var(--chart-3))',
-  },
-  critical: {
-    label: 'Critical',
-    color: 'hsl(var(--chart-4))',
   },
 } satisfies ChartConfig;
 
 export default function DashboardPage() {
   return (
     <div className="flex-1 space-y-8 p-4 pt-6 md:p-8">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">Security Posture Snapshot</h1>
-        <p className="text-sm text-muted-foreground">
-          An overview of your organization's attack surface and risk exposure.
-        </p>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <KpiCard 
+          title="Open Critical Findings" 
+          metric="8"
+          delta="+2"
+          deltaType="increase"
+          icon={AlertTriangle}
+          chartData={exposureTrendData}
+          chartKey="vulnerabilities"
+          chartColor="hsl(var(--destructive))"
+        />
+        <KpiCard 
+          title="New Assets (7d)" 
+          metric="20"
+          delta="+5.2%"
+          deltaType="increase"
+          icon={Target}
+          chartData={newAssetsData}
+          chartKey="assets"
+          chartColor="hsl(var(--chart-2))"
+        />
+        <KpiCard 
+          title="Stale Findings (>90d)" 
+          metric="14"
+          delta="-3"
+          deltaType="decrease"
+          icon={FileWarning}
+        />
+        <KpiCard 
+          title="Scans Failed (24h)" 
+          metric="1"
+          delta="+1"
+          deltaType="increase"
+          icon={ShieldAlert}
+        />
       </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:gap-8">
-        <div className="lg:col-span-3 xl:col-span-3 bg-card rounded-lg border border-border transition-transform duration-200 hover:-translate-y-1">
-            <div className="flex items-center justify-between p-4 md:p-6 border-b border-border h-16">
-              <div className='flex items-center gap-4 h-8'>
-                <h2 className="text-base font-semibold text-foreground">
-                  Exposure Trend
-                </h2>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                Last 14 days
-              </span>
-            </div>
-            <div className='p-4 h-[350px]'>
-            <ChartContainer config={chartConfig} className="h-full w-full">
-              <AreaChart
-                accessibilityLayer
-                data={chartData}
-                margin={{
-                  left: -20,
-                  right: 20,
-                  top: 10,
-                  bottom: 10,
-                }}
-              >
-                <defs>
-                  <linearGradient id="fillLow" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor="hsl(var(--chart-1))"
-                      stopOpacity={0.8}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="hsl(var(--chart-1))"
-                      stopOpacity={0.1}
-                    />
-                  </linearGradient>
-                  <linearGradient id="fillMedium" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor="hsl(var(--chart-2))"
-                      stopOpacity={0.8}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="hsl(var(--chart-2))"
-                      stopOpacity={0.1}
-                    />
-                  </linearGradient>
-                  <linearGradient id="fillHigh" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor="hsl(var(--chart-3))"
-                      stopOpacity={0.8}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="hsl(var(--chart-3))"
-                      stopOpacity={0.1}
-                    />
-                  </linearGradient>
-                  <linearGradient id="fillCritical" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor="hsl(var(--chart-4))"
-                      stopOpacity={0.8}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="hsl(var(--chart-4))"
-                      stopOpacity={0.1}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
-                <XAxis
-                  dataKey="date"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) => {
-                    const date = new Date(value);
-                    return date.toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                    });
+      
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Exposure Trend</CardTitle>
+            <CardDescription>Vulnerabilities discovered over the last 14 days.</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px] w-full p-2">
+              <ChartContainer config={exposureTrendConfig} className="h-full w-full">
+                <AreaChart
+                  accessibilityLayer
+                  data={exposureTrendData.concat(exposureTrendData.map(d => ({...d, date: `2024-07-${parseInt(d.date.split('-')[2]) + 7}`})))}
+                  margin={{
+                    left: -20,
+                    right: 20,
+                    top: 10,
+                    bottom: 10,
                   }}
-                />
-                 <YAxis
+                >
+                  <defs>
+                    <linearGradient id="fillVulnerabilities" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
+                  <XAxis
+                    dataKey="date"
                     tickLine={false}
                     axisLine={false}
                     tickMargin={8}
-                    width={30}
+                    tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   />
-                <Tooltip
-                  cursor={{stroke: 'hsl(var(--border))', strokeWidth: 2}}
-                  content={<ChartTooltipContent indicator="dot" />}
-                />
-                <Area
-                  dataKey="critical"
-                  type="natural"
-                  fill="url(#fillCritical)"
-                  fillOpacity={0.6}
-                  stroke="hsl(var(--chart-4))"
-                  stackId="a"
-                />
-                <Area
-                  dataKey="high"
-                  type="natural"
-                  fill="url(#fillHigh)"
-                  fillOpacity={0.6}
-                  stroke="hsl(var(--chart-3))"
-                  stackId="a"
-                />
-                <Area
-                  dataKey="medium"
-                  type="natural"
-                  fill="url(#fillMedium)"
-                  fillOpacity={0.6}
-                  stroke="hsl(var(--chart-2))"
-                  stackId="a"
-                />
-                <Area
-                  dataKey="low"
-                  type="natural"
-                  fill="url(#fillLow)"
-                  fillOpacity={0.6}
-                  stroke="hsl(var(--chart-1))"
-                  stackId="a"
-                />
-              </AreaChart>
-            </ChartContainer>
-            </div>
-        </div>
+                  <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      width={30}
+                    />
+                  <Tooltip
+                    cursor={{stroke: 'hsl(var(--border))', strokeWidth: 1}}
+                    content={<ChartTooltipContent indicator="dot" />}
+                  />
+                  <Area
+                    dataKey="vulnerabilities"
+                    type="natural"
+                    fill="url(#fillVulnerabilities)"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ChartContainer>
+          </CardContent>
+        </Card>
         
-        <div className="lg:col-span-1 xl:col-span-1 space-y-8">
-            <AiInsightCard />
-            <div className="space-y-4">
-                <h2 className="text-base font-semibold text-foreground">
-                    Active Risk Signals
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4 lg:gap-4">
-                    <ActivityCard title="Running scans" value="0" />
-                    <ActivityCard title="Waiting scans" value="0" />
-                    <ActivityCard title="Scanned assets" value="0" />
-                    <ActivityCard title="New assets" value="1" />
-                </div>
-            </div>
-        </div>
+        <Card className="lg:col-span-2">
+            <CardHeader>
+                <CardTitle>Attack Surface Summary</CardTitle>
+                 <CardDescription>Key components of your digital footprint.</CardDescription>
+            </CardHeader>
+            <CardContent className='grid grid-cols-2 gap-4 text-sm'>
+              <SummaryItem label="IP Addresses" value="1" />
+              <SummaryItem label="Hostnames" value="1" />
+              <SummaryItem label="Open Ports" value="1" />
+              <SummaryItem label="Protocols" value="1" />
+              <SummaryItem label="Services" value="0" />
+              <SummaryItem label="Technologies" value="9" />
+            </CardContent>
+        </Card>
       </div>
-      
-      <section>
-        <h2 className="text-base font-semibold text-foreground mb-4">
-          Attack Surface Summary
-        </h2>
-        <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4 xl:grid-cols-6">
-          <SummaryCard label="IP ADDRESS" value="1" />
-          <SummaryCard label="HOSTNAME" value="1" />
-          <SummaryCard label="PORT" value="1" />
-          <SummaryCard label="PROTOCOL" value="1" />
-          <SummaryCard label="SERVICES" value="0" />
-          <SummaryCard label="TECHNOLOGIES" value="9" />
-        </div>
-      </section>
 
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-foreground">
-            Latest Scans
-          </h2>
-          <button className="text-sm text-primary hover:underline">
-            View all scans
-          </button>
-        </div>
-
-        <div className="bg-card rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-white/5">
-              <tr>
-                <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Tool</th>
-                <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Target</th>
-                <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Workspace</th>
-                <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Start date</th>
-                <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Status</th>
-                <th className="px-6 py-3 text-right font-semibold text-muted-foreground">View</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              <tr className="hover:bg-white/5 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap text-secondary">
-                  Website Scanner
-                </td>
-                <td className="px-6 py-4 text-foreground/80">
-                  https://www.gohighlevel.com/78486a1
-                </td>
-                <td className="px-6 py-4 text-foreground/80">My Workspace</td>
-                <td className="px-6 py-4 text-foreground/80">
-                  Oct 30, 2025 – 20:20
-                </td>
-                <td className="px-6 py-4">
-                   <span className="inline-flex items-center gap-2 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success border border-success/20">
-                    <span className="h-2 w-2 rounded-full bg-success" />
-                    Completed
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <button className="text-sm text-primary hover:underline">
-                    View status
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <Card>
+        <CardHeader>
+            <CardTitle>Latest Scans</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <div className="overflow-hidden border border-border rounded-lg">
+            <table className="w-full text-sm">
+                <thead className="bg-white/5">
+                <tr className='border-b-0'>
+                    <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Tool</th>
+                    <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Target</th>
+                    <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Workspace</th>
+                    <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Start date</th>
+                    <th className="px-6 py-3 text-left font-semibold text-muted-foreground">Status</th>
+                    <th className="px-6 py-3 text-right font-semibold text-muted-foreground">View</th>
+                </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                <tr className="hover:bg-accent transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-secondary">
+                    Website Scanner
+                    </td>
+                    <td className="px-6 py-4 text-foreground/80">
+                    https://www.gohighlevel.com/78486a1
+                    </td>
+                    <td className="px-6 py-4 text-foreground/80">My Workspace</td>
+                    <td className="px-6 py-4 text-foreground/80">
+                    Oct 30, 2025 – 20:20
+                    </td>
+                    <td className="px-6 py-4">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success border border-success/20">
+                        <span className="h-2 w-2 rounded-full bg-success" />
+                        Completed
+                    </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                    <Button variant='link' className='p-0 h-auto text-primary'>View status</Button>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
-function AiInsightCard() {
+type KpiCardProps = {
+    title: string;
+    metric: string;
+    delta: string;
+    deltaType: 'increase' | 'decrease';
+    icon: React.ElementType;
+    chartData?: any[];
+    chartKey?: string;
+    chartColor?: string;
+}
+
+function KpiCard({ title, metric, delta, deltaType, icon: Icon, chartData, chartKey, chartColor }: KpiCardProps) {
+    const deltaColor = deltaType === 'increase' ? 'text-destructive' : 'text-success';
+
     return (
-        <div className="relative overflow-hidden rounded-lg bg-card p-4 border border-primary/20 transition-transform duration-200 hover:-translate-y-1">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-card to-card" />
-            <div className="relative">
-                <div className="flex items-start gap-4">
-                    <div className="bg-primary/10 p-2 rounded-lg border border-primary/20">
-                        <Activity className="h-5 w-5 text-primary" />
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+                <Icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-start justify-between">
+                  <div className='flex flex-col'>
+                    <div className="text-4xl font-bold">{metric}</div>
+                    <p className={`text-xs ${deltaColor}`}>{delta} from yesterday</p>
+                  </div>
+                  {chartData && chartKey && chartColor && (
+                    <div className="h-16 w-28">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart
+                          data={chartData}
+                          margin={{ top: 5, right: 0, left: 0, bottom: 0 }}
+                        >
+                           <defs>
+                              <linearGradient id={`fill-${chartKey}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={chartColor} stopOpacity={0.4}/>
+                                <stop offset="95%" stopColor={chartColor} stopOpacity={0.05}/>
+                              </linearGradient>
+                           </defs>
+                          <Tooltip
+                            cursor={false}
+                            contentStyle={{ 
+                              backgroundColor: 'hsl(var(--background))',
+                              border: '1px solid hsl(var(--border))',
+                              borderRadius: 'calc(var(--radius) - 2px)',
+                              fontSize: '12px',
+                              padding: '4px 8px'
+                            }}
+                            labelStyle={{ display: 'none' }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey={chartKey}
+                            stroke={chartColor}
+                            strokeWidth={2}
+                            fillOpacity={1}
+                            fill={`url(#fill-${chartKey})`}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
                     </div>
-                    <div className='flex-1'>
-                        <h3 className="text-md font-semibold text-foreground">Potential Risk Cluster Detected</h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            An unusual concentration of medium-severity findings has been identified on assets related to the 'legacy-api' tag.
-                        </p>
-                    </div>
+                  )}
                 </div>
-            </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+type SummaryItemProps = {
+    label: string;
+    value: string;
+}
+
+function SummaryItem({label, value}: SummaryItemProps) {
+    return (
+        <div className="flex justify-between items-baseline p-2 rounded-md hover:bg-accent">
+            <span className="text-muted-foreground">{label}</span>
+            <span className="font-semibold text-foreground">{value}</span>
         </div>
     )
 }
 
-type SummaryCardProps = {
-  label: string;
-  value: string;
-};
-
-function SummaryCard({label, value}: SummaryCardProps) {
-  return (
-    <div className="relative overflow-hidden rounded-lg bg-card p-4 border border-border transition-transform duration-200 hover:-translate-y-1">
-      <div className="relative z-10 flex flex-col justify-between h-full">
-        <span className="text-xs font-medium tracking-wide uppercase text-muted-foreground">
-          {label}
-        </span>
-        <span className="mt-6 text-5xl font-semibold text-primary">{value}</span>
-      </div>
-    </div>
-  );
-}
-
-type ActivityCardProps = {
-  title: string;
-  value: string;
-};
-
-function ActivityCard({title, value}: ActivityCardProps) {
-  return (
-    <div className="bg-card rounded-lg border border-border p-4 flex flex-col h-full transition-transform duration-200 hover:-translate-y-1">
-      <span className="text-sm text-muted-foreground mb-2">{title}</span>
-      <div className="flex items-baseline gap-2 mt-auto">
-        <span className="text-4xl font-semibold text-foreground">{value}</span>
-      </div>
-    </div>
-  );
-}
+    
