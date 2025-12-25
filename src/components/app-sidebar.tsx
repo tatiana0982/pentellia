@@ -73,7 +73,7 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
           {isSidebarOpen && (
               <div className="p-2 rounded-lg bg-accent/30 border border-border">
                   <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
-                      <span className='font-medium text-foreground'>Scans</span>
+                      <span className='font-medium text-foreground/80'>Scans</span>
                       <span className='text-primary'>1/3 Free Scans</span>
                   </div>
                   <Progress value={(1/3) * 100} className="h-1.5"/>
