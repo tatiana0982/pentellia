@@ -63,7 +63,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Security Posture Snapshot</h1>
         <p className="text-muted-foreground">
-          A high-level overview of your organization's attack surface and risk exposure.
+          An overview of your organization's attack surface and risk exposure.
         </p>
       </div>
 
@@ -118,6 +118,30 @@ export default function DashboardPage() {
                       stopOpacity={0.1}
                     />
                   </linearGradient>
+                  <linearGradient id="fillHigh" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="5%"
+                      stopColor="hsl(var(--chart-3))"
+                      stopOpacity={0.8}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="hsl(var(--chart-3))"
+                      stopOpacity={0.1}
+                    />
+                  </linearGradient>
+                  <linearGradient id="fillCritical" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="5%"
+                      stopColor="hsl(var(--chart-4))"
+                      stopOpacity={0.8}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="hsl(var(--chart-4))"
+                      stopOpacity={0.1}
+                    />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
                 <XAxis
@@ -147,7 +171,7 @@ export default function DashboardPage() {
                   dataKey="medium"
                   type="natural"
                   fill="url(#fillMedium)"
-                  fillOpacity={0.4}
+                  fillOpacity={0.5}
                   stroke="hsl(var(--chart-2))"
                   stackId="a"
                 />
@@ -155,23 +179,23 @@ export default function DashboardPage() {
                   dataKey="low"
                   type="natural"
                   fill="url(#fillLow)"
-                  fillOpacity={0.4}
+                  fillOpacity={0.5}
                   stroke="hsl(var(--chart-1))"
                   stackId="a"
                 />
                  <Area
                   dataKey="high"
                   type="natural"
-                  fill="hsl(var(--chart-3))"
-                  fillOpacity={0.3}
+                  fill="url(#fillHigh)"
+                  fillOpacity={0.4}
                   stroke="hsl(var(--chart-3))"
                   stackId="a"
                 />
                 <Area
                   dataKey="critical"
                   type="natural"
-                  fill="hsl(var(--chart-4))"
-                  fillOpacity={0.3}
+                  fill="url(#fillCritical)"
+                  fillOpacity={0.4}
                   stroke="hsl(var(--chart-4))"
                   stackId="a"
                 />
@@ -271,8 +295,8 @@ export default function DashboardPage() {
 
 function AiInsightCard() {
     return (
-        <div className="relative overflow-hidden rounded-lg bg-card p-4 shadow-soft border-border transition-transform duration-200 hover:-translate-y-1">
-            <div className="absolute inset-0 bg-gradient-pulse bg-[length:200%_100%] from-primary/10 via-card to-card" />
+        <div className="relative overflow-hidden rounded-lg bg-card p-4 shadow-soft border border-primary/20 transition-transform duration-200 hover:-translate-y-1">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-card to-card" />
             <div className="relative">
                 <div className="flex items-start gap-4">
                     <div className="bg-primary/10 p-2 rounded-lg border border-primary/20">
@@ -302,7 +326,7 @@ function SummaryCard({label, value}: SummaryCardProps) {
         <span className="text-xs font-medium tracking-wide uppercase text-muted-foreground">
           {label}
         </span>
-        <span className="mt-6 text-3xl font-medium text-primary">{value}</span>
+        <span className="mt-6 text-4xl font-semibold text-primary">{value}</span>
       </div>
     </div>
   );
@@ -318,8 +342,10 @@ function ActivityCard({title, value}: ActivityCardProps) {
     <div className="bg-card rounded-lg shadow-soft border border-border p-4 flex flex-col h-full transition-transform duration-200 hover:-translate-y-1">
       <span className="text-sm text-muted-foreground mb-2">{title}</span>
       <div className="flex items-baseline gap-2 mt-auto">
-        <span className="text-3xl font-medium text-foreground">{value}</span>
+        <span className="text-4xl font-semibold text-foreground">{value}</span>
       </div>
     </div>
   );
 }
+
+    
