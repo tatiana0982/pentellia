@@ -389,5 +389,3 @@ function StatusIndicator({ label, value, status, Icon }: StatusIndicatorProps) {
         </div>
     );
 }
-
-    
