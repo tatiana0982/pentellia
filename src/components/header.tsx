@@ -11,20 +11,16 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useMemo } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/config/firebaseClient';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useAuth } from '@/providers/AuthProvider';
 
 export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
-  const userAvatar = useMemo(
-    () => PlaceHolderImages.find((img) => img.id === 'user-avatar'),
-    []
-  );
 
+  const { user } = useAuth();
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -38,6 +34,12 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
     { label: 'Threat Context', href: '#' },
     { label: 'Reports', href: '#' },
   ];
+  
+  const getInitials = (firstName?: string, lastName?: string) => {
+    const first = firstName?.[0] || '';
+    const last = lastName?.[0] || '';
+    return `${first}${last}`.toUpperCase();
+  }
 
   return (
     <header className="fixed top-0 left-0 right-0 z-40 flex h-16 items-center justify-between border-b border-border bg-card px-4 text-foreground">
@@ -100,14 +102,7 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
               className="flex items-center gap-2 p-1 h-auto rounded-full hover:bg-accent"
             >
               <Avatar className="h-8 w-8">
-                {userAvatar && (
-                  <AvatarImage
-                    src={userAvatar.imageUrl}
-                    alt={userAvatar.description}
-                    data-ai-hint={userAvatar.imageHint}
-                  />
-                )}
-                <AvatarFallback>U</AvatarFallback>
+                 <AvatarFallback>{user ? getInitials(user.firstName, user.lastName) : 'U'}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
