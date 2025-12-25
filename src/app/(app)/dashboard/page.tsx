@@ -52,7 +52,7 @@ const chartConfig = {
   vulnerabilities: { label: 'Vulnerabilities', color: 'hsl(var(--secondary))' },
   critical: { label: 'Critical', color: 'hsl(var(--destructive))' },
   high: { label: 'High', color: 'hsl(var(--warning))' },
-  medium: { label: 'Medium', color: 'hsl(var(--secondary))' },
+  medium: { label: 'Medium', color: 'hsl(var(--chart-3))' },
   low: { label: 'Low', color: 'hsl(var(--muted-foreground))' },
   newAssets: { label: 'New Assets', color: 'hsl(var(--primary))' },
   riskScore: { label: 'Risk Score', color: 'hsl(var(--warning))' },
@@ -131,8 +131,8 @@ export default function DashboardPage() {
                         <AreaChart accessibilityLayer data={complianceTrendData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="fillCoverage" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />
-                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
+                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
                             <Tooltip
@@ -316,7 +316,7 @@ function AnalyticsChart({ dataKey }: { dataKey: keyof typeof chartConfig }) {
                     dataKey={dataKey}
                     type="natural"
                     fill={color}
-                    fillOpacity={0.4}
+                    fillOpacity={0.2}
                     stroke={color}
                     strokeWidth={2}
                 />
@@ -337,11 +337,13 @@ function KpiCard({ title, metric, delta, deltaType, invertDeltaColor = false }: 
     const isIncrease = deltaType === 'increase';
     const isDecrease = deltaType === 'decrease';
     
-    let colorClass;
-    if (invertDeltaColor) {
-        colorClass = isIncrease ? 'text-destructive' : 'text-success';
-    } else {
-        colorClass = isIncrease ? 'text-destructive' : 'text-success';
+    let colorClass = 'text-muted-foreground';
+    if (deltaType !== 'neutral') {
+        if (invertDeltaColor) {
+            colorClass = isIncrease ? 'text-success' : 'text-destructive';
+        } else {
+            colorClass = isIncrease ? 'text-destructive' : 'text-success';
+        }
     }
 
     const DeltaIcon = isIncrease ? ArrowUp : isDecrease ? ArrowDown : null;
@@ -349,10 +351,10 @@ function KpiCard({ title, metric, delta, deltaType, invertDeltaColor = false }: 
     return (
         <Card className='flex flex-col justify-between p-3'>
             <CardHeader className="p-0 pb-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground">{title}</CardTitle>
+                <CardTitle className="text-xs font-medium text-muted-foreground whitespace-nowrap">{title}</CardTitle>
             </CardHeader>
             <CardContent className="p-0 flex items-baseline justify-between">
-                <div className="text-2xl font-bold">{metric}</div>
+                <div className="text-xl font-bold">{metric}</div>
                 {delta !== "0" && DeltaIcon && (
                     <div className={cn("flex items-center gap-1 text-xs", colorClass)}>
                         <DeltaIcon className="h-3 w-3" />
@@ -379,7 +381,7 @@ function StatusIndicator({ label, value, status, Icon }: StatusIndicatorProps) {
     };
 
     return (
-        <div className="flex flex-col gap-1 p-2 rounded-lg bg-card border border-border">
+        <div className="flex flex-col gap-1 p-2 rounded-lg bg-card border-none">
             <p className="text-xs font-medium text-muted-foreground">{label}</p>
             <div className="flex items-center gap-2">
                 <span className={cn('h-2 w-2 rounded-full', statusColor[status])} />
