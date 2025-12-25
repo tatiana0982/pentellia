@@ -311,11 +311,16 @@ function AnalyticsChart({ dataKey }: { dataKey: keyof typeof chartConfig }) {
                     cursor={{ stroke: 'hsl(var(--border))', strokeWidth: 1 }}
                     content={<ChartTooltipContent indicator="dot" />}
                 />
+                <defs>
+                    <linearGradient id={`fill-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={color} stopOpacity={0.8} />
+                    <stop offset="95%" stopColor={color} stopOpacity={0.1} />
+                    </linearGradient>
+                </defs>
                 <Area
                     dataKey={dataKey}
                     type="natural"
-                    fill={color}
-                    fillOpacity={0.4}
+                    fill={`url(#fill-${dataKey})`}
                     stroke={color}
                     strokeWidth={2}
                 />
@@ -338,7 +343,7 @@ function KpiCard({ title, metric, delta, deltaType, invertDeltaColor = false }: 
     
     let colorClass;
     if (invertDeltaColor) {
-        colorClass = isIncrease ? 'text-success' : isDecrease ? 'text-destructive' : 'text-muted-foreground';
+        colorClass = isIncrease ? 'text-destructive' : isDecrease ? 'text-success' : 'text-muted-foreground';
     } else {
         colorClass = isIncrease ? 'text-destructive' : isDecrease ? 'text-success' : 'text-muted-foreground';
     }
@@ -386,7 +391,5 @@ function StatusIndicator({ label, value, status }: StatusIndicatorProps) {
         </div>
     );
 }
-
-    
 
     
