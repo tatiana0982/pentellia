@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Menu, Star, Bell, SlidersHorizontal, KeyRound } from 'lucide-react';
+import { Menu, Star, Bell, SlidersHorizontal, KeyRound, ScrollText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -110,11 +110,15 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
             <DropdownMenuItem>Profile</DropdownMenuItem>
             <DropdownMenuItem>
                 <SlidersHorizontal className="mr-2 h-4 w-4" />
-                Account Settings
+                Preferences
             </DropdownMenuItem>
              <DropdownMenuItem>
                 <KeyRound className="mr-2 h-4 w-4" />
                 API Keys
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+                <ScrollText className="mr-2 h-4 w-4" />
+                Audit Logs
             </DropdownMenuItem>
             <DropdownMenuItem>
                 <Star className="mr-2 h-4 w-4" />
@@ -128,3 +132,5 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
     </header>
   );
 }
+
+    

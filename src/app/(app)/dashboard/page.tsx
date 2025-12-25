@@ -23,7 +23,7 @@ import {
   ChartLegendContent,
 } from '@/components/ui/chart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, CalendarDays, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -151,13 +151,25 @@ export default function DashboardPage() {
         <Card className="lg:col-span-4">
             <Tabs defaultValue="critical" className="h-full w-full">
               <CardHeader className='flex-row items-center justify-between'>
-                 <CardTitle>Analytics</CardTitle>
-                 <TabsList className="grid w-auto grid-cols-4 h-9">
-                    <TabsTrigger value="vulnerabilities" className='text-xs px-2'>Vulnerabilities</TabsTrigger>
-                    <TabsTrigger value="critical" className='text-xs px-2'>Critical</TabsTrigger>
-                    <TabsTrigger value="assets" className='text-xs px-2'>New Assets</TabsTrigger>
-                    <TabsTrigger value="risk" className='text-xs px-2'>Risk Score</TabsTrigger>
-                </TabsList>
+                 <div className='flex flex-col gap-1.5'>
+                    <CardTitle>Analytics</CardTitle>
+                 </div>
+                 <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className='h-8 text-xs'>
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        Time Range
+                    </Button>
+                    <Button variant="outline" size="sm" className='h-8 text-xs'>
+                        <Filter className="mr-2 h-4 w-4" />
+                        Asset Scope
+                    </Button>
+                    <TabsList className="grid w-auto grid-cols-4 h-9">
+                        <TabsTrigger value="vulnerabilities" className='text-xs px-2'>Vulnerabilities</TabsTrigger>
+                        <TabsTrigger value="critical" className='text-xs px-2'>Critical</TabsTrigger>
+                        <TabsTrigger value="assets" className='text-xs px-2'>New Assets</TabsTrigger>
+                        <TabsTrigger value="risk" className='text-xs px-2'>Risk Score</TabsTrigger>
+                    </TabsList>
+                 </div>
               </CardHeader>
               <CardContent className="h-[250px] w-full p-2 pt-4">
                 <TabsContent value="vulnerabilities" className='h-full w-full m-0'>
@@ -379,3 +391,6 @@ function StatusIndicator({ label, value, status }: StatusIndicatorProps) {
     
 
 
+
+
+    
