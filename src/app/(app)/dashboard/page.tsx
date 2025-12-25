@@ -339,9 +339,9 @@ function KpiCard({ title, metric, delta, deltaType, invertDeltaColor = false }: 
     
     let colorClass;
     if (invertDeltaColor) {
-        colorClass = isIncrease ? 'text-destructive' : isDecrease ? 'text-success' : 'text-muted-foreground';
+        colorClass = isIncrease ? 'text-destructive' : 'text-success';
     } else {
-        colorClass = isIncrease ? 'text-destructive' : isDecrease ? 'text-success' : 'text-muted-foreground';
+        colorClass = isIncrease ? 'text-destructive' : 'text-success';
     }
 
     const DeltaIcon = isIncrease ? ArrowUp : isDecrease ? ArrowDown : null;

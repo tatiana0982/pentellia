@@ -30,9 +30,9 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   };
 
   const navLinks = [
-    { label: 'Overview', href: '#' },
-    { label: 'Threat Context', href: '#' },
-    { label: 'Reports', href: '#' },
+    { label: 'Overview', href: '/dashboard/overview' },
+    { label: 'Threat Context', href: '/dashboard/threat-context' },
+    { label: 'Reports', href: '/dashboard/reports' },
   ];
   
   const getInitials = (firstName?: string, lastName?: string) => {
@@ -128,5 +128,3 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
     </header>
   );
 }
-
-    
