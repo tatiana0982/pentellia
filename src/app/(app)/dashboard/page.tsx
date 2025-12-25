@@ -292,7 +292,9 @@ function KpiCard({ title, metric, delta, deltaType, icon: Icon }: KpiCardProps) 
             </CardHeader>
             <CardContent>
                 <div className="text-2xl font-bold">{metric}</div>
-                <p className={`text-xs ${deltaColor}`}>{delta} from yesterday</p>
+                <p className={`text-xs text-muted-foreground`}>
+                    <span className={deltaColor}>{delta}</span> from yesterday
+                </p>
             </CardContent>
         </Card>
     );
@@ -311,5 +313,3 @@ function SummaryItem({label, value}: SummaryItemProps) {
         </div>
     )
 }
-
-    
