@@ -2,9 +2,15 @@
   "placeholderImages": [
     {
       "id": "user-avatar",
-      "description": "User avatar",
-      "imageUrl": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwZXJzb24lMjBmYWNlfGVufDB8fHx8MTc2NTI3ODAwOXww&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "person face"
+      "description": "User avatar silhouette",
+      "imageUrl": "https://images.unsplash.com/photo-1529665253569-6d01c0eaf7b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxzb2NpYWwlMjBwcm9maWxlfGVufDB8fHx8MTc2NTI3ODEyNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "profile silhouette"
+    },
+    {
+      "id": "auth-image",
+      "description": "Abstract security graphic for authentication screen",
+      "imageUrl": "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxjeWJlcnNlY3VyaXR5fGVufDB8fHx8MTc2NTI3ODIzNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "cybersecurity abstract"
     }
   ]
 }
