@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Menu, Star, ChevronDown } from 'lucide-react';
+import { Menu, Star, ChevronDown, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,6 +16,7 @@ import { useMemo } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/config/firebaseClient';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   const userAvatar = useMemo(
@@ -28,27 +29,26 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
   const handleLogout = async () => {
     await signOut(auth);
     await fetch('/api/logout', { method: 'POST' });
-   return router.push('/login');
-  }
-
+    return router.push('/login');
+  };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-4 text-white">
+    <header className="fixed top-0 left-0 right-0 z-40 flex h-16 items-center justify-between border-b border-border bg-card px-4 text-foreground">
       {/* Left side: menu + logo */}
       <div className="flex items-center gap-3">
         <Button
           onClick={toggleSidebar}
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-white hover:bg-slate-800"
+          className="h-8 w-8 text-foreground/80 hover:bg-accent hover:text-foreground"
           aria-label="Toggle sidebar"
         >
           <Menu className="h-5 w-5" />
         </Button>
 
         <div className="flex items-center gap-2">
-          <ShieldIcon className="h-6 w-6 text-white" />
-          <span className="text-lg font-semibold text-white">Pentest Tools</span>
+          <ShieldIcon className="h-6 w-6 text-primary" />
+          <span className="text-lg font-semibold">Pentellia</span>
         </div>
       </div>
 
@@ -56,37 +56,23 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
       <div className="flex-1" />
 
       {/* Right side: buttons + dropdowns */}
-      <div className="flex items-center gap-x-3 sm:gap-x-4">
-        <Button variant="warning" className="hidden sm:inline-flex text-sm">
+      <div className="flex items-center gap-x-2 sm:gap-x-3">
+        <Button variant="outline" className="hidden sm:inline-flex text-sm border-secondary/50 text-secondary hover:bg-secondary/10 hover:text-secondary hover:border-secondary">
           <Star className="mr-2 h-4 w-4" />
-          Unlock full features
+          Upgrade
         </Button>
-        <Button variant="dark" className="hidden sm:inline-flex text-sm">
-          Book a Demo
+        
+        <Button variant="ghost" size="icon" className="h-9 w-9 text-foreground/80 hover:bg-accent hover:text-foreground">
+            <Bell className="h-5 w-5"/>
+            <span className="sr-only">Notifications</span>
         </Button>
+
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="hidden sm:flex items-center gap-1 text-xs font-medium text-slate-100 hover:text-white"
-            >
-              RESOURCES
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>Blog</DropdownMenuItem>
-            <DropdownMenuItem>API Reference</DropdownMenuItem>
-            <DropdownMenuItem>Changelog</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="flex items-center gap-2 p-1 h-auto rounded-full hover:bg-slate-800"
+              className="flex items-center gap-2 p-1 h-auto rounded-full hover:bg-accent"
             >
               <Avatar className="h-8 w-8">
                 <AvatarImage
@@ -96,7 +82,11 @@ export function Header({ toggleSidebar }: { toggleSidebar: () => void }) {
                 />
                 <AvatarFallback>U</AvatarFallback>
               </Avatar>
-              <ChevronDown className="h-4 w-4 text-slate-400" />
+              <div className="hidden md:flex flex-col items-start">
+                  <span className="text-sm font-medium">User</span>
+                  <span className="text-xs text-muted-foreground">My Workspace</span>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>

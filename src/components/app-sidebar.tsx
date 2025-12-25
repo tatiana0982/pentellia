@@ -26,8 +26,6 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useMemo } from 'react';
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -48,23 +46,21 @@ const configItems = [
 
 export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
   const pathname = usePathname();
-  const userAvatar = useMemo(
-    () => PlaceHolderImages.find((img) => img.id === 'user-avatar'),
-    []
-  );
 
   return (
     <aside
       className={cn(
-        'fixed top-16 z-30 h-[calc(100vh-4rem)] bg-slate-950 text-slate-100 border-r border-slate-800 transition-all duration-300',
+        'fixed top-16 z-30 h-[calc(100vh-4rem)] bg-card text-foreground border-r border-border transition-all duration-300',
         isSidebarOpen ? 'w-64' : 'w-[70px]'
       )}
     >
       <div className="flex h-full flex-col">
         <div className="p-3">
           <Button
-            variant="warning"
-            className="w-full justify-center text-sm font-semibold text-slate-900 hover:bg-yellow-300"
+            className={cn(
+                'w-full justify-center text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90',
+                !isSidebarOpen && 'h-10 w-10 p-0'
+                )}
           >
             <Zap className="h-4 w-4" />
             {isSidebarOpen && <span className="ml-2">New scan</span>}
@@ -74,7 +70,7 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
         <div className="flex-1 space-y-4 overflow-y-auto px-3 pb-4">
           <div>
             {isSidebarOpen && (
-              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Workspaces
               </p>
             )}
@@ -83,7 +79,7 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
                 <Button
                   variant="ghost"
                   className={cn(
-                    'w-full justify-start text-white hover:bg-slate-700 hover:text-white',
+                    'w-full justify-start text-foreground hover:bg-accent hover:text-accent-foreground',
                     !isSidebarOpen && 'justify-center'
                   )}
                 >
@@ -109,10 +105,10 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center rounded px-3 py-2 text-slate-300 hover:bg-slate-800',
+                  'flex items-center rounded-lg px-3 py-2 text-muted-foreground hover:bg-accent hover:text-foreground',
                   !isSidebarOpen && 'justify-center',
                   pathname.startsWith(item.href)
-                    ? 'bg-slate-800 font-medium text-white'
+                    ? 'bg-accent font-medium text-foreground'
                     : ''
                 )}
               >
@@ -124,7 +120,7 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
 
           <div>
             {isSidebarOpen && (
-              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Configurations
               </p>
             )}
@@ -134,9 +130,9 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'flex items-center rounded px-3 py-2 text-slate-300 hover:bg-slate-800',
+                    'flex items-center rounded-lg px-3 py-2 text-muted-foreground hover:bg-accent hover:text-foreground',
                     !isSidebarOpen && 'justify-center',
-                     pathname.startsWith(item.href) ? 'bg-slate-800 font-medium text-white' : ''
+                     pathname.startsWith(item.href) ? 'bg-accent font-medium text-foreground' : ''
                   )}
                 >
                   <item.icon className="h-5 w-5" />

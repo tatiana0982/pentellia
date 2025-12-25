@@ -14,12 +14,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="h-screen bg-[#F5F7FB]">
+    <div className="min-h-screen bg-background text-foreground">
       <Header toggleSidebar={toggleSidebar} />
       <div className="flex pt-16 h-full">
         <AppSidebar isSidebarOpen={isSidebarOpen} />
         <main
-          className={`flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 transition-all duration-300 ${
+          className={`flex-1 overflow-y-auto transition-all duration-300 ${
             isSidebarOpen ? 'ml-64' : 'ml-[70px]'
           }`}
         >
