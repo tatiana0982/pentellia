@@ -198,7 +198,7 @@ export default function DashboardPage() {
                     <p className='text-xs text-muted-foreground font-medium'>Findings Trend</p>
                     <div className='h-[200px] w-full'>
                         <ChartContainer config={chartConfig} className="w-full h-full">
-                            <BarChart data={findingsTrendData} accessibilityLayer margin={{left: -30, right: 10, top: 10}}>
+                            <BarChart data={findingsTrendData} accessibilityLayer margin={{left: -20, right: 10, top: 10}}>
                                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
                                 <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} tick={{fontSize: 10}} />
                                 <YAxis tickLine={false} axisLine={false} tickMargin={8} width={30} tick={{fontSize: 10}} />
@@ -227,7 +227,7 @@ export default function DashboardPage() {
                     <p className='text-xs text-muted-foreground font-medium'>Open Vulnerability Age</p>
                     <div className='h-[200px] w-full'>
                          <ChartContainer config={chartConfig} className="w-full h-full">
-                            <BarChart data={vulnerabilityAgeData} accessibilityLayer margin={{left: -30, right: 10, top: 10}}>
+                            <BarChart data={vulnerabilityAgeData} accessibilityLayer margin={{left: -20, right: 10, top: 10}}>
                                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
                                 <XAxis dataKey="age" tickLine={false} axisLine={false} tickMargin={8} tick={{fontSize: 10}} />
                                 <YAxis tickLine={false} axisLine={false} tickMargin={8} width={30} tick={{fontSize: 10}} />
@@ -344,7 +344,7 @@ function KpiCard({ title, metric, delta, deltaType, invertDeltaColor = false }: 
     
     let colorClass;
     if (invertDeltaColor) {
-        colorClass = isIncrease ? 'text-success' : isDecrease ? 'text-destructive' : 'text-muted-foreground';
+        colorClass = isIncrease ? 'text-destructive' : isDecrease ? 'text-success' : 'text-muted-foreground';
     } else {
         colorClass = isIncrease ? 'text-destructive' : isDecrease ? 'text-success' : 'text-muted-foreground';
     }
