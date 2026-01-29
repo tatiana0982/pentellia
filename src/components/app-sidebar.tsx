@@ -43,7 +43,11 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
   useEffect(() => {
     const fetchScanData = async () => {
       try {
+<<<<<<< HEAD
         const res = await fetch("/api/dashboard/scans?limit=100");
+=======
+        const res = await fetch("/api/dashboard/scanslimit=100");
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
         const data = await res.json();
 
         // Assuming data.scans is an array of scan objects

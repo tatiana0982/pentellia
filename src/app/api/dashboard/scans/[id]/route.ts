@@ -20,7 +20,11 @@ async function getUid() {
 // ------------------------------------------------------------------
 export async function GET(
   req: NextRequest,
+<<<<<<< HEAD
   { params }: { params: { id: string } },
+=======
+  { params }: { params: { id: string } }
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
 ) {
   const uid = await getUid();
   if (!uid)
@@ -35,7 +39,11 @@ export async function GET(
        FROM scans s
        LEFT JOIN tools t ON s.tool_id = t.id
        WHERE s.id = $1 AND s.user_uid = $2`,
+<<<<<<< HEAD
       [id, uid],
+=======
+      [id, uid]
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     );
 
     if (dbRes.rows.length === 0) {
@@ -52,12 +60,20 @@ export async function GET(
 
     // 3. Sync with External Python API
     const externalJobId = scan.external_job_id;
+<<<<<<< HEAD
     const toolsBaseUrl = process.env.TOOLS_BASE_URL;
+=======
+    const toolsBaseUrl = process.env.TOOLS_BASE_URL; // e.g. http://127.0.0.1:5000
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     const apiKey = process.env.TOOLS_API_KEY || "";
 
     console.log(`[API] Syncing Scan ${id} | External Job: ${externalJobId}`);
     console.log(
+<<<<<<< HEAD
       `[API] Fetching Status: ${toolsBaseUrl}/status/${externalJobId}`,
+=======
+      `[API] Fetching Status: ${toolsBaseUrl}/status/${externalJobId}`
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     );
 
     const statusRes = await fetch(`${toolsBaseUrl}/status/${externalJobId}`, {
@@ -70,7 +86,11 @@ export async function GET(
     // HANDLE ZOMBIE JOBS (404 from Python)
     if (statusRes.status === 404) {
       console.warn(
+<<<<<<< HEAD
         `[API] ⚠️ Job ${externalJobId} missing on Python Server. Marking FAILED.`,
+=======
+        `[API] ⚠️ Job ${externalJobId} missing on Python Server. Marking FAILED.`
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
       );
 
       const failedResult = {
@@ -80,7 +100,11 @@ export async function GET(
 
       const updateRes = await query(
         `UPDATE scans SET status = 'failed', result = $1, completed_at = NOW() WHERE id = $2 RETURNING *`,
+<<<<<<< HEAD
         [JSON.stringify(failedResult), id],
+=======
+        [JSON.stringify(failedResult), id]
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
       );
 
       // Update local object to return immediately
@@ -95,17 +119,28 @@ export async function GET(
 
     const statusData = await statusRes.json();
     const newStatus = statusData.status;
+<<<<<<< HEAD
     console.log(`[API] Current Python Status: ${statusData}`);
+=======
+    console.log(`[API] Current Python Status: ${newStatus}`);
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
 
     // 4. If Completed, Fetch Results
     if (newStatus === "completed" && scan.status !== "completed") {
       console.log(`[API] Job Completed! Fetching Results...`);
 
       const resultRes = await fetch(
+<<<<<<< HEAD
         `${toolsBaseUrl}/results/${externalJobId}?normalized=true`,
         {
           headers: { "X-API-Key": apiKey },
         },
+=======
+        `${toolsBaseUrl}/results/${externalJobId}`,
+        {
+          headers: { "X-API-Key": apiKey },
+        }
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
       );
       const resultData = await resultRes.json();
 
@@ -114,18 +149,27 @@ export async function GET(
         console.error(`[API] Job Result contained Error:`, resultData.error);
         const updateRes = await query(
           `UPDATE scans SET status = 'failed', result = $1, completed_at = NOW() WHERE id = $2 RETURNING *`,
+<<<<<<< HEAD
           [JSON.stringify(resultData), id],
+=======
+          [JSON.stringify(resultData), id]
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
         );
         scan = { ...scan, ...updateRes.rows[0] };
       } else {
         // Success Path
         const updateRes = await query(
           `UPDATE scans SET status = 'completed', result = $1, completed_at = NOW() WHERE id = $2 RETURNING *`,
+<<<<<<< HEAD
           [JSON.stringify(resultData), id],
+=======
+          [JSON.stringify(resultData), id]
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
         );
         scan = { ...scan, ...updateRes.rows[0] };
       }
     }
+<<<<<<< HEAD
 
     if (newStatus !== "completed") {
       // Optional: keep DB status in sync
@@ -141,6 +185,16 @@ export async function GET(
         scan,
         pythonStatus: statusData, // 👈 FULL PYTHON RESPONSE
       });
+=======
+    // 5. Status Update (e.g. queued -> running)
+    else if (newStatus !== scan.status) {
+      console.log(`[API] Updating DB Status: ${scan.status} -> ${newStatus}`);
+      const updateRes = await query(
+        `UPDATE scans SET status = $1 WHERE id = $2 RETURNING *`,
+        [newStatus, id]
+      );
+      scan = { ...scan, ...updateRes.rows[0] };
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     }
 
     return NextResponse.json({ success: true, scan });
@@ -148,6 +202,7 @@ export async function GET(
     console.error("[API] Critical Get Scan Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
+<<<<<<< HEAD
       { status: 500 },
     );
   }
@@ -223,6 +278,16 @@ export async function POST(
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } },
+=======
+      { status: 500 }
+    );
+  }
+}
+// DELETE: Remove record from Postgres
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
 ) {
   const uid = await getUid();
   if (!uid)
@@ -244,7 +309,11 @@ export async function DELETE(
   } catch (error) {
     return NextResponse.json(
       { error: "Internal Server Error" },
+<<<<<<< HEAD
       { status: 500 },
+=======
+      { status: 500 }
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     );
   }
 }

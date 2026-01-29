@@ -40,7 +40,11 @@ export async function GET(req: NextRequest) {
 
     const countRes = await query(
       `SELECT COUNT(*) FROM scans WHERE user_uid = $1`,
+<<<<<<< HEAD
       [uid],
+=======
+      [uid]
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     );
     const totalScans = parseInt(countRes.rows[0].count);
 
@@ -58,7 +62,11 @@ export async function GET(req: NextRequest) {
     console.error("Fetch Scans Error:", error);
     return NextResponse.json(
       { error: "Failed to fetch scans" },
+<<<<<<< HEAD
       { status: 500 },
+=======
+      { status: 500 }
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     );
   }
 }

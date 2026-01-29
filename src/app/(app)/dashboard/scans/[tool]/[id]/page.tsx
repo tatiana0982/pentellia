@@ -34,6 +34,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import toast from "react-hot-toast";
 import jsPDF from "jspdf";
+<<<<<<< HEAD
 import autoTable from "jspdf-autotable";
 import {
   AlertDialog,
@@ -45,6 +46,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+=======
+import { CloudScanReport } from "@/lib/CloudScanReport"; // Adjust path
+// --- Import Specialized Reports ---
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
 // Ensure these paths exist in your project
 import {
   Wafw00fReport,
@@ -54,7 +59,10 @@ import {
 } from "@/lib/scan-reports";
 import { NetworkScanReport } from "@/lib/NetworkScanReport";
 import { WebScanReport } from "@/lib/WebScanReport";
+<<<<<<< HEAD
 import { CommonScanReport } from "@/lib/Common";
+=======
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
 
 // --- Types ---
 interface ScanResult {
@@ -72,7 +80,11 @@ interface ScanResult {
 // ----------------------------------------------------------------------
 
 const loadImage = (
+<<<<<<< HEAD
   url: string,
+=======
+  url: string
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
 ): Promise<{ data: string; w: number; h: number }> => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -99,6 +111,7 @@ const loadImage = (
   });
 };
 
+<<<<<<< HEAD
 // ----------------------------------------------------------------------
 // PDF GENERATOR LOGIC (AESTHETIC & DETAILED)
 // ----------------------------------------------------------------------
@@ -214,10 +227,114 @@ const generateAndSavePDF = async (scan: any, aiSummaryText: string) => {
   // --- SECTION: RAW TELEMETRY ---
   doc.setFont("helvetica", "bold");
   doc.text("03. Raw Scan Telemetry (JSON)", margin, currentY);
+=======
+const generateAndSavePDF = async (scan: any) => {
+  const doc = new jsPDF({ compress: true });
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  const margin = 15;
+  const maxLineWidth = pageWidth - margin * 2;
+
+  const PRIMARY_COLOR = "#7c3aed";
+  const SECONDARY_COLOR = "#4c1d95";
+  const TEXT_DARK = "#1f2937";
+  const TEXT_LIGHT = "#6b7280";
+
+  // Header Background
+  doc.setFillColor(245, 243, 255);
+  doc.rect(0, 0, pageWidth, 50, "F");
+
+  // Logo
+  try {
+    const logo = await loadImage("https://pentellia.vercel.app/full-logo.png");
+    if (logo.data) {
+      const pdfLogoWidth = 40;
+      const pdfLogoHeight = (logo.h / logo.w) * pdfLogoWidth;
+      doc.addImage(logo.data, "PNG", margin, 12, pdfLogoWidth, pdfLogoHeight);
+    }
+  } catch (e) {
+    console.warn("Logo failed");
+  }
+
+  // Header Text
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.setTextColor(PRIMARY_COLOR);
+  doc.text("SECURITY ASSESSMENT", pageWidth - margin, 20, { align: "right" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(TEXT_LIGHT);
+  doc.text("CONFIDENTIAL REPORT", pageWidth - margin, 26, { align: "right" });
+
+  // Client Info
+  doc.setFontSize(10);
+  doc.setTextColor(TEXT_DARK);
+  doc.text("Client Organization:", margin, 38);
+  doc.setFont("helvetica", "bold");
+  doc.text("EncodersPro", margin, 43);
+
+  // Date
+  doc.setFont("helvetica", "normal");
+  doc.text("Date Generated:", pageWidth - margin - 40, 38);
+  doc.setFont("helvetica", "bold");
+  doc.text(new Date().toLocaleDateString(), pageWidth - margin - 40, 43);
+
+  doc.setDrawColor(PRIMARY_COLOR);
+  doc.setLineWidth(0.5);
+  doc.line(0, 50, pageWidth, 50);
+
+  // Overview
+  let currentY = 70;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(SECONDARY_COLOR);
+  doc.text("Assessment Overview", margin, currentY);
+  currentY += 8;
+
+  // Overview Box
+  doc.setFillColor(252, 252, 252);
+  doc.setDrawColor(220, 220, 220);
+  doc.roundedRect(margin, currentY, maxLineWidth, 35, 3, 3, "FD");
+
+  const col1 = margin + 5;
+  const col2 = margin + 90;
+  const row1 = currentY + 10;
+  const row2 = currentY + 22;
+
+  doc.setFontSize(9);
+  doc.setTextColor(TEXT_LIGHT);
+  doc.setFont("helvetica", "normal");
+  doc.text("Target Asset:", col1, row1);
+  doc.text("Tool Used:", col1, row2);
+  doc.text("Scan ID:", col2, row1);
+  doc.text("Status:", col2, row2);
+
+  doc.setTextColor(TEXT_DARK);
+  doc.setFont("helvetica", "bold");
+  const shortId = scan.id
+    ? scan.id.length > 25
+      ? scan.id.substring(0, 25) + "..."
+      : scan.id
+    : "N/A";
+  doc.text(scan.target || "N/A", col1 + 25, row1);
+  doc.text(scan.tool_name || "Custom Scan", col1 + 25, row2);
+  doc.text(shortId, col2 + 15, row1);
+  doc.text("Completed", col2 + 15, row2);
+
+  currentY += 50;
+
+  // Findings
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(SECONDARY_COLOR);
+  doc.text("Technical Findings (Raw Data)", margin, currentY);
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
   currentY += 10;
 
   doc.setFont("courier", "normal");
   doc.setFontSize(8);
+<<<<<<< HEAD
   doc.setTextColor(100, 116, 139);
   
   const rawData = JSON.stringify(scan.result, null, 2);
@@ -243,6 +360,31 @@ const generateAndSavePDF = async (scan: any, aiSummaryText: string) => {
     doc.setTextColor(148, 163, 184);
     doc.text(`PENTELLIA CYBER TOOL V2.0 - SECURE INTERNAL LOG`, margin, pageHeight - 6);
     doc.text(`PAGE ${i} / ${totalPages}`, pageWidth - margin, pageHeight - 6, { align: "right" });
+=======
+  doc.setTextColor(50, 50, 50);
+  const jsonString = JSON.stringify(scan.result, null, 2);
+  const splitText = doc.splitTextToSize(jsonString, maxLineWidth);
+  doc.text(splitText, margin, currentY);
+
+  // Footer
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.1);
+    doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text(
+      "Pentellia Security Platform | EncodersPro Confidential",
+      margin,
+      pageHeight - 10
+    );
+    doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 10, {
+      align: "right",
+    });
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
   }
 
   return doc;
@@ -261,6 +403,7 @@ export default function ScanReportPage() {
   const [polling, setPolling] = useState(true);
   const [progress, setProgress] = useState(0);
   const [aiSummary, setAiSummary] = useState("");
+<<<<<<< HEAD
 
   const [showCmsModal, setShowCmsModal] = useState(false);
   const [cmsDetails, setCmsDetails] = useState<{
@@ -268,6 +411,8 @@ export default function ScanReportPage() {
     jobId: string;
   } | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
+=======
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
   // --- Fetch & Polling Logic ---
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
@@ -279,6 +424,7 @@ export default function ScanReportPage() {
         const data = await res.json();
 
         if (data.success) {
+<<<<<<< HEAD
           const fullScanData = { ...data.scan, result: data.pythonStatus };
           setScan(fullScanData);
           // ----------------------------------------------------
@@ -301,6 +447,19 @@ export default function ScanReportPage() {
           }
           if (data.scan.status === "completed") {
             setScan(data.scan);
+=======
+          setScan(data.scan);
+
+          if (data.scan.status === "running") {
+            setProgress((prev) =>
+              prev < 90 ? prev + Math.random() * 5 : prev
+            );
+          } else if (data.scan.status === "completed") {
+            setProgress(100);
+            setPolling(false);
+          } else if (["failed", "cancelled"].includes(data.scan.status)) {
+            setPolling(false);
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
           }
         } else {
           setPolling(false);
@@ -315,6 +474,7 @@ export default function ScanReportPage() {
     if (polling && scanId) intervalId = setInterval(fetchScanStatus, 3000);
 
     return () => clearInterval(intervalId);
+<<<<<<< HEAD
   }, [scanId, polling, showCmsModal]);
   // --- Handle CMS Confirmation ---
   const handleCmsAction = async (confirm: boolean) => {
@@ -353,6 +513,27 @@ const handleExport = async () => {
       const doc = await generateAndSavePDF(scan, aiSummary);
       doc.save(`Pentellia_Intel_${scan.id.slice(0, 8)}.pdf`);
       toast.success("Cyber Intel Report Exported", { id: toastId });
+=======
+  }, [scanId, polling]);
+
+  // --- Export Handler ---
+  const handleExport = async () => {
+    if (!scan) return;
+    const toastId = toast.loading("Generating PDF Report...");
+
+    try {
+      const doc = await generateAndSavePDF(scan);
+
+      // Option A: Save Directly to User
+      doc.save(`EncodersPro_Report_${scan.id.slice(0, 8)}.pdf`);
+      toast.success("Report Downloaded", { id: toastId });
+
+      const pdfBlob = doc.output("blob");
+      const formData = new FormData();
+      formData.append("pdf", pdfBlob, `EncodersPro_Report_${scan.id}.pdf`);
+      formData.append("scanId", scan.id);
+      await fetch("/api/dashboard/reports", { method: "POST", body: formData });
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     } catch (error) {
       console.error(error);
       toast.error("Export Failed", { id: toastId });
@@ -371,7 +552,11 @@ const handleExport = async () => {
   }
 
   return (
+<<<<<<< HEAD
     <div className="flex flex-col h-[calc(100vh-6rem)] font-sans text-slate-200 overflow-y-auto custom-scrollbar  ">
+=======
+    <div className="flex flex-col h-[calc(100vh-6rem)] font-sans text-slate-200 overflow-y-auto custom-scrollbar  space-y-6">
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
       <ScanHeader
         scan={scan}
         onExport={handleExport}
@@ -388,6 +573,7 @@ const handleExport = async () => {
           aiSummary={aiSummary}
         />
       )}
+<<<<<<< HEAD
 
       <AlertDialog open={showCmsModal} onOpenChange={setShowCmsModal}>
         <AlertDialogContent className="bg-[#0B0C15] border border-white/10 text-slate-200">
@@ -432,6 +618,8 @@ const handleExport = async () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+=======
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     </div>
   );
 }
@@ -456,6 +644,7 @@ function ScanHeader({
   const [aiLoading, setAiLoading] = useState(false);
   const [isAiOpen, setIsAiOpen] = useState(false);
 
+<<<<<<< HEAD
  const handleAiSummarize = async () => {
   setAiLoading(true);
   setAiSummary("");
@@ -484,6 +673,37 @@ function ScanHeader({
   }
   setAiLoading(false);
 };
+=======
+  const handleAiSummarize = async () => {
+    setAiLoading(true);
+    setAiSummary("");
+
+    try {
+      const res = await fetch("/api/ai/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toolName: scan.tool_name,
+          scanData: scan.result,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setAiSummary(data.summary);
+      } else {
+        toast.error("AI Analysis Failed: " + data.error);
+        setIsAiOpen(false);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to reach AI service");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
 
   return (
     <div className="flex flex-col gap-4 p-6">
@@ -525,6 +745,7 @@ function ScanHeader({
                 </DialogTitle>
               </DialogHeader>
 
+<<<<<<< HEAD
 
               <div className="min-h-[300px] mt-4">
                 <ScrollArea className="h-[500px] pr-4">
@@ -546,11 +767,35 @@ function ScanHeader({
                       <ReactMarkdown
                         components={{
                           h3: ({ ...props }) => (
+=======
+              <div className="min-h-[300px] mt-4">
+                {aiLoading ? (
+                  <div className="flex flex-col items-center justify-center h-64 gap-4 animate-pulse">
+                    <div className="h-12 w-12 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                      <Sparkles className="h-6 w-6 text-indigo-400 animate-spin" />
+                    </div>
+                    <p className="text-slate-400 text-sm font-medium">
+                      Analyzing attack vectors with Pentellia Co-Pilot...
+                    </p>
+                    <div className="flex gap-1">
+                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-bounce" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-bounce delay-100" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-bounce delay-200" />
+                    </div>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[500px] pr-4">
+                    <div className="prose prose-invert prose-sm max-w-none text-slate-300">
+                      <ReactMarkdown
+                        components={{
+                          h3: ({ node, ...props }) => (
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
                             <h3
                               className="text-indigo-400 text-lg font-semibold mt-6 mb-3 border-l-4 border-indigo-500 pl-3"
                               {...props}
                             />
                           ),
+<<<<<<< HEAD
                           strong: ({ ...props }) => (
                             <span className="text-white font-bold" {...props} />
                           ),
@@ -561,12 +806,28 @@ function ScanHeader({
                             />
                           ),
                           p: ({ ...props }) => (
+=======
+                          strong: ({ node, ...props }) => (
+                            <span className="text-white font-bold" {...props} />
+                          ),
+                          ul: ({ node, ...props }) => (
+                            <ul
+                              className="list-disc pl-5 space-y-2 my-2 marker:text-indigo-500"
+                              {...props}
+                            />
+                          ),
+                          li: ({ node, ...props }) => (
+                            <li className="text-slate-300" {...props} />
+                          ),
+                          p: ({ node, ...props }) => (
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
                             <p className="leading-relaxed mb-4" {...props} />
                           ),
                         }}
                       >
                         {aiSummary}
                       </ReactMarkdown>
+<<<<<<< HEAD
 
                       {/* Typing cursor */}
                       {aiLoading && (
@@ -575,6 +836,11 @@ function ScanHeader({
                     </div>
                   )}
                 </ScrollArea>
+=======
+                    </div>
+                  </ScrollArea>
+                )}
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
               </div>
             </DialogContent>
           </Dialog>
@@ -613,10 +879,13 @@ function ScanHeader({
 // VIEW: RUNNING STATE
 // ----------------------------------------------------------------------
 
+<<<<<<< HEAD
 // ----------------------------------------------------------------------
 // VIEW: RUNNING STATE
 // ----------------------------------------------------------------------
 
+=======
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
 function RunningStateView({
   scan,
   progress,
@@ -626,6 +895,7 @@ function RunningStateView({
 }) {
   const [logsOpen, setLogsOpen] = useState(true);
 
+<<<<<<< HEAD
   const pythonStatus = scan.result || {}; // Adjust based on how you store the pythonStatus
   const realProgress = pythonStatus?.progress?.percentage || progress;
   const currentStep =
@@ -687,24 +957,73 @@ function RunningStateView({
         </div>
 
         <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-white/5">
+=======
+  return (
+    <div className="space-y-6 p-6">
+      {/* Progress Card */}
+      <div className="bg-[#0B0C15] border border-white/10 rounded-xl p-8 shadow-lg">
+        <div className="flex justify-between items-end mb-2">
+          <div className="space-y-1">
+            <h3 className="text-lg font-medium text-white">
+              Scan in progress...
+            </h3>
+            <p className="text-sm text-slate-400">
+              Enumerating target assets and identifying vulnerabilities.
+            </p>
+          </div>
+          <span className="text-2xl font-bold text-violet-400">
+            {Math.round(progress)}%
+          </span>
+        </div>
+
+        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden relative">
+          <div
+            className="h-full bg-violet-600 transition-all duration-500 ease-out relative overflow-hidden"
+            style={{ width: `${progress}%` }}
+          >
+            <div className="absolute inset-0 bg-white/20 w-full h-full animate-[shimmer_2s_infinite] bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.2)_50%,transparent_75%,transparent_100%)] bg-[length:20px_20px]" />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-white/5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-white/10 text-slate-400 hover:text-white"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" /> Rescan
+          </Button>
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
           <Button
             variant="destructive"
             size="sm"
             className="bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"
           >
+<<<<<<< HEAD
             <StopCircle className="h-4 w-4 mr-2" /> Abort Scan
+=======
+            <StopCircle className="h-4 w-4 mr-2" /> Stop Scan
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
           </Button>
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Live Logs Terminal */}
+=======
+      {/* Logs Accordion */}
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
       <div className="border border-white/10 rounded-xl bg-[#0B0C15] overflow-hidden">
         <button
           onClick={() => setLogsOpen(!logsOpen)}
           className="w-full flex items-center justify-between p-4 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
         >
           <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
+<<<<<<< HEAD
             <Terminal className="h-4 w-4 text-slate-500" /> Live Execution Log
+=======
+            <Terminal className="h-4 w-4 text-slate-500" /> Scan Logs
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
           </span>
           {logsOpen ? (
             <ChevronUp className="h-4 w-4" />
@@ -714,6 +1033,7 @@ function RunningStateView({
         </button>
 
         {logsOpen && (
+<<<<<<< HEAD
           <ScrollArea className="h-64 bg-[#05060a] p-4 font-mono text-xs">
             <div className="space-y-1.5">
               <div className="text-slate-500 border-b border-white/5 pb-2 mb-2">
@@ -741,6 +1061,19 @@ function RunningStateView({
               <div className="mt-2 h-4 w-2 bg-slate-500 animate-blink" />
             </div>
           </ScrollArea>
+=======
+          <div className="p-4 bg-black/50 font-mono text-xs text-slate-400 h-48 overflow-y-auto space-y-1">
+            <div className="text-emerald-500/80">
+              [+] Initializing engine...
+            </div>
+            <div>[*] Target: {scan.target}</div>
+            <div>[*] Checking connectivity... OK</div>
+            <div className="text-yellow-500/80">
+              [!] Starting enumeration phase...
+            </div>
+            <div className="animate-pulse">_</div>
+          </div>
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
         )}
       </div>
     </div>
@@ -760,12 +1093,68 @@ function CompletedReportView({
   scan: ScanResult;
   toolSlug: string;
 }) {
+<<<<<<< HEAD
   console.log(scan);
   // We use the common report for ALL completed scans now,
   // passing the raw scan result which contains the new standardized structure.
   return (
     <div className="animate-in fade-in duration-500">
       <CommonScanReport data={scan.result} aiSummary={aiSummary} />
+=======
+  const toolKey = (toolSlug || scan.tool_name || "").toLowerCase();
+  const duration = scan.completed_at ? "Completed" : "-";
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500 ">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 px-6">
+        <InfoCard
+          label="Tool Module"
+          value={scan.tool_name || toolSlug}
+          icon={Shield}
+        />
+        <InfoCard label="Duration" value={duration} icon={Clock} />
+        <InfoCard
+          label="Date"
+          value={new Date(scan.created_at).toLocaleDateString()}
+          icon={Calendar}
+        />
+        <InfoCard
+          label="Result Size"
+          value={
+            JSON.stringify(scan.result).length > 1000 ? "Large" : "Standard"
+          }
+          icon={Layers}
+        />
+      </div>
+
+      <div className="min-h-[400px]">
+        {/* ADD THIS CHECK FOR CLOUDSCAN */}
+        {toolKey.includes("cloudscan") ? (
+          <CloudScanReport data={scan.result} aiSummary={aiSummary} />
+        ) : toolKey.includes("networkscan") ? (
+          <NetworkScanReport data={{ data: scan.result }} />
+        ) : toolKey.includes("waf") ? (
+          <Wafw00fReport data={{ data: scan.result }} />
+        ) : toolKey.includes("webscan") ? (
+          <WebScanReport data={{ data: scan.result }} />
+        ) : (
+          // ... rest of checks
+          <GenericJSONReport data={scan.result} />
+        )}
+      </div>
+
+      {/* <div className="border-t border-white/10 pt-8">
+        <details className="group">
+          <summary className="flex items-center gap-2 text-sm text-slate-500 cursor-pointer hover:text-white list-none select-none transition-colors">
+            <FileText className="h-4 w-4" /> View Raw Result Data
+            <ChevronDown className="h-3 w-3 group-open:rotate-180 transition-transform" />
+          </summary>
+          <pre className="mt-4 p-4 bg-black rounded-lg border border-white/10 text-xs font-mono text-emerald-500/80 overflow-auto max-h-[400px] shadow-inner whitespace-pre-wrap break-all">
+            {JSON.stringify(scan.result, null, 2)}
+          </pre>
+        </details>
+      </div> */}
+>>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     </div>
   );
 }
