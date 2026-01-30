@@ -1,5 +1,7 @@
 import { query } from "@/config/db";
+import { createNotification } from "@/lib/notifications";
 import { CreateUserInput } from "@/models/user.model";
+import { use } from "react";
 
 interface LocationData {
   ip: string;
@@ -39,6 +41,12 @@ export class UserService {
 
     try {
       const res = await query(upsertText, values);
+      await createNotification(
+        user.uid,
+        "Welcome to Pentellia! 🚀",
+        "Thanks for joining. Ready to secure your infrastructure? Start your first scan from the dashboard.",
+        "success", // Green checkmark icon
+      );
       return res.rows[0];
     } catch (error: any) {
       // Handle Email Conflict (Legacy Account Linking)

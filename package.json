@@ -51,6 +51,7 @@
     "lottie-react": "^2.4.0",
     "lucide-react": "^0.475.0",
     "next": "15.5.9",
+    "nodemailer": "^7.0.13",
     "patch-package": "^8.0.0",
     "pg": "^8.16.3",
     "react": "^19.2.1",
@@ -59,10 +60,7 @@
     "react-hook-form": "^7.54.2",
     "react-hot-toast": "^2.6.0",
     "react-markdown": "^10.1.0",
-<<<<<<< HEAD
     "react-to-pdf": "^3.0.0",
-=======
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     "recharts": "^2.15.1",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
@@ -71,6 +69,7 @@
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/nodemailer": "^7.0.9",
     "@types/react": "^19.2.1",
     "@types/react-dom": "^19.2.1",
     "genkit-cli": "^1.20.0",

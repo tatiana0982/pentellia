@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 // src/app/api/users/route.ts
-=======
-// src/app/api/profile/route.ts (or wherever this file is)
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
 import { adminAuth } from "@/config/firebaseAdmin";
@@ -13,12 +9,7 @@ async function getUid() {
   const sessionCookie = cookieStore.get("__session")?.value;
   if (!sessionCookie) return null;
   try {
-<<<<<<< HEAD
     // PERFORMANCE FIX: Set checkRevoked to false to avoid external network calls on every request.
-=======
-    // PERFORMANCE FIX: Set checkRevoked to false.
-    // This removes the external network call to Firebase on every request.
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     const decoded = await adminAuth.verifySessionCookie(sessionCookie, false);
     return decoded.uid;
   } catch (e) {
@@ -27,25 +18,14 @@ async function getUid() {
 }
 
 export async function GET(req: NextRequest) {
-<<<<<<< HEAD
   const start = Date.now();
-  const uid = await getUid();
-
-  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  try {
-    // We do NOT select 'avatar' (the blob) here to keep this query extremely fast.
-=======
-  const start = Date.now(); // Debug timing
   const uid = await getUid();
 
   if (!uid)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    // PERFORMANCE FIX: Do NOT select 'avatar' here.
-    // Fetching binary blobs converts 50ms queries into 2000ms queries.
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
+    // We do NOT select 'avatar' (the blob) here to keep this query extremely fast.
     const text = `
       SELECT first_name, last_name, email, company, size, role, country, timezone, verified_domain
       FROM users WHERE uid = $1
@@ -58,7 +38,6 @@ export async function GET(req: NextRequest) {
 
     const u = res.rows[0];
 
-<<<<<<< HEAD
     return NextResponse.json({
       success: true,
       user: {
@@ -75,13 +54,17 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("Fetch Profile Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
 
 export async function PUT(req: NextRequest) {
   const uid = await getUid();
-  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!uid)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const body = await req.json();
@@ -105,7 +88,7 @@ export async function PUT(req: NextRequest) {
     for (const [key, value] of Object.entries(body)) {
       if (fieldMap[key]) {
         fields.push(`${fieldMap[key]} = $${idx}`);
-        
+
         // 2. Special handling for Avatar (Base64 to Buffer)
         if (key === "avatar" && typeof value === "string") {
           // Check if it's a base64 data URL
@@ -114,13 +97,16 @@ export async function PUT(req: NextRequest) {
         } else {
           values.push(value);
         }
-        
+
         idx++;
       }
     }
 
     if (fields.length === 0) {
-      return NextResponse.json({ error: "No valid fields provided" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No valid fields provided" },
+        { status: 400 },
+      );
     }
 
     // 3. Execute the Dynamic Update
@@ -135,40 +121,18 @@ export async function PUT(req: NextRequest) {
     const res = await query(sql, values);
 
     if (res.rowCount === 0) {
-      return NextResponse.json({ error: "Update failed: User not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Update failed: User not found" },
+        { status: 404 },
+      );
     }
 
     return NextResponse.json({ success: true, message: "Profile updated" });
   } catch (error) {
     console.error("Update Profile Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-  }
-}
-=======
-    // NOTE: If you really need the avatar, create a separate API route: /api/user/avatar
-    // Or prefer using a cloud storage URL (S3/Firebase) instead of binary in DB.
-
-    const userData = {
-      firstName: u.first_name || "",
-      lastName: u.last_name || "",
-      email: u.email || "",
-      // avatar: "/api/user/avatar", // <--- Load this lazily via <img> tag
-      company: u.company || "",
-      size: u.size || "",
-      role: u.role || "",
-      country: u.country || "",
-      timezone: u.timezone || "",
-      verifiedDomain: u.verified_domain || "",
-    };
-
-    console.log(`Profile fetch took: ${Date.now() - start}ms`);
-    return NextResponse.json({ success: true, user: userData });
-  } catch (error) {
-    console.error("Fetch Profile Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89

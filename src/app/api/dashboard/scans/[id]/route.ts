@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
 import { adminAuth } from "@/config/firebaseAdmin";
 import { cookies } from "next/headers";
+import { createNotification } from "@/lib/notifications"; // Ensure this path is correct
 
+// --- Helper: Get User ID from Session ---
 async function getUid() {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get("__session")?.value;
@@ -16,198 +18,8 @@ async function getUid() {
 }
 
 // ------------------------------------------------------------------
-// 1. GET: SYNC STATUS (The "Smart Proxy")
+// POST: HANDLE CMS CONFIRMATION
 // ------------------------------------------------------------------
-export async function GET(
-  req: NextRequest,
-<<<<<<< HEAD
-  { params }: { params: { id: string } },
-=======
-  { params }: { params: { id: string } }
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
-) {
-  const uid = await getUid();
-  if (!uid)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { id } = await Promise.resolve(params);
-
-  try {
-    // 1. Fetch current state from DB
-    const dbRes = await query(
-      `SELECT s.*, t.name as tool_name, t.category as tool_category 
-       FROM scans s
-       LEFT JOIN tools t ON s.tool_id = t.id
-       WHERE s.id = $1 AND s.user_uid = $2`,
-<<<<<<< HEAD
-      [id, uid],
-=======
-      [id, uid]
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
-    );
-
-    if (dbRes.rows.length === 0) {
-      console.error(`[API] Scan not found in DB: ${id}`);
-      return NextResponse.json({ error: "Scan not found" }, { status: 404 });
-    }
-
-    let scan = dbRes.rows[0];
-
-    // 2. Optimization: If finished, return immediately
-    if (["completed", "failed", "cancelled"].includes(scan.status)) {
-      return NextResponse.json({ success: true, scan });
-    }
-
-    // 3. Sync with External Python API
-    const externalJobId = scan.external_job_id;
-<<<<<<< HEAD
-    const toolsBaseUrl = process.env.TOOLS_BASE_URL;
-=======
-    const toolsBaseUrl = process.env.TOOLS_BASE_URL; // e.g. http://127.0.0.1:5000
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
-    const apiKey = process.env.TOOLS_API_KEY || "";
-
-    console.log(`[API] Syncing Scan ${id} | External Job: ${externalJobId}`);
-    console.log(
-<<<<<<< HEAD
-      `[API] Fetching Status: ${toolsBaseUrl}/status/${externalJobId}`,
-=======
-      `[API] Fetching Status: ${toolsBaseUrl}/status/${externalJobId}`
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
-    );
-
-    const statusRes = await fetch(`${toolsBaseUrl}/status/${externalJobId}`, {
-      headers: { "X-API-Key": apiKey },
-    });
-
-    // --- DEBUGGING LOGS ---
-    console.log(`[API] Python Status Code: ${statusRes.status}`);
-
-    // HANDLE ZOMBIE JOBS (404 from Python)
-    if (statusRes.status === 404) {
-      console.warn(
-<<<<<<< HEAD
-        `[API] ⚠️ Job ${externalJobId} missing on Python Server. Marking FAILED.`,
-=======
-        `[API] ⚠️ Job ${externalJobId} missing on Python Server. Marking FAILED.`
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
-      );
-
-      const failedResult = {
-        error:
-          "Job lost on external server (Server Restarted or Worker Mismatch)",
-      };
-
-      const updateRes = await query(
-        `UPDATE scans SET status = 'failed', result = $1, completed_at = NOW() WHERE id = $2 RETURNING *`,
-<<<<<<< HEAD
-        [JSON.stringify(failedResult), id],
-=======
-        [JSON.stringify(failedResult), id]
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
-      );
-
-      // Update local object to return immediately
-      scan = { ...scan, ...updateRes.rows[0] };
-      return NextResponse.json({ success: true, scan });
-    }
-
-    if (!statusRes.ok) {
-      console.error(`[API] Python Error: ${statusRes.statusText}`);
-      return NextResponse.json({ success: true, scan }); // Return old DB state if API fails temporarily
-    }
-
-    const statusData = await statusRes.json();
-    const newStatus = statusData.status;
-<<<<<<< HEAD
-    console.log(`[API] Current Python Status: ${statusData}`);
-=======
-    console.log(`[API] Current Python Status: ${newStatus}`);
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
-
-    // 4. If Completed, Fetch Results
-    if (newStatus === "completed" && scan.status !== "completed") {
-      console.log(`[API] Job Completed! Fetching Results...`);
-
-      const resultRes = await fetch(
-<<<<<<< HEAD
-        `${toolsBaseUrl}/results/${externalJobId}?normalized=true`,
-        {
-          headers: { "X-API-Key": apiKey },
-        },
-=======
-        `${toolsBaseUrl}/results/${externalJobId}`,
-        {
-          headers: { "X-API-Key": apiKey },
-        }
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
-      );
-      const resultData = await resultRes.json();
-
-      // Check if the result itself contains an error
-      if (resultData.error) {
-        console.error(`[API] Job Result contained Error:`, resultData.error);
-        const updateRes = await query(
-          `UPDATE scans SET status = 'failed', result = $1, completed_at = NOW() WHERE id = $2 RETURNING *`,
-<<<<<<< HEAD
-          [JSON.stringify(resultData), id],
-=======
-          [JSON.stringify(resultData), id]
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
-        );
-        scan = { ...scan, ...updateRes.rows[0] };
-      } else {
-        // Success Path
-        const updateRes = await query(
-          `UPDATE scans SET status = 'completed', result = $1, completed_at = NOW() WHERE id = $2 RETURNING *`,
-<<<<<<< HEAD
-          [JSON.stringify(resultData), id],
-=======
-          [JSON.stringify(resultData), id]
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
-        );
-        scan = { ...scan, ...updateRes.rows[0] };
-      }
-    }
-<<<<<<< HEAD
-
-    if (newStatus !== "completed") {
-      // Optional: keep DB status in sync
-      if (newStatus !== scan.status) {
-        await query(`UPDATE scans SET status = $1 WHERE id = $2`, [
-          newStatus,
-          id,
-        ]);
-      }
-
-      return NextResponse.json({
-        success: true,
-        scan,
-        pythonStatus: statusData, // 👈 FULL PYTHON RESPONSE
-      });
-=======
-    // 5. Status Update (e.g. queued -> running)
-    else if (newStatus !== scan.status) {
-      console.log(`[API] Updating DB Status: ${scan.status} -> ${newStatus}`);
-      const updateRes = await query(
-        `UPDATE scans SET status = $1 WHERE id = $2 RETURNING *`,
-        [newStatus, id]
-      );
-      scan = { ...scan, ...updateRes.rows[0] };
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
-    }
-
-    return NextResponse.json({ success: true, scan });
-  } catch (error) {
-    console.error("[API] Critical Get Scan Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-<<<<<<< HEAD
-      { status: 500 },
-    );
-  }
-}
-
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },
@@ -243,6 +55,7 @@ export async function POST(
     const toolsBaseUrl = process.env.TOOLS_BASE_URL;
     const apiKey = process.env.TOOLS_API_KEY || "";
 
+    // FIX: Removed invisible characters from the URL string below
     const pythonRes = await fetch(
       `${toolsBaseUrl}/confirm-cms/${external_job_id}`,
       {
@@ -274,20 +87,178 @@ export async function POST(
   }
 }
 
+// ------------------------------------------------------------------
+// GET: SYNC SCAN STATUS & HANDLE NOTIFICATIONS
+// ------------------------------------------------------------------
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const uid = await getUid();
+  if (!uid)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await Promise.resolve(params);
+
+  try {
+    // 1. Fetch current state from DB
+    // We join tools to get the tool name for the notification message
+    const dbRes = await query(
+      `SELECT s.*, t.name as tool_name 
+       FROM scans s
+       LEFT JOIN tools t ON s.tool_id = t.id
+       WHERE s.id = $1 AND s.user_uid = $2`,
+      [id, uid],
+    );
+
+    if (dbRes.rows.length === 0) {
+      return NextResponse.json({ error: "Scan not found" }, { status: 404 });
+    }
+
+    let scan = dbRes.rows[0];
+
+    // 2. Optimization: If already finished, return DB result immediately
+    // No need to call Python API or trigger notifications again
+    if (["completed", "failed", "cancelled"].includes(scan.status)) {
+      return NextResponse.json({ success: true, scan });
+    }
+
+    // 3. Sync with External Python API
+    const externalJobId = scan.external_job_id;
+    const toolsBaseUrl = process.env.TOOLS_BASE_URL;
+    const apiKey = process.env.TOOLS_API_KEY || "";
+
+    const statusRes = await fetch(`${toolsBaseUrl}/status/${externalJobId}`, {
+      headers: { "X-API-Key": apiKey },
+    });
+
+    // --- HANDLE 404 (Zombie Job) ---
+    if (statusRes.status === 404) {
+      console.warn(`[API] Job ${externalJobId} missing. Marking FAILED.`);
+
+      const updateRes = await query(
+        `UPDATE scans SET status = 'failed', result = $1, completed_at = NOW() WHERE id = $2 RETURNING *`,
+        [JSON.stringify({ error: "Job lost on external server" }), id],
+      );
+      scan = { ...scan, ...updateRes.rows[0] };
+
+      // Notify User of Failure
+      await createNotification(
+        uid,
+        "Scan Failed",
+        `The scan for ${scan.target} was lost or interrupted.`,
+        "error",
+      );
+
+      return NextResponse.json({ success: true, scan });
+    }
+
+    if (!statusRes.ok) {
+      // Temporary API error, just return current DB state, don't update anything
+      return NextResponse.json({ success: true, scan });
+    }
+
+    const statusData = await statusRes.json();
+    const newStatus = statusData.status;
+
+    // =========================================================
+    // LOGIC BLOCK: Status is NOT Completed (Running/Queued/Failed)
+    // =========================================================
+    if (newStatus !== "completed") {
+      // Only update DB if status has changed
+      if (newStatus !== scan.status) {
+        // --- NOTIFICATION: Handle Explicit Failure from Python ---
+        if (newStatus === "failed") {
+          await createNotification(
+            uid,
+            "Scan Failed",
+            `Scan for ${scan.target} failed. Check logs for details.`,
+            "error",
+          );
+        }
+        // ---------------------------------------------------------
+
+        // Update DB status
+        await query(`UPDATE scans SET status = $1 WHERE id = $2`, [
+          newStatus,
+          id,
+        ]);
+
+        // Update local object for response
+        scan.status = newStatus;
+      }
+
+      // Return status + Python progress data (for progress bar)
+      return NextResponse.json({
+        success: true,
+        scan,
+        pythonStatus: statusData,
+      });
+    }
+
+    // =========================================================
+    // LOGIC BLOCK: Status IS Completed (Success)
+    // =========================================================
+    if (newStatus === "completed" && scan.status !== "completed") {
+      console.log(`[API] Job Completed! Fetching Results...`);
+
+      // A. Fetch Results
+      // FIX: Added '?' before normalized=true
+      const resultRes = await fetch(
+        `${toolsBaseUrl}/results/${externalJobId}?normalized=true`,
+        { headers: { "X-API-Key": apiKey } },
+      );
+      const resultData = await resultRes.json();
+
+      // B. Check if result contains an application-level error
+      if (resultData.error) {
+        // Mark as failed in DB
+        const updateRes = await query(
+          `UPDATE scans SET status = 'failed', result = $1, completed_at = NOW() WHERE id = $2 RETURNING *`,
+          [JSON.stringify(resultData), id],
+        );
+        scan = { ...scan, ...updateRes.rows[0] };
+
+        // Notify Failure
+        await createNotification(
+          uid,
+          "Scan Failed",
+          `Scan for ${scan.target} failed during result generation.`,
+          "error",
+        );
+      } else {
+        // C. Success Path: Update DB
+        const updateRes = await query(
+          `UPDATE scans SET status = 'completed', result = $1, completed_at = NOW() WHERE id = $2 RETURNING *`,
+          [JSON.stringify(resultData), id],
+        );
+        scan = { ...scan, ...updateRes.rows[0] };
+
+        // --- NOTIFICATION: Scan Completed Successfully ---
+        await createNotification(
+          uid,
+          "Scan Completed",
+          `Scan finished successfully for ${scan.target}. Click to view report.`,
+          "success",
+        );
+        // -------------------------------------------------
+      }
+    }
+
+    return NextResponse.json({ success: true, scan });
+  } catch (error) {
+    console.error("[API] Get Scan Error:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
+  }
+}
+
 // DELETE: Remove record from Postgres
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } },
-=======
-      { status: 500 }
-    );
-  }
-}
-// DELETE: Remove record from Postgres
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
 ) {
   const uid = await getUid();
   if (!uid)
@@ -309,11 +280,7 @@ export async function DELETE(
   } catch (error) {
     return NextResponse.json(
       { error: "Internal Server Error" },
-<<<<<<< HEAD
       { status: 500 },
-=======
-      { status: 500 }
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     );
   }
 }

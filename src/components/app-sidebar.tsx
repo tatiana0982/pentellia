@@ -43,11 +43,7 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
   useEffect(() => {
     const fetchScanData = async () => {
       try {
-<<<<<<< HEAD
         const res = await fetch("/api/dashboard/scans?limit=100");
-=======
-        const res = await fetch("/api/dashboard/scanslimit=100");
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
         const data = await res.json();
 
         // Assuming data.scans is an array of scan objects
@@ -72,7 +68,7 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
         "fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] border-r border-white/5 transition-all duration-300 ease-in-out",
         // Glassmorphism background
         "bg-[#0B0C15]/80 backdrop-blur-md supports-[backdrop-filter]:bg-[#0B0C15]/60",
-        isSidebarOpen ? "w-64" : "w-[80px]"
+        isSidebarOpen ? "w-64" : "w-[80px]",
       )}
     >
       <div className="flex h-full flex-col">
@@ -82,14 +78,14 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
             asChild
             className={cn(
               "group w-full border-0 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all hover:from-violet-500 hover:to-indigo-500 hover:shadow-[0_0_25px_rgba(124,58,237,0.5)]",
-              !isSidebarOpen && "h-10 w-10 justify-center p-0"
+              !isSidebarOpen && "h-10 w-10 justify-center p-0",
             )}
           >
             <Link href="/dashboard/new-scan">
               <Plus
                 className={cn(
                   "h-5 w-5 transition-transform group-hover:rotate-90",
-                  isSidebarOpen && "mr-2"
+                  isSidebarOpen && "mr-2",
                 )}
               />
               {isSidebarOpen && <span className="font-semibold">New Scan</span>}
@@ -118,7 +114,7 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
                   // Active State styling (Gradient + Glow)
                   isActive
                     ? "bg-gradient-to-r from-violet-500/10 to-blue-500/10 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] border border-white/5"
-                    : "text-slate-400 border border-transparent"
+                    : "text-slate-400 border border-transparent",
                 )}
               >
                 {/* Active Indicator Strip */}
@@ -131,7 +127,7 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
                     "h-5 w-5 transition-colors",
                     isActive
                       ? "text-violet-400"
-                      : "text-slate-500 group-hover:text-slate-300"
+                      : "text-slate-500 group-hover:text-slate-300",
                   )}
                 />
 

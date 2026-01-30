@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
 import { adminAuth } from "@/config/firebaseAdmin";
 import { cookies } from "next/headers";
-
+import { createNotification } from "@/lib/notifications";
 // Helper: Get UID
 async function getUid() {
   const cookieStore = await cookies();
@@ -40,11 +40,7 @@ export async function GET(req: NextRequest) {
 
     const countRes = await query(
       `SELECT COUNT(*) FROM scans WHERE user_uid = $1`,
-<<<<<<< HEAD
       [uid],
-=======
-      [uid]
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     );
     const totalScans = parseInt(countRes.rows[0].count);
 
@@ -62,11 +58,7 @@ export async function GET(req: NextRequest) {
     console.error("Fetch Scans Error:", error);
     return NextResponse.json(
       { error: "Failed to fetch scans" },
-<<<<<<< HEAD
       { status: 500 },
-=======
-      { status: 500 }
->>>>>>> 975182b0e5edae21dc80688abc747913fc481c89
     );
   }
 }
@@ -125,6 +117,13 @@ export async function POST(req: NextRequest) {
       JSON.stringify(params),
       toolsData.job_id,
     ]);
+    // --- NEW: Add Start Notification ---
+    await createNotification(
+      uid,
+      "Scan Started",
+      `Scanning initiated for target: ${target} using ${tool}`,
+      "info",
+    );
 
     console.log(`[API] ✅ DB Entry Created. ID: ${dbRes.rows[0].id}`);
 

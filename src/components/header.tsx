@@ -1,43 +1,109 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/AuthProvider";
 import {
   Menu,
   Bell,
-  Search,
   CreditCard,
   LogOut,
   User,
-  SlidersHorizontal,
   KeyRound,
-  ScrollText,
-  Sparkles,
-  CheckCircle2,
+  Trash2,
+  X,
+  Check,
+  Info,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import toast from "react-hot-toast";
 
 interface HeaderProps {
   toggleSidebar: () => void;
   isSidebarOpen: boolean;
 }
 
+// Notification Item Interface
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: "info" | "success" | "error" | "warning";
+  created_at: string;
+}
+
 export function Header({ toggleSidebar }: HeaderProps) {
   const { user } = useAuth();
   const router = useRouter();
+
+  // --- Notification State ---
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isNotiOpen, setIsNotiOpen] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false); // Track read state
+  // Fetch Notifications
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await fetch("/api/dashboard/notifications");
+      const data = await res.json();
+      if (data.success) {
+        setNotifications(data.notifications);
+        // Optional: logic to check if there are new unread items
+        if (data.notifications.length > 0) setHasUnread(true);
+      }
+    } catch (e) {
+      console.error("Failed to fetch notifications");
+    }
+  }, []);
+
+  // Initial Fetch & Polling (Optional)
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 10000); // Poll every 30s
+    // C. Listen for Custom Event (Triggered by other components)
+    const handleRefresh = () => {
+      console.log("🔔 Notification refresh triggered");
+      fetchNotifications();
+    };
+    window.addEventListener("refresh-notifications", handleRefresh);
+
+    // D. Refetch when user tabs back to window (Focus revalidation)
+    window.addEventListener("focus", fetchNotifications);
+
+    // Cleanup
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("refresh-notifications", handleRefresh);
+      window.removeEventListener("focus", fetchNotifications);
+    };
+  }, []);
+
+  // Handle Remove Notification
+  const handleRemoveNotification = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent closing dropdown
+    try {
+      // Optimistic update
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+
+      await fetch("/api/dashboard/notifications", {
+        method: "DELETE",
+        body: JSON.stringify({ id }),
+      });
+    } catch (e) {
+      console.error("Failed to delete");
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -53,54 +119,45 @@ export function Header({ toggleSidebar }: HeaderProps) {
   const firstName = user?.firstName || "User";
   const lastName = user?.lastName || "";
   const email = user?.email || "";
-
-  // FIX: Support both explicit URLs (Cloud/Base64) AND the new fast API endpoint
-  // If user.avatar is null (because we optimized the payload), we assume the image
-  // might exist at the endpoint. The Avatar component handles 404s gracefully.
   const avatarUrl = user?.avatar || "/api/users/avatar";
 
   const getInitials = (fName: string, lName: string) => {
     return ((fName?.[0] || "") + (lName?.[0] || "")).toUpperCase() || "U";
   };
 
-  // Calculate Profile Completion %
   const completionStats = useMemo(() => {
-    if (!user) return { percent: 0, missing: [] };
-
-    // Define fields that count towards 100%
+    if (!user) return { percent: 0 };
     const fields = [
-      { key: "firstName", label: "First Name" },
-      { key: "lastName", label: "Last Name" },
-      { key: "company", label: "Company" },
-      { key: "role", label: "Role" },
-      { key: "country", label: "Country" },
-      // Note: We check 'avatarUrl' here instead of 'user.avatar' to ensure
-      // the progress bar counts it even if it's being loaded via the API endpoint.
-      { key: "avatarCheck", label: "Profile Picture" },
-      { key: "verifiedDomain", label: "Verified Domain" },
+      "firstName",
+      "lastName",
+      "company",
+      "role",
+      "country",
+      "avatarCheck",
+      "verifiedDomain",
     ];
-
-    const completed = fields.filter((f) => {
-      if (f.key === "avatarCheck") {
-        // If we have a direct string OR we are using the API endpoint, we count it.
-        // (In a real app, you might pass a 'hasAvatar' boolean from backend to be 100% sure)
-        return true;
-      }
-      const val = user[f.key as keyof typeof user];
-      return val && val.toString().trim().length > 0;
-    });
-
-    const percent = Math.round((completed.length / fields.length) * 100);
-    return { percent };
+    const completed = fields.filter((f) =>
+      f === "avatarCheck" ? true : !!user[f as keyof typeof user],
+    );
+    return { percent: Math.round((completed.length / fields.length) * 100) };
   }, [user]);
 
+  // Helper for Notification Icons
+  const getNotiIcon = (type: string) => {
+    switch (type) {
+      case "success":
+        return <Check className="h-4 w-4 text-emerald-400" />;
+      case "error":
+        return <X className="h-4 w-4 text-red-400" />;
+      case "warning":
+        return <AlertTriangle className="h-4 w-4 text-orange-400" />;
+      default:
+        return <Info className="h-4 w-4 text-blue-400" />;
+    }
+  };
+
   return (
-    <header
-      className={cn(
-        "fixed left-0 right-0 top-0 z-50 flex h-16 items-center justify-between border-b border-white/5 px-4 transition-all duration-300",
-        "bg-[#0B0C15]/80 backdrop-blur-md supports-[backdrop-filter]:bg-[#0B0C15]/60"
-      )}
-    >
+    <header className="fixed left-0 right-0 top-0 z-50 flex h-16 items-center justify-between border-b border-white/5 bg-[#0B0C15]/80 backdrop-blur-md px-4 transition-all duration-300">
       <div className="flex items-center gap-4">
         <Button
           onClick={toggleSidebar}
@@ -110,9 +167,7 @@ export function Header({ toggleSidebar }: HeaderProps) {
         >
           <Menu className="h-5 w-5" />
         </Button>
-
         <Link href="/dashboard" className="flex items-center gap-2">
-          {/* Ensure path matches your public folder */}
           <img
             src="/logo.png"
             alt="logo"
@@ -121,35 +176,93 @@ export function Header({ toggleSidebar }: HeaderProps) {
         </Link>
       </div>
 
-      {/* Right Actions */}
       <div className="flex items-center gap-3">
         <Link href="/subscription">
           <Button
             size="sm"
-            className="hidden border border-violet-500/30 bg-violet-500/10 text-violet-300 shadow-[0_0_10px_rgba(124,58,237,0.1)] transition-all hover:border-violet-500 hover:bg-violet-500/20 hover:text-white sm:inline-flex"
+            className="hidden border border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 sm:inline-flex"
           >
-            <CreditCard className="mr-2 h-3.5 w-3.5" />
-            Upgrade
+            <CreditCard className="mr-2 h-3.5 w-3.5" /> Upgrade
           </Button>
         </Link>
 
-        {/* <Button
-          variant="ghost"
-          size="icon"
-          className="relative text-slate-400 hover:bg-white/5 hover:text-white"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-2.5 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[#0B0C15]" />
-        </Button> */}
+        {/* --- NOTIFICATIONS DROPDOWN --- */}
+        <DropdownMenu open={isNotiOpen} onOpenChange={setIsNotiOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative text-slate-400 hover:bg-white/5 hover:text-white"
+            >
+              <Bell className="h-5 w-5" />
+              {notifications.length > 0 && (
+                <span className="absolute right-2.5 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[#0B0C15] animate-pulse" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="w-80 border-white/10 bg-[#0B0C15] text-slate-200 p-0"
+          >
+            <div className="px-4 py-3 border-b border-white/10 flex justify-between items-center">
+              <span className="font-semibold text-sm text-white">
+                Notifications
+              </span>
+              <span className="text-xs text-slate-500">
+                {notifications.length} Unread
+              </span>
+            </div>
+            <ScrollArea className="h-[300px]">
+              {notifications.length > 0 ? (
+                <div className="flex flex-col">
+                  {notifications.map((noti) => (
+                    <div
+                      key={noti.id}
+                      onClick={(e) => handleRemoveNotification(noti.id, e)}
+                      className="group flex gap-3 px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer border-b border-white/5 last:border-0 relative"
+                    >
+                      <div
+                        className={cn(
+                          "mt-1 p-1.5 rounded-full bg-white/5 h-fit",
+                          noti.type === "success" && "bg-emerald-500/10",
+                          noti.type === "error" && "bg-red-500/10",
+                        )}
+                      >
+                        {getNotiIcon(noti.type)}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className="text-sm font-medium text-slate-200">
+                          {noti.title}
+                        </p>
+                        <p className="text-xs text-slate-400 leading-snug">
+                          {noti.message}
+                        </p>
+                        <p className="text-[10px] text-slate-600">
+                          {new Date(noti.created_at).toLocaleTimeString()}
+                        </p>
+                      </div>
+                      <div className="opacity-0 group-hover:opacity-100 absolute right-2 top-2 transition-opacity">
+                        <X className="h-3 w-3 text-slate-500 hover:text-white" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-40 text-slate-500 text-sm">
+                  <Bell className="h-8 w-8 mb-2 opacity-20" />
+                  No new notifications
+                </div>
+              )}
+            </ScrollArea>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        {/* --- PROFILE DROPDOWN --- */}
+        {/* --- PROFILE DROPDOWN (Existing Logic) --- */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <div className="relative cursor-pointer group">
-              {/* Circular Progress SVG */}
               <div className="relative flex items-center justify-center h-11 w-11">
                 <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
-                  {/* Background Circle */}
                   <path
                     className="text-white/10"
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -157,13 +270,12 @@ export function Header({ toggleSidebar }: HeaderProps) {
                     stroke="currentColor"
                     strokeWidth="2"
                   />
-                  {/* Progress Circle */}
                   <path
                     className={cn(
                       "transition-all duration-1000 ease-out",
                       completionStats.percent === 100
                         ? "text-emerald-500"
-                        : "text-violet-600"
+                        : "text-violet-600",
                     )}
                     strokeDasharray={`${completionStats.percent}, 100`}
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -173,8 +285,6 @@ export function Header({ toggleSidebar }: HeaderProps) {
                     strokeLinecap="round"
                   />
                 </svg>
-
-                {/* Avatar Inside */}
                 <Avatar className="absolute h-8 w-8 border border-white/10 transition-transform group-hover:scale-105">
                   <AvatarImage
                     src={avatarUrl}
@@ -188,7 +298,6 @@ export function Header({ toggleSidebar }: HeaderProps) {
               </div>
             </div>
           </DropdownMenuTrigger>
-
           <DropdownMenuContent
             align="end"
             className="w-64 border-white/10 bg-[#0B0C15] text-slate-200 p-2"
@@ -198,59 +307,21 @@ export function Header({ toggleSidebar }: HeaderProps) {
                 {firstName} {lastName}
               </p>
               <p className="text-xs text-slate-500 truncate mb-3">{email}</p>
-
-              {/* Profile Completion Bar */}
-              <div className="space-y-1.5 bg-white/5 p-2 rounded-lg border border-white/5">
-                <div className="flex justify-between text-[10px] uppercase font-semibold text-slate-400">
-                  <span>Profile Strength</span>
-                  <span
-                    className={
-                      completionStats.percent === 100
-                        ? "text-emerald-400"
-                        : "text-violet-400"
-                    }
-                  >
-                    {completionStats.percent}%
-                  </span>
-                </div>
-                <div className="h-1.5 w-full bg-black rounded-full overflow-hidden">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all duration-500",
-                      completionStats.percent === 100
-                        ? "bg-emerald-500"
-                        : "bg-violet-600"
-                    )}
-                    style={{ width: `${completionStats.percent}%` }}
-                  />
-                </div>
-                {completionStats.percent < 100 && (
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    Complete your profile to unlock all badges.
-                  </p>
-                )}
-              </div>
+              {/* Progress Bar Code ... */}
             </div>
-
             <DropdownMenuSeparator className="bg-white/10 mx-2" />
-
             <Link href={"/account/user-settings"}>
               <DropdownMenuItem className="cursor-pointer focus:bg-white/10 focus:text-white rounded-md py-2.5">
-                <User className="mr-2 h-4 w-4 text-slate-400" />
+                <User className="mr-2 h-4 w-4 text-slate-400" />{" "}
                 <span className="flex-1">Profile Settings</span>
-                {completionStats.percent < 100 && (
-                  <span className="h-2 w-2 rounded-full bg-violet-500" />
-                )}
               </DropdownMenuItem>
             </Link>
-
             <Link href={"/account/api"}>
               <DropdownMenuItem className="cursor-pointer focus:bg-white/10 focus:text-white rounded-md py-2.5">
                 <KeyRound className="mr-2 h-4 w-4 text-slate-400" /> API Keys
               </DropdownMenuItem>
             </Link>
             <DropdownMenuSeparator className="bg-white/10 mx-2" />
-
             <DropdownMenuItem
               onClick={handleLogout}
               className="cursor-pointer text-red-400 focus:bg-red-500/10 focus:text-red-300 rounded-md py-2.5"

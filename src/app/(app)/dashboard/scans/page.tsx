@@ -14,6 +14,7 @@ import {
   StopCircle,
   Calendar,
   Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,8 +34,8 @@ interface Scan {
   id: string;
   target: string;
   status: "completed" | "running" | "failed" | "queued" | "cancelled";
-  tool_id: string; // Used for routing
-  tool_name: string; // Display name
+  tool_id: string;
+  tool_name: string;
   created_at: string;
   completed_at?: string;
   result?: any;
@@ -61,7 +62,7 @@ export default function ScansPage() {
     setIsLoading(true);
     try {
       const res = await fetch(
-        `/api/dashboard/scans?page=${page}&limit=${limit}`
+        `/api/dashboard/scans?page=${page}&limit=${limit}`,
       );
       const data = await res.json();
 
@@ -69,6 +70,8 @@ export default function ScansPage() {
         setScans(data.scans);
         setTotalPages(data.pagination.totalPages);
         setTotalScans(data.pagination.totalScans);
+        // Reset selection on page change to avoid confusion
+        setSelectedScans(new Set());
       } else {
         toast.error("Failed to load scans");
       }
@@ -94,7 +97,7 @@ export default function ScansPage() {
       });
       if (res.ok) {
         toast.success("Scan deleted", { id: toastId });
-        fetchScans(); // Refresh list
+        fetchScans();
         setSelectedScans((prev) => {
           const next = new Set(prev);
           next.delete(id);
@@ -105,6 +108,30 @@ export default function ScansPage() {
       }
     } catch (error) {
       toast.error("Failed to delete scan", { id: toastId });
+    }
+  };
+
+  // 🆕 NEW: Bulk Delete Handler
+  const handleBulkDelete = async () => {
+    if (selectedScans.size === 0) return;
+
+    const count = selectedScans.size;
+    const toastId = toast.loading(`Deleting ${count} scans...`);
+
+    try {
+      // Execute all delete requests in parallel
+      const deletePromises = Array.from(selectedScans).map((id) =>
+        fetch(`/api/dashboard/scans/${id}`, { method: "DELETE" }),
+      );
+
+      await Promise.all(deletePromises);
+
+      toast.success(`Deleted ${count} scans`, { id: toastId });
+      setSelectedScans(new Set());
+      fetchScans(); // Refresh list
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete some scans", { id: toastId });
     }
   };
 
@@ -119,10 +146,7 @@ export default function ScansPage() {
   };
 
   const navigateToReport = (scan: Scan) => {
-    // Navigate to /dashboard/scans/[tool]/[id]
-    // We use the tool_id (e.g. 'nmap', 'wafw00f') from the DB
     const toolSlug = scan.tool_id || "unknown";
-    console.log(scan);
     router.push(`/dashboard/scans/${toolSlug}/${scan.id}`);
   };
 
@@ -162,7 +186,7 @@ export default function ScansPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] space-y-4 font-sans text-slate-200 p-6">
       {/* --- Fixed Header Section --- */}
-      <div className="flex-none space-y-4">
+      <div className="flex-none flex items-end justify-between space-y-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold tracking-tight text-white">
             Scan Activity
@@ -173,12 +197,23 @@ export default function ScansPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            onClick={() => router.push("/dashboard/new-scan")}
-            className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:from-violet-500 hover:to-indigo-500 border-0"
-          >
-            <Zap className="mr-2 h-4 w-4 fill-white/20" /> New Scan
-          </Button>
+          {/* 🆕 Conditional Rendering for Bulk Actions */}
+          {selectedScans.size > 0 ? (
+            <Button
+              onClick={handleBulkDelete}
+              variant="destructive"
+              className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 animate-in fade-in zoom-in-95 duration-200"
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Delete ({selectedScans.size})
+            </Button>
+          ) : (
+            <Button
+              onClick={() => router.push("/dashboard/new-scan")}
+              className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:from-violet-500 hover:to-indigo-500 border-0"
+            >
+              <Zap className="mr-2 h-4 w-4 fill-white/20" /> New Scan
+            </Button>
+          )}
         </div>
       </div>
 
@@ -236,21 +271,8 @@ export default function ScansPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-4">
-                        <div className="h-6 w-20 bg-white/10 rounded-full mx-auto" />
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="h-4 w-32 bg-white/10 rounded" />
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="h-4 w-24 bg-white/10 rounded" />
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="h-4 w-20 bg-white/10 rounded" />
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="h-8 w-8 bg-white/10 rounded ml-auto" />
-                      </td>
+                      {/* ... other skeletons ... */}
+                      <td className="py-4 px-4" colSpan={5}></td>
                     </tr>
                   ))}
                 </>
@@ -266,18 +288,22 @@ export default function ScansPage() {
                   const summary = getSeverityCounts(scan);
                   const duration = getDuration(
                     scan.created_at,
-                    scan.completed_at
+                    scan.completed_at,
                   );
 
                   return (
                     <tr
                       key={scan.id}
+                      onClick={() => navigateToReport(scan)} // 🆕 Click entire row
                       className={cn(
-                        "group transition-colors hover:bg-white/[0.03]",
-                        selectedScans.has(scan.id) && "bg-violet-500/[0.03]"
+                        "group transition-colors hover:bg-white/[0.03] cursor-pointer", // 🆕 Cursor pointer
+                        selectedScans.has(scan.id) && "bg-violet-500/[0.05]",
                       )}
                     >
-                      <td className="py-4 px-6">
+                      <td
+                        className="py-4 px-6"
+                        onClick={(e) => e.stopPropagation()} // 🆕 Prevent navigation when checking box
+                      >
                         <Checkbox
                           checked={selectedScans.has(scan.id)}
                           onCheckedChange={(checked) =>
@@ -356,7 +382,10 @@ export default function ScansPage() {
                       </td>
 
                       {/* Actions */}
-                      <td className="py-4 px-4 text-right">
+                      <td
+                        className="py-4 px-4 text-right"
+                        onClick={(e) => e.stopPropagation()} // 🆕 Prevent navigation when clicking menu
+                      >
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -396,7 +425,7 @@ export default function ScansPage() {
           </table>
         </div>
 
-        {/* Fixed Footer (Only show when not loading to avoid jumps) */}
+        {/* Footer (Pagination) */}
         {!isLoading && (
           <div className="flex-none flex flex-col sm:flex-row justify-between items-center gap-4 px-6 py-4 border-t border-white/5 bg-white/[0.02]">
             <div className="text-xs text-slate-400">
@@ -434,7 +463,7 @@ export default function ScansPage() {
   );
 }
 
-// --- Helper Components ---
+// --- Helper Components (Same as before) ---
 
 function StatusBadge({ status }: { status: string }) {
   if (status === "completed") {
@@ -483,7 +512,7 @@ function VulnPill({
     <span
       className={cn(
         "flex items-center justify-center min-w-[24px] px-1.5 h-5 text-[10px] font-bold rounded border",
-        styles[color]
+        styles[color],
       )}
     >
       {count}

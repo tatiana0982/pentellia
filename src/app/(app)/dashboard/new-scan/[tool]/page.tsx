@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "react-hot-toast";
 import { Badge } from "@/components/ui/badge";
+import { triggerNotificationRefresh } from "@/lib/events";
 
 // --- Types ---
 interface ToolParam {
@@ -72,7 +73,7 @@ export default function ToolScanPage() {
 
         if (data.success) {
           const foundTool = data.tools.find(
-            (t: ToolConfig) => t.slug === toolSlug
+            (t: ToolConfig) => t.slug === toolSlug,
           );
 
           if (foundTool) {
@@ -144,6 +145,7 @@ export default function ToolScanPage() {
 
       if (response.ok) {
         toast.success("Scan initiated successfully");
+        triggerNotificationRefresh();
         // 2. Redirect to the Report/Status Page using the returned scanId
         router.push(`/dashboard/scans/${toolSlug}/${data.scanId}`);
       } else {
@@ -292,7 +294,7 @@ export default function ToolScanPage() {
                         className={cn(
                           "space-y-2",
                           param.type === "boolean" &&
-                            "flex flex-row items-center justify-between space-y-0 md:col-span-2 p-3 rounded-lg bg-white/5 border border-white/5"
+                            "flex flex-row items-center justify-between space-y-0 md:col-span-2 p-3 rounded-lg bg-white/5 border border-white/5",
                         )}
                       >
                         <Label
