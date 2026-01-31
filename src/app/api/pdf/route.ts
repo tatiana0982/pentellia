@@ -11,11 +11,16 @@ export async function POST(req: Request) {
     const user_uid = data.user_uid;
     const scanId = data.id;
     const browser = await puppeteer.launch({
-      args: isProd ? chromium.args : ["--no-sandbox"],
-      executablePath: isProd
-        ? await chromium.executablePath()
-        : "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-      headless: true,
+      args: isProd ? chromium.args : [],
+      defaultViewport: chromium.defaultViewport,
+      // JUGAD: Pass the direct URL to the chromium pack
+      // This solves the "bin does not exist" error permanently
+      executablePath: await chromium.executablePath(
+        isProd
+          ? "https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar"
+          : "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      ),
+      headless: isProd ? chromium.headless : true,
     });
 
     const page = await browser.newPage();
