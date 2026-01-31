@@ -469,7 +469,6 @@ export function CommonScanReport({
               {aiSummary ? (
                 <div className="animate-in fade-in duration-700">
                   <ReactMarkdown
-                    className="space-y-4 text-sm text-slate-300 leading-relaxed font-sans"
                     components={{
                       h2: ({ node, ...props }) => (
                         <h2

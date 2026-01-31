@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --bg-deep: #0f091a;
+            --bg-card: #1a1329;
+            --accent-purple: #a855f7;
+            --text-main: #e2e1e6;
+            --text-dim: #948ea3;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact;
+        }
+
+        .pdf-page {
+            width: 210mm;
+            height: 297mm;
+            padding: 80px 60px;
+            page-break-after: always;
+            position: relative;
+            background-color: var(--bg-deep);
+            display: flex;
+            flex-direction: column;
+            margin: 0 auto;
+        }
+
+        .accent-bar {
+            width: 45px;
+            height: 5px;
+            background: var(--accent-purple);
+            border-radius: 10px;
+            margin-bottom: 35px;
+        }
+
+        .glass-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(168, 85, 247, 0.15);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 40px;
+            left: 60px;
+            right: 60px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--text-dim);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            padding-top: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .chart-bg { height: 8px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; margin-top: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="pdf-page justify-center">
+        <div class="accent-bar"></div>
+        <h1 class="text-6xl font-bold text-white leading-tight mb-6">Web Application <br/> Security Report</h1>
+        <p class="text-2xl text-purple-300/60 font-light mb-20 italic">Vulnerability Assessment & Penetration Testing</p>
+        <div class="grid grid-cols-2 gap-y-10 max-w-lg">
+            <div><p class="text-[10px] uppercase tracking-widest text-purple-500 font-bold mb-1">Target Asset</p><p class="text-xl text-white">trypentora.com</p></div>
+            <div><p class="text-[10px] uppercase tracking-widest text-purple-500 font-bold mb-1">Risk Level</p><p class="text-xl text-yellow-500 font-bold uppercase">Low</p></div>
+            <div><p class="text-[10px] uppercase tracking-widest text-purple-500 font-bold mb-1">Scan Status</p><p class="text-xl text-green-400">Completed</p></div>
+        </div>
+        <div class="footer"><span>Pentora Security</span><span>2026 Report</span></div>
+    </div>
+
+    <div class="pdf-page">
+        <div class="accent-bar"></div>
+        <h2 class="text-4xl font-bold text-white mb-8">Executive Summary</h2>
+        <p class="text-lg text-purple-100/60 leading-relaxed mb-12">The assessment identified a low overall risk posture. Findings primarily relate to security hardening and missing HTTP headers.</p>
+        <div class="grid grid-cols-2 gap-6 mb-12">
+            <div class="glass-card"><p class="text-xs font-bold text-purple-400">Risk Score</p><p class="text-5xl text-white mt-4">30<span class="text-lg opacity-20">/100</span></p></div>
+            <div class="glass-card"><p class="text-xs font-bold text-purple-400">Total Findings</p><p class="text-5xl text-white mt-4">12</p></div>
+        </div>
+        <div class="space-y-6">
+            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Severity Breakdown</h3>
+            <div><div class="flex justify-between text-xs mb-1"><span>High</span><span>1</span></div><div class="chart-bg"><div class="h-full bg-red-500" style="width: 15%"></div></div></div>
+            <div><div class="flex justify-between text-xs mb-1"><span>Medium</span><span>3</span></div><div class="chart-bg"><div class="h-full bg-orange-500" style="width: 35%"></div></div></div>
+            <div><div class="flex justify-between text-xs mb-1"><span>Low</span><span>6</span></div><div class="chart-bg"><div class="h-full bg-yellow-500" style="width: 60%"></div></div></div>
+        </div>
+        <div class="footer"><span>Page 2 of 9</span></div>
+    </div>
+
+    <div class="pdf-page">
+        <div class="accent-bar"></div>
+        <h2 class="text-4xl font-bold text-white mb-12">Scan Metadata</h2>
+        <div class="grid grid-cols-2 gap-x-12 gap-y-10">
+            <div class="border-b border-purple-500/10 pb-4"><p class="text-[10px] text-purple-500 uppercase font-bold mb-1">Scan ID</p><p class="text-sm text-white">6127A990-F50E-42D8</p></div>
+            <div class="border-b border-purple-500/10 pb-4"><p class="text-[10px] text-purple-500 uppercase font-bold mb-1">Category</p><p class="text-sm text-white">Web Application</p></div>
+            <div class="border-b border-purple-500/10 pb-4"><p class="text-[10px] text-purple-500 uppercase font-bold mb-1">Scan Started</p><p class="text-sm text-white">2026-01-31 00:46:20</p></div>
+            <div class="border-b border-purple-500/10 pb-4"><p class="text-[10px] text-purple-500 uppercase font-bold mb-1">Scan Completed</p><p class="text-sm text-white">2026-01-31 00:48:17</p></div>
+        </div>
+        <div class="footer"><span>Page 3 of 9</span></div>
+    </div>
+
+    <div class="pdf-page">
+        <div class="accent-bar"></div>
+        <h2 class="text-4xl font-bold text-white mb-12">Tools & Coverage</h2>
+        <div class="space-y-4">
+            <div class="glass-card flex justify-between items-center py-4 border-l-4 border-l-purple-500">
+                <span class="font-bold">Security Header Analyzer</span><span class="text-xs text-purple-400">8 Vulnerabilities</span>
+            </div>
+            <div class="glass-card flex justify-between items-center py-4">
+                <span class="font-bold">Injection Scanner</span><span class="text-xs text-green-500">Secure</span>
+            </div>
+            <div class="glass-card flex justify-between items-center py-4">
+                <span class="font-bold">Port & Service Analyzer</span><span class="text-xs text-green-500">Secure</span>
+            </div>
+        </div>
+        <div class="footer"><span>Page 4 of 9</span></div>
+    </div>
+
+    <div class="pdf-page">
+        <div class="accent-bar"></div>
+        <h2 class="text-4xl font-bold text-white mb-10">Detailed Findings</h2>
+        <div class="glass-card border-l-4 border-l-red-500 relative">
+            <div class="absolute -top-3 left-6 bg-red-600 px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest">Finding #01</div>
+            <h3 class="text-2xl font-bold text-white mb-6 pt-4">Missing Content-Security-Policy</h3>
+            <p class="text-sm text-purple-100/60 leading-relaxed mb-8">The Content-Security-Policy (CSP) header is a powerful security layer that helps detect and mitigate certain types of attacks, including XSS.</p>
+            <div class="bg-black/20 p-5 rounded-lg border border-white/5 mb-4">
+                <p class="text-[10px] uppercase font-bold text-purple-400 mb-1">Impact</p>
+                <p class="text-xs">Allows malicious script execution in the context of the user's browser session.</p>
+            </div>
+            <div class="bg-purple-500/10 p-5 rounded-lg border border-purple-500/20">
+                <p class="text-[10px] uppercase font-bold text-green-400 mb-1">Recommendation</p>
+                <p class="text-xs italic text-green-100">Implement a strict Content-Security-Policy that restricts script-src.</p>
+            </div>
+        </div>
+        <div class="footer"><span>Page 5 of 9</span></div>
+    </div>
+
+    <div class="pdf-page">
+        <div class="accent-bar"></div>
+        <h2 class="text-4xl font-bold text-white mb-10">Detailed Findings</h2>
+        <div class="glass-card border-l-4 border-l-orange-500 relative">
+            <div class="absolute -top-3 left-6 bg-orange-600 px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest">Finding #02</div>
+            <h3 class="text-2xl font-bold text-white mb-6 pt-4">Missing X-Frame-Options</h3>
+            <p class="text-sm text-purple-100/60 leading-relaxed mb-8">The X-Frame-Options header improves the protection of web applications against Clickjacking attacks.</p>
+            <div class="bg-black/20 p-5 rounded-lg border border-white/5 mb-4">
+                <p class="text-[10px] uppercase font-bold text-purple-400 mb-1">Impact</p>
+                <p class="text-xs">Attackers can load the site in an iframe to trick users into clicking malicious buttons.</p>
+            </div>
+            <div class="footer"><span>Page 6 of 9</span></div>
+        </div>
+    </div>
+
+    <div class="pdf-page">
+        <div class="accent-bar"></div>
+        <h2 class="text-4xl font-bold text-white mb-10">Detailed Findings</h2>
+        <div class="glass-card border-l-4 border-l-yellow-500 relative">
+            <div class="absolute -top-3 left-6 bg-yellow-500 px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest text-black">Finding #03</div>
+            <h3 class="text-2xl font-bold text-white mb-6 pt-4">Server Header Information Leak</h3>
+            <p class="text-sm text-purple-100/60 leading-relaxed mb-8">The web server version is exposed in the HTTP response headers.</p>
+            <div class="footer"><span>Page 7 of 9</span></div>
+        </div>
+    </div>
+
+    <div class="pdf-page">
+        <div class="accent-bar"></div>
+        <h2 class="text-4xl font-bold text-white mb-10">Detailed Findings</h2>
+        <div class="glass-card border-l-4 border-l-purple-500 relative">
+            <div class="absolute -top-3 left-6 bg-purple-600 px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest">Finding #04</div>
+            <h3 class="text-2xl font-bold text-white mb-6 pt-4">Missing X-Content-Type-Options</h3>
+            <p class="text-sm text-purple-100/60 leading-relaxed mb-8">Prevents the browser from MIME-sniffing a response away from the declared content-type.</p>
+            <div class="footer"><span>Page 8 of 9</span></div>
+        </div>
+    </div>
+
+    <div class="pdf-page">
+        <div class="accent-bar"></div>
+        <h2 class="text-4xl font-bold text-white mb-8">Conclusion & Next Steps</h2>
+        <div class="grid grid-cols-2 gap-10 mt-10">
+            <div class="space-y-3">
+                <div class="text-4xl font-bold text-purple-500 opacity-20">01</div>
+                <h4 class="text-lg font-bold">Fix Headers</h4>
+                <p class="text-xs text-dim leading-relaxed">Prioritize the implementation of all missing security headers.</p>
+            </div>
+            <div class="space-y-3">
+                <div class="text-4xl font-bold text-purple-500 opacity-20"">02</div>
+                <h4 class="text-lg font-bold">WAF Setup</h4>
+                <p class="text-xs text-dim leading-relaxed">Consider a Web Application Firewall for extra defense.</p>
+            </div>
+            <div class="space-y-3 mt-6">
+                <div class="text-4xl font-bold text-purple-500 opacity-20">03</div>
+                <h4 class="text-lg font-bold">Rescan Site</h4>
+                <p class="text-xs text-dim leading-relaxed">Perform a follow-up scan after applying these fixes.</p>
+            </div>
+            <div class="space-y-3 mt-6">
+                <div class="text-4xl font-bold text-purple-500 opacity-20">04</div>
+                <h4 class="text-lg font-bold">Quarterly Audit</h4>
+                <p class="text-xs text-dim leading-relaxed">Schedule regular audits to maintain security.</p>
+            </div>
+        </div>
+        <div class="footer"><span>Pentora Security | Conclusion</span><span>Page 9 of 9</span></div>
+    </div>
+
+</body>
+</html>
