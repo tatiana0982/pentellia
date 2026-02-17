@@ -72,9 +72,12 @@ export function CommonScanReport({
   }, [allFindings]);
 
   // Check if "All" is currently active (all keys present in set)
-  const isAllSelected = allSeverities.every((s) => severityFilter.has(s));
+  const isAllSelected = useMemo(() => 
+    allSeverities.every((s) => severityFilter.has(s)),
+    [severityFilter]
+  );
 
-  // Split findings into Primary (Cards) and Secondary (Table) based on active filters
+  // Split findings based on active filters
   const { primaryFindings, secondaryFindings } = useMemo(() => {
     const primary: any[] = [];
     const secondary: any[] = [];
@@ -82,7 +85,6 @@ export function CommonScanReport({
     allFindings.forEach((f: any) => {
       const sev = (f.severity || "unknown").toLowerCase() as Severity;
 
-      // Only process if passed the active filter
       if (severityFilter.has(sev)) {
         if (sev === "low" || sev === "info") {
           secondary.push(f);
@@ -95,11 +97,9 @@ export function CommonScanReport({
     return { primaryFindings: primary, secondaryFindings: secondary };
   }, [allFindings, severityFilter]);
 
+  // UPDATED TOGGLE LOGIC: Clicking a severity now selects ONLY that severity
   const toggleFilter = (sev: Severity) => {
-    const next = new Set(severityFilter);
-    if (next.has(sev)) next.delete(sev);
-    else next.add(sev);
-    setSeverityFilter(next);
+    setSeverityFilter(new Set([sev]));
   };
 
   const selectAll = () => {
@@ -181,7 +181,7 @@ export function CommonScanReport({
       </div>
 
       <div className="flex flex-col gap-16 p-6 pb-40 max-w-7xl mx-auto w-full mt-4">
-        {/* --- SECTION 1: EXECUTIVE SUMMARY (Unchanged) --- */}
+        {/* --- SECTION 1: EXECUTIVE SUMMARY --- */}
         <section id="executive" className="space-y-8 scroll-mt-28">
           <div className="space-y-2">
             <h2 className="text-3xl font-bold text-white tracking-tight">
@@ -224,8 +224,7 @@ export function CommonScanReport({
             <Card className="lg:col-span-2 bg-[#0B0C15] border border-white/10">
               <CardHeader className="border-b border-white/5 pb-4">
                 <CardTitle className="text-base text-slate-200 flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-indigo-400" /> Assessment
-                  Overview
+                  <Activity className="h-4 w-4 text-indigo-400" /> Assessment Overview
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
@@ -234,34 +233,18 @@ export function CommonScanReport({
                     "The automated assessment has concluded. Review the findings below for specific vulnerabilities and remediation steps."}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <StatBox
-                    label="Critical"
-                    count={summary.critical || 0}
-                    color="red"
-                  />
-                  <StatBox
-                    label="High"
-                    count={summary.high || 0}
-                    color="orange"
-                  />
-                  <StatBox
-                    label="Medium"
-                    count={summary.medium || 0}
-                    color="yellow"
-                  />
+                  <StatBox label="Critical" count={summary.critical || 0} color="red" />
+                  <StatBox label="High" count={summary.high || 0} color="orange" />
+                  <StatBox label="Medium" count={summary.medium || 0} color="yellow" />
                   <StatBox label="Low" count={summary.low || 0} color="blue" />
-                  <StatBox
-                    label="Info"
-                    count={summary.info || 0}
-                    color="slate"
-                  />
+                  <StatBox label="Info" count={summary.info || 0} color="slate" />
                 </div>
               </CardContent>
             </Card>
           </div>
         </section>
 
-        {/* --- SECTION 2: DETAILED FINDINGS (Improved Filtering) --- */}
+        {/* --- SECTION 2: DETAILED FINDINGS --- */}
         <section id="findings" className="space-y-8 scroll-mt-28">
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-4">
@@ -269,7 +252,7 @@ export function CommonScanReport({
                 Detailed Findings
               </h2>
 
-              {/* NEW FILTER BAR */}
+              {/* FILTER BAR */}
               <div className="flex flex-wrap items-center gap-2 p-1 bg-white/[0.02] border border-white/5 rounded-lg w-fit">
                 <FilterButton
                   label="All Findings"
@@ -282,64 +265,57 @@ export function CommonScanReport({
                 <FilterButton
                   label="Critical"
                   count={counts.critical}
-                  active={severityFilter.has("critical")}
+                  active={!isAllSelected && severityFilter.has("critical")}
                   onClick={() => toggleFilter("critical")}
                   variant="critical"
                 />
                 <FilterButton
                   label="High"
                   count={counts.high}
-                  active={severityFilter.has("high")}
+                  active={!isAllSelected && severityFilter.has("high")}
                   onClick={() => toggleFilter("high")}
                   variant="high"
                 />
                 <FilterButton
                   label="Medium"
                   count={counts.medium}
-                  active={severityFilter.has("medium")}
+                  active={!isAllSelected && severityFilter.has("medium")}
                   onClick={() => toggleFilter("medium")}
                   variant="medium"
                 />
                 <FilterButton
                   label="Low"
                   count={counts.low}
-                  active={severityFilter.has("low")}
+                  active={!isAllSelected && severityFilter.has("low")}
                   onClick={() => toggleFilter("low")}
                   variant="low"
                 />
                 <FilterButton
                   label="Info"
                   count={counts.info}
-                  active={severityFilter.has("info")}
+                  active={!isAllSelected && severityFilter.has("info")}
                   onClick={() => toggleFilter("info")}
                   variant="info"
                 />
               </div>
             </div>
 
-            {/* PRIMARY FINDINGS (Critical/High/Medium) */}
+            {/* PRIMARY FINDINGS */}
             <div className="grid gap-4">
               {primaryFindings.length > 0 ? (
                 primaryFindings.map((finding: any, idx: number) => (
                   <ExpandableFindingCard key={idx} finding={finding} />
                 ))
-              ) : severityFilter.has("critical") ||
-                severityFilter.has("high") ||
-                severityFilter.has("medium") ? (
-                <div className="p-8 text-center border border-dashed border-white/10 rounded-xl bg-white/[0.01]">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mx-auto mb-2" />
-                  <h3 className="text-base font-medium text-white">
-                    No Critical, High, or Medium Issues
-                  </h3>
-                  <p className="text-slate-500 text-xs mt-1">
-                    Your target appears secure against major threats based on
-                    current filters.
-                  </p>
-                </div>
+              ) : (severityFilter.size > 0 && !isAllSelected) ? (
+                 <div className="p-8 text-center border border-dashed border-white/10 rounded-xl bg-white/[0.01]">
+                   <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mx-auto mb-2" />
+                   <h3 className="text-base font-medium text-white">No Issues Found</h3>
+                   <p className="text-slate-500 text-xs mt-1">No vulnerabilities match the current filter.</p>
+                 </div>
               ) : null}
             </div>
 
-            {/* SECONDARY FINDINGS (Low/Info) */}
+            {/* SECONDARY FINDINGS */}
             {secondaryFindings.length > 0 && (
               <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex items-center gap-2 mb-4 px-1">
@@ -361,18 +337,13 @@ export function CommonScanReport({
                       </thead>
                       <tbody className="divide-y divide-white/5 text-slate-300">
                         {secondaryFindings.map((finding: any, i: number) => (
-                          <tr
-                            key={i}
-                            className="hover:bg-white/[0.02] transition-colors group"
-                          >
+                          <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
                             <td className="px-6 py-3">
                               <Badge
                                 variant="outline"
                                 className={cn(
                                   "text-[10px] uppercase w-full justify-center border-0",
-                                  finding.severity === "low"
-                                    ? "text-blue-400 bg-blue-500/10"
-                                    : "text-slate-400 bg-slate-500/10",
+                                  finding.severity === "low" ? "text-blue-400 bg-blue-500/10" : "text-slate-400 bg-slate-500/10",
                                 )}
                               >
                                 {finding.severity}
@@ -398,11 +369,9 @@ export function CommonScanReport({
           </div>
         </section>
 
-        {/* --- SECTION 3: METHODOLOGY (Unchanged) --- */}
+        {/* --- SECTION 3: METHODOLOGY --- */}
         <section id="methodology" className="space-y-8 scroll-mt-28">
-          <h2 className="text-2xl font-bold text-white tracking-tight">
-            Scope & Methodology
-          </h2>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Scope & Methodology</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card className="bg-[#0B0C15] border border-white/10">
               <CardHeader>
@@ -413,14 +382,8 @@ export function CommonScanReport({
               <CardContent>
                 <div className="space-y-4">
                   <ConfigRow label="Target Scope" value={meta.target} />
-                  <ConfigRow
-                    label="Scan Profile"
-                    value={meta.parameters?.scan_level || "Standard"}
-                  />
-                  <ConfigRow
-                    label="Execution Time"
-                    value={new Date(meta.started_at).toLocaleString()}
-                  />
+                  <ConfigRow label="Scan Profile" value={meta.parameters?.scan_level || "Standard"} />
+                  <ConfigRow label="Execution Time" value={new Date(meta.started_at).toLocaleString()} />
                 </div>
               </CardContent>
             </Card>
@@ -433,10 +396,7 @@ export function CommonScanReport({
               <CardContent>
                 <div className="flex flex-wrap gap-2">
                   {coverage.tools_executed?.map((tool: string) => (
-                    <div
-                      key={tool}
-                      className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded text-xs text-indigo-300 uppercase font-mono tracking-wide"
-                    >
+                    <div key={tool} className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded text-xs text-indigo-300 uppercase font-mono tracking-wide">
                       <CheckCircle2 className="w-3 h-3 text-indigo-400" />
                       {tool}
                     </div>
@@ -447,94 +407,32 @@ export function CommonScanReport({
           </div>
         </section>
 
-        {/* --- SECTION 4: AI ANALYSIS (Unchanged) --- */}
+        {/* --- SECTION 4: AI ANALYSIS --- */}
         <section id="ai" className="space-y-8 scroll-mt-28">
           <Card className="bg-[#0B0C15] border-indigo-500/30 shadow-[0_0_100px_rgba(79,70,229,0.1)] overflow-hidden relative">
-            <div className="absolute top-0 right-0 p-40 bg-indigo-600/10 blur-3xl rounded-full -mr-20 -mt-20 pointer-events-none" />
             <CardHeader className="border-b border-white/5 bg-indigo-500/5 py-6 px-8 flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-3 text-indigo-300 text-lg font-medium">
                 <Sparkles className="h-5 w-5 text-indigo-400 fill-indigo-400/20" />
                 Pentellia Intelligent Analysis
               </CardTitle>
-              {aiSummary && (
-                <Badge
-                  variant="outline"
-                  className="border-indigo-500/30 text-indigo-400 bg-indigo-500/10"
-                >
-                  AI Generated
-                </Badge>
-              )}
             </CardHeader>
             <CardContent className="p-8">
               {aiSummary ? (
                 <div className="animate-in fade-in duration-700">
                   <ReactMarkdown
                     components={{
-                      h2: ({ node, ...props }) => (
-                        <h2
-                          className="text-lg font-bold text-white mt-6 mb-3 flex items-center gap-2 border-l-2 border-indigo-500 pl-3"
-                          {...props}
-                        />
-                      ),
-                      h3: ({ node, ...props }) => (
-                        <h3
-                          className="text-base font-semibold text-indigo-200 mt-4 mb-2"
-                          {...props}
-                        />
-                      ),
-                      strong: ({ node, ...props }) => (
-                        <span
-                          className="font-bold text-indigo-400"
-                          {...props}
-                        />
-                      ),
-                      ul: ({ node, ...props }) => (
-                        <ul
-                          className="list-none space-y-2 my-3 pl-1"
-                          {...props}
-                        />
-                      ),
-                      li: ({ node, ...props }) => (
-                        <li className="flex items-start gap-2 relative pl-2">
-                          {" "}
-                          <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />{" "}
-                          <span>{props.children}</span>{" "}
-                        </li>
-                      ),
-                      code: ({ node, ...props }: any) => (
-                        <code
-                          className="bg-black/50 border border-white/10 rounded px-1.5 py-0.5 font-mono text-xs text-orange-300"
-                          {...props}
-                        />
-                      ),
-                      hr: ({ node, ...props }) => (
-                        <hr className="border-white/10 my-6" {...props} />
-                      ),
-                      blockquote: ({ node, ...props }) => (
-                        <blockquote
-                          className="border-l-4 border-indigo-500/30 bg-indigo-500/5 p-4 rounded-r my-4 italic text-slate-400"
-                          {...props}
-                        />
-                      ),
+                      h2: ({ node, ...props }) => <h2 className="text-lg font-bold text-white mt-6 mb-3 flex items-center gap-2 border-l-2 border-indigo-500 pl-3" {...props} />,
+                      li: ({ node, ...props }) => <li className="flex items-start gap-2 relative pl-2"><span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" /><span>{props.children}</span></li>,
+                      code: ({ node, ...props }: any) => <code className="bg-black/50 border border-white/10 rounded px-1.5 py-0.5 font-mono text-xs text-orange-300" {...props} />,
                     }}
                   >
                     {aiSummary}
                   </ReactMarkdown>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-center space-y-4 opacity-50 hover:opacity-80 transition-opacity">
-                  <div className="h-16 w-16 rounded-full bg-white/5 flex items-center justify-center border border-white/5">
-                    <Terminal className="h-8 w-8 text-slate-600" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-slate-300 font-medium">
-                      Analysis Pending
-                    </p>
-                    <p className="text-slate-500 text-sm max-w-md mx-auto">
-                      Click the "AI Insight" button in the header to generate a
-                      comprehensive remediation plan.
-                    </p>
-                  </div>
+                <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+                  <Terminal className="h-8 w-8 text-slate-600" />
+                  <p className="text-slate-300 font-medium">Analysis Pending</p>
                 </div>
               )}
             </CardContent>
@@ -545,95 +443,59 @@ export function CommonScanReport({
   );
 }
 
-// --- SUB COMPONENTS & HELPERS ---
+// --- SUB COMPONENTS ---
 
 function ExpandableFindingCard({ finding }: { finding: any }) {
   const [expanded, setExpanded] = useState(false);
+  const severity = (finding.severity || "info").toLowerCase();
+
+  const sevStyles: any = {
+    critical: "bg-red-500/10 text-red-400 border-red-500/20",
+    high: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+    medium: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+    low: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    info: "bg-slate-500/10 text-slate-400 border-white/10",
+  };
 
   return (
-    <div className="group rounded-xl border border-white/10 bg-[#0B0C15] overflow-hidden hover:border-white/20 transition-all shadow-sm">
-      <div
-        className="p-6 border-b border-white/5 bg-white/[0.01] flex flex-col md:flex-row gap-4 justify-between items-start cursor-pointer hover:bg-white/[0.02] select-none"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-start gap-4 flex-1">
-          <SeverityIcon severity={finding.severity} />
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">
-                {finding.title}
-              </h4>
-              <Badge
-                variant="secondary"
-                className="bg-white/5 text-slate-400 border-0 text-[10px]"
-              >
-                {finding.category}
-              </Badge>
-            </div>
-            {!expanded && (
-              <p className="text-sm text-slate-500 mt-1 line-clamp-1">
-                {finding.description}
-              </p>
-            )}
+    <div className="group rounded-xl border border-white/10 bg-[#0B0C15] overflow-hidden hover:border-white/20 transition-all">
+      <div className="p-6 cursor-pointer select-none flex flex-col md:flex-row gap-4 items-start" onClick={() => setExpanded(!expanded)}>
+        <SeverityIcon severity={severity} />
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <Badge variant="outline" className={cn("text-[10px] uppercase font-bold px-2 py-0", sevStyles[severity])}>
+              {severity}
+            </Badge>
+            <h4 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">{finding.title}</h4>
           </div>
+          {!expanded && <p className="text-sm text-slate-500 line-clamp-1">{finding.description}</p>}
         </div>
         <div className="flex items-center gap-6 shrink-0">
           <div className="hidden md:block text-right">
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">
-              Confidence
-            </div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Confidence</div>
             <ConfidenceBar score={finding.confidence} />
           </div>
-          <div className="text-slate-500 transition-transform duration-300">
-            {expanded ? (
-              <ChevronUp className="w-5 h-5" />
-            ) : (
-              <ChevronDown className="w-5 h-5" />
-            )}
-          </div>
+          {expanded ? <ChevronUp className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
         </div>
       </div>
 
       {expanded && (
-        <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-top-2 duration-300">
+        <div className="p-6 pt-0 grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-top-2">
           <div className="lg:col-span-2 space-y-6">
             <div>
-              <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                Description
-              </h5>
-              <p className="text-sm text-slate-300 leading-relaxed">
-                {finding.description}
-              </p>
+              <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Description</h5>
+              <p className="text-sm text-slate-300 leading-relaxed">{finding.description}</p>
             </div>
             {finding.evidence && (
-              <div className="rounded-lg bg-[#05060A] border border-white/10 overflow-hidden">
-                <div className="px-4 py-2 bg-white/5 border-b border-white/5 text-xs font-mono text-slate-400 flex items-center gap-2">
-                  <Terminal className="w-3 h-3" /> Technical Evidence
-                </div>
-                <div className="p-4 font-mono text-xs text-emerald-400/90 overflow-x-auto max-h-[300px] custom-scrollbar">
-                  <RecursiveEvidence data={finding.evidence} />
-                </div>
+              <div className="rounded-lg bg-[#05060A] border border-white/10 p-4 font-mono text-xs text-emerald-400/90 overflow-x-auto">
+                <RecursiveEvidence data={finding.evidence} />
               </div>
             )}
           </div>
           <div className="space-y-6 border-t lg:border-t-0 lg:border-l border-white/5 pt-6 lg:pt-0 lg:pl-6">
             <div>
-              <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                Affected Asset
-              </h5>
-              <div className="flex items-center gap-2 text-sm text-white bg-white/5 p-2 rounded border border-white/5">
-                <Target className="w-4 h-4 text-indigo-400" />
-                <span className="truncate">{finding.affected_asset}</span>
-              </div>
-            </div>
-            <div>
-              <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                Detection Source
-              </h5>
-              <div className="flex items-center gap-2 text-sm text-slate-300">
-                <Crosshair className="w-4 h-4 text-slate-500" />
-                {finding.source_tool || "Composite Engine"}
-              </div>
+              <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Affected Asset</h5>
+              <div className="text-sm text-white bg-white/5 p-2 rounded border border-white/5 truncate">{finding.affected_asset}</div>
             </div>
           </div>
         </div>
@@ -642,49 +504,31 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
   );
 }
 
-function NavButton({ label, onClick, active, icon }: any) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center justify-center px-6 h-10 rounded-full text-sm font-medium transition-all gap-2 whitespace-nowrap border",
-        active
-          ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/20"
-          : "bg-white/5 border-white/5 text-slate-400 hover:bg-white/10 hover:text-white",
-      )}
-    >
-      {icon} {label}
-    </button>
-  );
-}
-
-// 🆕 UPDATED FILTER BUTTON COMPONENT
 function FilterButton({ label, count, active, onClick, variant }: any) {
   const styles: any = {
-    all: "hover:bg-white/10 hover:text-white data-[active=true]:bg-white data-[active=true]:text-black",
-    critical:
-      "hover:text-red-400 data-[active=true]:bg-red-500/20 data-[active=true]:text-red-400 data-[active=true]:border-red-500/50",
-    high: "hover:text-orange-400 data-[active=true]:bg-orange-500/20 data-[active=true]:text-orange-400 data-[active=true]:border-orange-500/50",
-    medium:
-      "hover:text-yellow-400 data-[active=true]:bg-yellow-500/20 data-[active=true]:text-yellow-400 data-[active=true]:border-yellow-500/50",
-    low: "hover:text-blue-400 data-[active=true]:bg-blue-500/20 data-[active=true]:text-blue-400 data-[active=true]:border-blue-500/50",
-    info: "hover:text-slate-300 data-[active=true]:bg-slate-500/20 data-[active=true]:text-slate-300 data-[active=true]:border-slate-500/50",
+    all: "data-[active=true]:bg-white data-[active=true]:text-black hover:bg-white/10",
+    critical: "data-[active=true]:bg-red-500/20 data-[active=true]:text-red-400 hover:text-red-400",
+    high: "data-[active=true]:bg-orange-500/20 data-[active=true]:text-orange-400 hover:text-orange-400",
+    medium: "data-[active=true]:bg-yellow-500/20 data-[active=true]:text-yellow-400 hover:text-yellow-400",
+    low: "data-[active=true]:bg-blue-500/20 data-[active=true]:text-blue-400 hover:text-blue-400",
+    info: "data-[active=true]:bg-slate-500/20 data-[active=true]:text-slate-300 hover:text-slate-300",
   };
 
   return (
     <button
       onClick={onClick}
       data-active={active}
-      className={cn(
-        "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium border border-transparent transition-all",
-        "text-slate-500", // Default text color
-        styles[variant],
-      )}
+      className={cn("px-3 py-1.5 rounded-md text-xs font-medium border border-transparent transition-all cursor-pointer text-slate-500", styles[variant])}
     >
-      {label}
-      <span className={cn("text-[10px] opacity-70", active && "opacity-100")}>
-        ({count})
-      </span>
+      {label} <span className="text-[10px] opacity-70">({count})</span>
+    </button>
+  );
+}
+
+function NavButton({ label, onClick, active, icon }: any) {
+  return (
+    <button onClick={onClick} className={cn("flex items-center px-6 h-10 rounded-full text-sm font-medium transition-all gap-2 border", active ? "bg-indigo-600 border-indigo-500 text-white shadow-lg" : "bg-white/5 border-white/5 text-slate-400 hover:text-white")}>
+      {icon} {label}
     </button>
   );
 }
@@ -698,62 +542,26 @@ function StatBox({ label, count, color }: any) {
     slate: "text-slate-400 border-white/10 bg-white/5",
   };
   return (
-    <div
-      className={cn(
-        "p-4 rounded-lg border flex flex-col items-center justify-center",
-        colors[color],
-      )}
-    >
+    <div className={cn("p-4 rounded-lg border flex flex-col items-center justify-center", colors[color])}>
       <span className="text-2xl font-bold">{count}</span>
-      <span className="text-[10px] uppercase tracking-wider opacity-80">
-        {label}
-      </span>
+      <span className="text-[10px] uppercase opacity-80">{label}</span>
     </div>
   );
 }
 
 function ConfigRow({ label, value }: any) {
   return (
-    <div className="flex justify-between items-center py-2 border-b border-white/5 last:border-0 text-sm">
+    <div className="flex justify-between items-center py-2 border-b border-white/5 text-sm">
       <span className="text-slate-500">{label}</span>
-      <span className="text-slate-200 font-mono truncate max-w-[200px]">
-        {value}
-      </span>
+      <span className="text-slate-200 font-mono truncate max-w-[200px]">{value}</span>
     </div>
   );
 }
 
 function SeverityIcon({ severity }: { severity: string }) {
-  const s = severity?.toLowerCase();
-  if (s === "critical")
-    return (
-      <div className="h-10 w-10 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center">
-        <AlertTriangle className="w-5 h-5 text-red-500" />
-      </div>
-    );
-  if (s === "high")
-    return (
-      <div className="h-10 w-10 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center">
-        <AlertTriangle className="w-5 h-5 text-orange-500" />
-      </div>
-    );
-  if (s === "medium")
-    return (
-      <div className="h-10 w-10 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center">
-        <AlertTriangle className="w-5 h-5 text-yellow-500" />
-      </div>
-    );
-  if (s === "low")
-    return (
-      <div className="h-10 w-10 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center">
-        <Info className="w-5 h-5 text-blue-500" />
-      </div>
-    );
-  return (
-    <div className="h-10 w-10 rounded-lg bg-slate-500/10 border border-slate-500/30 flex items-center justify-center">
-      <Info className="w-5 h-5 text-slate-500" />
-    </div>
-  );
+  if (severity === "critical" || severity === "high" || severity === "medium")
+    return <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-white/5 border border-white/10"><AlertTriangle className={cn("w-5 h-5", severity === "critical" ? "text-red-500" : severity === "high" ? "text-orange-500" : "text-yellow-500")} /></div>;
+  return <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-white/5 border border-white/10"><Info className="w-5 h-5 text-blue-500" /></div>;
 }
 
 function getRiskColorBorder(score: number) {
@@ -765,16 +573,10 @@ function getRiskColorBorder(score: number) {
 
 function ConfidenceBar({ score }: { score: number }) {
   const percentage = Math.round((score || 0) * 100);
-  let color = "bg-blue-500";
-  if (percentage > 80) color = "bg-emerald-500";
-  else if (percentage < 50) color = "bg-yellow-500";
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 w-16 bg-white/10 rounded-full overflow-hidden">
-        <div
-          className={cn("h-full transition-all", color)}
-          style={{ width: `${percentage}%` }}
-        />
+        <div className="h-full bg-emerald-500" style={{ width: `${percentage}%` }} />
       </div>
       <span className="text-xs text-slate-400 font-mono">{percentage}%</span>
     </div>
@@ -782,21 +584,13 @@ function ConfidenceBar({ score }: { score: number }) {
 }
 
 function RecursiveEvidence({ data }: { data: any }) {
-  if (typeof data !== "object" || data === null) {
-    return <span>{String(data)}</span>;
-  }
+  if (typeof data !== "object" || data === null) return <span>{String(data)}</span>;
   return (
-    <ul className="pl-2 border-l border-white/10 space-y-1 my-1">
+    <ul className="pl-2 border-l border-white/10 space-y-1">
       {Object.entries(data).map(([key, value], i) => (
-        <li key={i} className="flex flex-col sm:flex-row sm:gap-2 items-start">
-          <span className="text-indigo-300 shrink-0">{key}:</span>
-          <span className="text-slate-400 break-all">
-            {typeof value === "object" ? (
-              <RecursiveEvidence data={value} />
-            ) : (
-              String(value)
-            )}
-          </span>
+        <li key={i} className="flex flex-col sm:flex-row sm:gap-2">
+          <span className="text-indigo-300">{key}:</span>
+          <span className="text-slate-400 break-all">{typeof value === "object" ? <RecursiveEvidence data={value} /> : String(value)}</span>
         </li>
       ))}
     </ul>
