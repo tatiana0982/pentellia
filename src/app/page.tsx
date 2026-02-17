@@ -101,15 +101,13 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="relative perspective-2000 order-1 lg:order-2">
+          <div className="relative perspective-2000 order-1 lg:order-2">
               <div className="relative z-10 animate-float transform-gpu border border-purple-500/20 rounded-lg overflow-hidden shadow-[0_40px_80px_rgba(88,28,135,0.4)] bg-[#0b0c15] p-1">
+                {/* REPLACED WITH EXTERNAL URL FOR RELIABILITY */}
                 <img
-                  src="/dashboard.png"
+                  src="https://blush-fashionable-swift-557.mypinata.cloud/ipfs/bafkreidhvqcbvttva672gpw2epo5fk7wigwau5zqhoev6i7lczfrwlvmb4"
                   alt="Pentellia Interface"
-                  className="w-full h-auto opacity-90 transition-opacity"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = "https://placehold.co/1200x800/0b0c15/a855f7?text=Pentellia+Dashboard";
-                  }}
+                  className="w-full h-auto opacity-95 transition-opacity duration-1000"
                 />
               </div>
               <div className="absolute -top-4 md:-top-6 -right-4 md:-right-6 w-20 md:w-32 h-20 md:h-32 border-t border-r border-purple-500/30" />
