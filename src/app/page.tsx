@@ -25,6 +25,11 @@ import { cn } from "@/lib/utils";
  */
 
 export default function LandingPage() {
+  // Authentication Simulation
+  // Change to true to simulate a logged-in state
+  const isLoggedIn = false; 
+  const dashboardPath = isLoggedIn ? "/dashboard" : "/signup";
+
   return (
     <div className="min-h-screen bg-[#05010a] text-purple-100 font-sans selection:bg-purple-500/30 overflow-x-hidden">
 
@@ -38,7 +43,7 @@ export default function LandingPage() {
         />
       </div>
 
-      {/* --- 1. MINIMALIST NAVBAR (No Hamburger) --- */}
+      {/* --- 1. NAVBAR --- */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-purple-500/10 bg-[#05010a]/80 backdrop-blur-xl h-16 md:h-20 flex items-center">
         <div className="max-w-7xl mx-auto px-4 md:px-6 w-full flex items-center justify-between">
           <Link href="/" className="group flex items-center shrink-0">
@@ -49,7 +54,7 @@ export default function LandingPage() {
             />
           </Link>
 
-          {/* Nav Links - Hidden on Mobile */}
+          {/* Nav Links */}
           <div className="hidden lg:flex items-center gap-10 text-[11px] font-bold tracking-[0.3em] uppercase text-purple-400/60">
             <NavLink href="#platform">Node</NavLink>
             <NavLink href="#briefing">Intelligence</NavLink>
@@ -57,12 +62,15 @@ export default function LandingPage() {
             <NavLink href="#workflow">Lifecycle</NavLink>
           </div>
 
-          <div className="flex items-center">
-             <Button
+          <div className="flex items-center gap-4">
+            <Link href="/login" className="hidden md:block text-[10px] font-bold tracking-widest uppercase text-purple-400 hover:text-white transition-colors">
+              Login
+            </Link>
+            <Button
               asChild
               className="bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-none px-4 md:px-6 h-9 md:h-10 tracking-widest uppercase text-[10px] md:text-xs shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-all"
             >
-              <Link href="/dashboard">Initialize Scan</Link>
+              <Link href={dashboardPath}>Initialize Scan</Link>
             </Button>
           </div>
         </div>
@@ -92,18 +100,17 @@ export default function LandingPage() {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-none px-8 md:px-10 h-14 md:h-16 uppercase tracking-[0.2em] text-[10px] md:text-xs transition-all shadow-lg shadow-purple-900/40 w-full sm:w-auto">
-                  Deploy Arsenal
+                <Button asChild size="lg" className="bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-none px-8 md:px-10 h-14 md:h-16 uppercase tracking-[0.2em] text-[10px] md:text-xs transition-all shadow-lg shadow-purple-900/40 w-full sm:w-auto">
+                  <Link href={dashboardPath}>Deploy Arsenal</Link>
                 </Button>
-                <Button size="lg" variant="outline" className="border-purple-500/20 hover:bg-purple-500/5 text-purple-300 rounded-none px-8 md:px-10 h-14 md:h-16 uppercase font-bold tracking-[0.2em] text-[10px] md:text-xs transition-all w-full sm:w-auto">
-                  Briefing V1.1
+                <Button asChild size="lg" variant="outline" className="border-purple-500/20 hover:bg-purple-500/5 text-purple-300 rounded-none px-8 md:px-10 h-14 md:h-16 uppercase font-bold tracking-[0.2em] text-[10px] md:text-xs transition-all w-full sm:w-auto">
+                  <Link href="/login">Briefing V1.1</Link>
                 </Button>
               </div>
             </div>
 
-          <div className="relative perspective-2000 order-1 lg:order-2">
+            <div className="relative perspective-2000 order-1 lg:order-2">
               <div className="relative z-10 animate-float transform-gpu border border-purple-500/20 rounded-lg overflow-hidden shadow-[0_40px_80px_rgba(88,28,135,0.4)] bg-[#0b0c15] p-1">
-                {/* REPLACED WITH EXTERNAL URL FOR RELIABILITY */}
                 <img
                   src="https://blush-fashionable-swift-557.mypinata.cloud/ipfs/bafkreidhvqcbvttva672gpw2epo5fk7wigwau5zqhoev6i7lczfrwlvmb4"
                   alt="Pentellia Interface"
@@ -127,7 +134,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- 4. INTELLIGENCE BRIEFING (VIDEO) --- */}
+      {/* --- 4. INTELLIGENCE BRIEFING --- */}
       <section id="briefing" className="py-16 md:py-32 relative z-10">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
           <div className="grid lg:grid-cols-5 gap-10 lg:gap-20 items-center">
@@ -225,8 +232,9 @@ export default function LandingPage() {
             <h2 className="text-4xl md:text-6xl font-black text-white mb-8 uppercase tracking-tighter">
               Before They Do.
             </h2>
+            {/* INITIATE BUTTON LINKED TO DASHBOARD/SIGNUP */}
             <Button asChild size="lg" className="h-16 px-14 bg-purple-600 hover:bg-purple-500 text-white font-black text-sm rounded-none tracking-[0.3em] uppercase transition-all shadow-2xl">
-              <Link href="/dashboard">Initiate {"->"}</Link>
+              <Link href={dashboardPath}>Initiate {"->"}</Link>
             </Button>
           </div>
         </div>
@@ -244,13 +252,16 @@ export default function LandingPage() {
               </p>
             </div>
             <FooterSection title="Platform">
-              <FooterLink>Adversarial AI</FooterLink>
+              <FooterLink href={dashboardPath}>Dashboard</FooterLink>
+              <FooterLink href="/signup">Get Started</FooterLink>
             </FooterSection>
-            <FooterSection title="Intelligence">
-              <FooterLink>Director Sandeep Verma</FooterLink>
+            <FooterSection title="Company">
+              <FooterLink href="/login">Login</FooterLink>
+              <FooterLink href="/signup">Signup</FooterLink>
             </FooterSection>
-            <FooterSection title="Connect">
-              <FooterLink>IndiaAI Summit</FooterLink>
+            <FooterSection title="Legal">
+              <FooterLink href="#">Terms of Service</FooterLink>
+              <FooterLink href="#">Privacy Policy</FooterLink>
             </FooterSection>
           </div>
         </div>
@@ -330,9 +341,9 @@ function FooterSection({ title, children }: { title: string; children: React.Rea
   );
 }
 
-function FooterLink({ children }: { children: React.ReactNode }) {
+function FooterLink({ children, href }: { children: React.ReactNode; href: string }) {
   return (
-    <Link href="#" className="text-[10px] md:text-[11px] text-purple-500/60 hover:text-purple-400 transition-colors tracking-widest font-mono uppercase flex items-center gap-2 group">
+    <Link href={href} className="text-[10px] md:text-[11px] text-purple-500/60 hover:text-purple-400 transition-colors tracking-widest font-mono uppercase flex items-center gap-2 group">
       <div className="h-px w-2 md:w-3 bg-purple-900 group-hover:bg-purple-500 transition-all" />
       {children}
     </Link>
