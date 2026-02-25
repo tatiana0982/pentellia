@@ -433,7 +433,7 @@ function RunningStateView({ scan }: { scan: ScanResult }) {
   const progress = pythonStatus?.progress?.percentage || 0;
   const currentStep =
     pythonStatus?.progress?.current_description || "Initializing...";
-  const completedTools = pythonStatus?.progress?.completed_tools || [];
+  const completedTools = pythonStatus?.progress?.completed_steps || [];
 
   return (
     <div className="space-y-6 p-6">
