@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ArrowRight, Sparkles, Star } from "lucide-react"; // Added Star/Sparkles
+import { Search, ArrowRight, Sparkles, Star, Wrench } from "lucide-react"; // Added Wrench for maintenance
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,8 @@ interface SecurityTool {
 
 // Define the tools we want to pin to the top
 const PINNED_TOOLS = ["webscan", "cloudscan", "networkscan"];
+// Define tools currently under maintenance
+const MAINTENANCE_TOOLS = ["gvm", "cvesearch"];
 
 export default function NewScanPage() {
   const router = useRouter();
@@ -64,15 +66,20 @@ export default function NewScanPage() {
       return matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
-      // Check if tools are pinned (check both slug and id for robustness)
-      const aPinned =
-        PINNED_TOOLS.includes(a.slug) || PINNED_TOOLS.includes(a.id);
-      const bPinned =
-        PINNED_TOOLS.includes(b.slug) || PINNED_TOOLS.includes(b.id);
+      // Check if tools are pinned or in maintenance
+      const aPinned = PINNED_TOOLS.includes(a.slug) || PINNED_TOOLS.includes(a.id);
+      const bPinned = PINNED_TOOLS.includes(b.slug) || PINNED_TOOLS.includes(b.id);
+      const aMaint = MAINTENANCE_TOOLS.includes(a.slug) || MAINTENANCE_TOOLS.includes(a.id);
+      const bMaint = MAINTENANCE_TOOLS.includes(b.slug) || MAINTENANCE_TOOLS.includes(b.id);
 
       // Pinned tools go first
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
+      
+      // Maintenance tools go last
+      if (aMaint && !bMaint) return 1;
+      if (!aMaint && bMaint) return -1;
+
       return 0; // Maintain original order otherwise
     });
 
@@ -156,22 +163,30 @@ export default function NewScanPage() {
               const isPinned =
                 PINNED_TOOLS.includes(tool.slug) ||
                 PINNED_TOOLS.includes(tool.id);
+              const isMaintenance = 
+                MAINTENANCE_TOOLS.includes(tool.slug) || 
+                MAINTENANCE_TOOLS.includes(tool.id);
 
               return (
                 <div
                   key={tool.id}
-                  onClick={() => handleToolClick(tool.slug)}
+                  onClick={() => !isMaintenance && handleToolClick(tool.slug)}
                   className={cn(
-                    "group relative flex flex-col p-5 rounded-xl border backdrop-blur-sm transition-all duration-300 cursor-pointer overflow-hidden",
-                    // Conditional Styling for Pinned items
+                    "group relative flex flex-col p-5 rounded-xl border backdrop-blur-sm transition-all duration-300 overflow-hidden",
+                    // Conditional Styling for Pinned vs Maintenance vs Default items
                     isPinned
-                      ? "bg-violet-500/[0.08] border-violet-500/40 hover:bg-violet-500/[0.12] hover:border-violet-400/60 shadow-[0_0_20px_rgba(139,92,246,0.1)]"
-                      : "bg-[#0B0C15]/40 border-white/10 hover:bg-white/[0.07] hover:border-violet-500/30"
+                      ? "bg-violet-500/[0.08] border-violet-500/40 hover:bg-violet-500/[0.12] hover:border-violet-400/60 shadow-[0_0_20px_rgba(139,92,246,0.1)] cursor-pointer"
+                      : isMaintenance
+                      ? "bg-amber-500/[0.08] border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.05)] cursor-not-allowed opacity-90"
+                      : "bg-[#0B0C15]/40 border-white/10 hover:bg-white/[0.07] hover:border-violet-500/30 cursor-pointer"
                   )}
                 >
-                  {/* Decorative Glow for Pinned Items */}
+                  {/* Decorative Glow for Pinned & Maintenance Items */}
                   {isPinned && (
                     <div className="absolute top-0 right-0 p-16 bg-violet-500/20 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none transition-opacity group-hover:opacity-100" />
+                  )}
+                  {isMaintenance && (
+                    <div className="absolute top-0 right-0 p-16 bg-amber-500/10 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none transition-opacity" />
                   )}
 
                   <div className="flex items-start justify-between mb-4 relative z-10">
@@ -180,6 +195,8 @@ export default function NewScanPage() {
                         "flex h-12 w-12 items-center justify-center rounded-lg border transition-colors",
                         isPinned
                           ? "bg-violet-500/20 border-violet-500/30 text-violet-200"
+                          : isMaintenance
+                          ? "bg-amber-500/20 border-amber-500/30 text-amber-200"
                           : "bg-white/5 border-white/5 text-slate-300 group-hover:border-violet-500/20 group-hover:bg-violet-500/10 group-hover:text-violet-300"
                       )}
                     >
@@ -189,6 +206,10 @@ export default function NewScanPage() {
                     {isPinned ? (
                       <Badge className="bg-violet-500 text-white border-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 shadow-sm flex items-center gap-1">
                         <Star className="h-3 w-3 fill-current" /> Recommended
+                      </Badge>
+                    ) : isMaintenance ? (
+                      <Badge className="bg-amber-500 text-white border-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 shadow-sm flex items-center gap-1">
+                        <Wrench className="h-3 w-3" /> Maintenance
                       </Badge>
                     ) : (
                       <Badge
@@ -206,6 +227,8 @@ export default function NewScanPage() {
                         "font-semibold text-lg mb-1 transition-colors flex items-center gap-2",
                         isPinned
                           ? "text-white group-hover:text-violet-100"
+                          : isMaintenance
+                          ? "text-white/80"
                           : "text-white group-hover:text-violet-200"
                       )}
                     >
@@ -221,11 +244,19 @@ export default function NewScanPage() {
                       "relative z-10 mt-4 flex items-center text-xs font-medium transition-colors",
                       isPinned
                         ? "text-violet-300 group-hover:text-violet-200"
+                        : isMaintenance
+                        ? "text-amber-400/80"
                         : "text-slate-500 group-hover:text-violet-400"
                     )}
                   >
-                    <span>Configure Scan</span>
-                    <ArrowRight className="ml-2 h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                    {isMaintenance ? (
+                      <span>Currently Unavailable</span>
+                    ) : (
+                      <>
+                        <span>Configure Scan</span>
+                        <ArrowRight className="ml-2 h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                      </>
+                    )}
                   </div>
                 </div>
               );

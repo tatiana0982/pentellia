@@ -57,8 +57,6 @@ export function getPurpleReportHtml(data: any) {
   }
 
   /* ================= UPDATED PAGINATION ENGINE ================= */
-  // Inside your getPurpleReportHtml function:
-
   const aiRaw = ai_summary || result.ai_summary || "";
   // Split by double newlines or table separators to avoid breaking blocks mid-page
   const aiBlocks = aiRaw
@@ -70,6 +68,7 @@ export function getPurpleReportHtml(data: any) {
     const lines = block.split("\n").length;
     return block.length * 0.35 + lines * 25; // Add height for line breaks and headers
   });
+
   /* ================= FINDINGS PAGINATION ================= */
   function estimateFindingHeight(f: any) {
     let h = 150;
@@ -102,15 +101,16 @@ export function getPurpleReportHtml(data: any) {
 <meta charset="UTF-8" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 <style>
-/* ... (Keep your existing styles) ... */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 :root { --bg-deep: #0a0514; --bg-card: #150e26; --accent: #9333ea; --text-main: #f3f4f6; --text-dim: #9ca3af; }
 body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-deep); color: var(--text-main); -webkit-print-color-adjust: exact; }
 .pdf-page { width: 210mm; height: 297mm; padding: 60px; page-break-after: always; position: relative; overflow: hidden; }
-.glass { background: var(--bg-card); border: 1px solid rgba(147,51,234,0.2); border-radius: 12px; padding: 20px; }
+.glass { background: var(--bg-card); border: 1px solid rgba(147,51,234,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); }
 .footer { position: absolute; bottom: 30px; left: 60px; right: 60px; font-size: 9px; color: var(--text-dim); display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; }
 .badge { font-size: 10px; padding: 3px 8px; border-radius: 999px; font-weight: 700; text-transform: uppercase; }
+canvas { max-height: 100%; max-width: 100%; }
 </style>
 </head>
 <body>
@@ -161,40 +161,65 @@ ${aiPages
   )
   .join("")}
 
-<!-- ================= PAGE 2: EXECUTIVE ANALYTICS ================= -->
 <div class="pdf-page">
-  <h2 class="text-3xl font-bold mb-10">Executive Analytics</h2>
+  <h2 class="text-3xl font-bold mb-10 text-white">Executive Analytics</h2>
 
   <div class="grid grid-cols-3 gap-6 mb-10">
-    <div class="glass text-center">
-      <p class="text-xs uppercase text-dim">Risk Score</p>
-      <p class="text-4xl font-bold">${summary.risk_score}</p>
+    <div class="glass text-center relative overflow-hidden group">
+      <div class="absolute inset-0 bg-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      <p class="text-xs uppercase text-purple-400 font-semibold tracking-wider mb-2">Risk Score</p>
+      <p class="text-5xl font-extrabold text-white">${summary.risk_score}</p>
     </div>
-    <div class="glass text-center">
-      <p class="text-xs uppercase text-dim">Findings</p>
-      <p class="text-4xl font-bold">${summary.total_findings}</p>
+    <div class="glass text-center relative overflow-hidden group">
+      <div class="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      <p class="text-xs uppercase text-blue-400 font-semibold tracking-wider mb-2">Total Findings</p>
+      <p class="text-5xl font-extrabold text-white">${summary.total_findings}</p>
     </div>
-    <div class="glass text-center">
-      <p class="text-xs uppercase text-dim">Assets</p>
-      <p class="text-4xl font-bold">${summary.affected_assets}</p>
-    </div>
-  </div>
-
-  <div class="grid grid-cols-2 gap-8 h-[300px] mb-12">
-    <div class="glass">
-      <p class="font-bold mb-4">Severity Distribution</p>
-      <canvas id="severityChart"></canvas>
-    </div>
-    <div class="glass">
-      <p class="font-bold mb-4">Risk Comparison</p>
-      <canvas id="riskChart"></canvas>
+    <div class="glass text-center relative overflow-hidden group">
+      <div class="absolute inset-0 bg-green-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      <p class="text-xs uppercase text-green-400 font-semibold tracking-wider mb-2">Affected Assets</p>
+      <p class="text-5xl font-extrabold text-white">${summary.affected_assets}</p>
     </div>
   </div>
 
-  <div class="glass">
-    <p class="italic text-sm text-dim">
-      "${result.executive_summary}"
-    </p>
+  <div class="grid grid-cols-2 gap-8 h-[340px] mb-12">
+    <div class="glass flex flex-col items-center justify-between">
+      <p class="font-bold w-full text-left text-lg text-white mb-2">Severity Distribution</p>
+      <div class="relative w-full flex-1 flex items-center justify-center min-h-[220px]">
+        <canvas id="severityChart"></canvas>
+        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+          <span class="text-4xl font-extrabold text-white">${summary.total_findings}</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-dim">Total</span>
+        </div>
+      </div>
+      <div class="flex gap-4 mt-4 w-full justify-center text-xs font-medium text-dim">
+        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>High <span class="text-white ml-0.5">${summary.high}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]"></span>Med <span class="text-white ml-0.5">${summary.medium}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]"></span>Low <span class="text-white ml-0.5">${summary.low}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span>Info <span class="text-white ml-0.5">${summary.info}</span></div>
+      </div>
+    </div>
+    
+    <div class="glass flex flex-col items-center justify-between">
+      <p class="font-bold w-full text-left text-lg text-white mb-2">Risk Comparison</p>
+      <div class="relative w-full flex-1 flex items-center justify-center min-h-[220px]">
+        <canvas id="riskChart"></canvas>
+      </div>
+      <div class="flex gap-4 mt-4 w-full justify-center text-xs font-medium text-dim">
+         <span class="italic text-dim/70">Benchmarked against industry standards</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="glass bg-purple-900/10 border-purple-500/20">
+    <div class="flex gap-3 items-start">
+      <div class="mt-1 text-purple-400">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      </div>
+      <p class="italic text-sm text-dim leading-relaxed">
+        "${result.executive_summary}"
+      </p>
+    </div>
   </div>
 
   <div class="footer">
@@ -203,7 +228,6 @@ ${aiPages
   </div>
 </div>
 
-<!-- ================= PAGE 3: TOOLS & COVERAGE ================= -->
 <div class="pdf-page">
   <h2 class="text-3xl font-bold mb-8">Tools & Scan Coverage</h2>
 
@@ -236,7 +260,6 @@ ${aiPages
   </div>
 </div>
 
-<!-- ================= AUTO-PAGINATED RECON ================= -->
 ${reconPages
   .map(
     (page, i) => `
@@ -267,7 +290,6 @@ ${reconPages
   )
   .join("")}
 
-<!-- ================= AUTO-PAGINATED HEADERS ================= -->
 ${headerPages
   .map(
     (page, i) => `
@@ -298,7 +320,6 @@ ${headerPages
   )
   .join("")}
 
-<!-- ================= AUTO-PAGINATED FINDINGS ================= -->
 ${findingPages
   .map(
     (page, i) => `
@@ -333,8 +354,7 @@ ${findingPages
   .join("")}
 
 
-  <!-- ================= PAGE: COMPLIANCE MAPPING ================= -->
-<div class="pdf-page">
+  <div class="pdf-page">
   <h2 class="text-3xl font-bold mb-8">Compliance & Risk Mapping</h2>
 
   <div class="glass mb-6">
@@ -384,7 +404,6 @@ ${findingPages
     <span>Compliance Overview</span>
   </div>
 </div>
-<!-- ================= PAGE: ATTACK SCENARIOS ================= -->
 <div class="pdf-page">
   <h2 class="text-3xl font-bold mb-8">Potential Attack Scenarios</h2>
 
@@ -430,7 +449,6 @@ ${findingPages
   </div>
 </div>
 
-<!-- ================= PAGE: SECURITY MATURITY ================= -->
 <div class="pdf-page">
   <h2 class="text-3xl font-bold mb-8">Security Maturity Scorecard</h2>
 
@@ -474,30 +492,80 @@ ${findingPages
 </div>
 
 <script>
+// Register DataLabels globally
+Chart.register(ChartDataLabels);
+
+// Styling defaults
+Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+Chart.defaults.color = '#9ca3af';
+
+// 1. Severity Doughnut Chart
 new Chart(document.getElementById('severityChart'), {
   type: 'doughnut',
   data: {
-    labels: ['High','Medium','Low','Info'],
+    labels: ['High', 'Medium', 'Low', 'Info'],
     datasets: [{
-      data: [${summary.high},${summary.medium},${summary.low},${summary.info}],
-      backgroundColor: ['#ef4444','#f97316','#eab308','#3b82f6']
-    }]
-  },
-  options: { plugins: { legend: { display: false } }, cutout: '70%' }
-});
-
-new Chart(document.getElementById('riskChart'), {
-  type: 'bar',
-  data: {
-    labels: ['Score','Baseline','Threshold'],
-    datasets: [{
-      data: [${summary.risk_score},50,80],
-      backgroundColor: ['#9333ea','#1e1b4b','#1e1b4b']
+      data: [${summary.high}, ${summary.medium}, ${summary.low}, ${summary.info}],
+      backgroundColor: ['#ef4444', '#f97316', '#eab308', '#3b82f6'],
+      borderWidth: 0,
+      hoverOffset: 4
     }]
   },
   options: {
-    plugins: { legend: { display: false } },
-    scales: { y: { display: false }, x: { grid: { display: false } } }
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '75%',
+    plugins: { 
+      legend: { display: false },
+      tooltip: { enabled: false }, // Optimized for PDF print
+      datalabels: {
+        color: '#ffffff',
+        font: { weight: 'bold', size: 14 },
+        formatter: (value) => value > 0 ? value : '' // Only show numbers > 0
+      }
+    }
+  }
+});
+
+// 2. Risk Bar Chart
+new Chart(document.getElementById('riskChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Score', 'Baseline', 'Threshold'],
+    datasets: [{
+      data: [${summary.risk_score}, 50, 80],
+      backgroundColor: ['#a855f7', '#312e81', '#312e81'],
+      borderRadius: 6,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { 
+      legend: { display: false },
+      tooltip: { enabled: false },
+      datalabels: {
+        color: '#ffffff',
+        anchor: 'end',
+        align: 'bottom', // Positions label inside the top of the bar
+        offset: -25,     // Adjusts spacing downward
+        font: { weight: 'bold', size: 16 },
+        formatter: (value) => value
+      }
+    },
+    scales: { 
+      y: { 
+        display: false,
+        max: 100, // Ensure bars scale proportionally to a max score of 100
+        beginAtZero: true
+      }, 
+      x: { 
+        grid: { display: false },
+        border: { display: false },
+        ticks: { font: { weight: '600' }, color: '#d1d5db' }
+      } 
+    }
   }
 });
 </script>

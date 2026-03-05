@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -11,7 +11,6 @@ import {
   Settings2,
   CheckCircle2,
   AlertCircle,
-  Terminal,
   Globe,
   Clock,
 } from "lucide-react";
@@ -77,7 +76,6 @@ export default function ToolScanPage() {
           );
 
           if (foundTool) {
-            // Handle JSON parsing safely (DB might return string or object)
             let parsedParams: ToolParam[] = [];
             if (typeof foundTool.params === "string") {
               try {
@@ -92,7 +90,6 @@ export default function ToolScanPage() {
             foundTool.params = parsedParams;
             setConfig(foundTool);
 
-            // Initialize Defaults
             const defaults: Record<string, any> = {};
             parsedParams.forEach((p) => {
               if (p.defaultValue !== undefined) {
@@ -115,8 +112,35 @@ export default function ToolScanPage() {
     fetchToolConfig();
   }, [toolSlug]);
 
-  // --- Handlers ---
+  // Fallback override ensuring interactive parameters are injected for the discovery tool
+  const activeParams = useMemo(() => {
+    if (toolSlug === "asset-discovery" || config?.id === "discovery") {
+       if (!config?.params || config.params.length === 0) {
+         return [
+            { key: "scope", label: "Scan Scope", type: "select", options: ["minimal", "standard", "full"], defaultValue: "standard" },
+            { key: "interactive", label: "Interactive Mode", type: "boolean", defaultValue: true },
+            { key: "confirm_threshold", label: "Confirmation Threshold", type: "number", defaultValue: 10 },
+            { key: "timeout", label: "Timeout (seconds)", type: "number", defaultValue: 600 }
+         ] as ToolParam[];
+       }
+    }
+    return config?.params || [];
+  }, [config, toolSlug]);
 
+  // Set defaults for the injected activeParams if formParams is empty
+  useEffect(() => {
+    if (activeParams.length > 0 && Object.keys(formParams).length === 0) {
+       const defaults: Record<string, any> = {};
+       activeParams.forEach((p) => {
+         if (p.defaultValue !== undefined) {
+           defaults[p.key] = p.defaultValue;
+         }
+       });
+       setFormParams(defaults);
+    }
+  }, [activeParams, formParams]);
+
+  // --- Handlers ---
   const handleParamChange = (key: string, value: any) => {
     setFormParams((prev) => ({ ...prev, [key]: value }));
   };
@@ -130,14 +154,28 @@ export default function ToolScanPage() {
 
     setIsSubmitting(true);
     try {
-      // 1. Send Request to Next.js API
+      const parsedParams = { ...formParams };
+      
+      // Explicit type casting logic critical for the python backend expectations
+      activeParams?.forEach((p) => {
+        if (p.type === "number" && parsedParams[p.key] !== undefined && parsedParams[p.key] !== "") {
+          parsedParams[p.key] = Number(parsedParams[p.key]);
+        }
+        if (p.type === "boolean" && parsedParams[p.key] !== undefined) {
+          parsedParams[p.key] = Boolean(parsedParams[p.key]);
+        }
+      });
+
+      // Target mapping specific for the discovery service requirement
+      const finalToolId = toolSlug === "asset-discovery" ? "discovery" : config?.id;
+
       const response = await fetch(`/api/dashboard/scans`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tool: config?.id,
+          tool: finalToolId,
           target: target,
-          params: formParams,
+          params: parsedParams,
         }),
       });
 
@@ -146,7 +184,6 @@ export default function ToolScanPage() {
       if (response.ok) {
         toast.success("Scan initiated successfully");
         triggerNotificationRefresh();
-        // 2. Redirect to the Report/Status Page using the returned scanId
         router.push(`/dashboard/scans/${toolSlug}/${data.scanId}`);
       } else {
         throw new Error(data.error || "Failed to start scan");
@@ -158,28 +195,6 @@ export default function ToolScanPage() {
     }
   };
 
-  // --- Helper: Generate Dynamic Terminal Command Preview ---
-  const getCommandPreview = () => {
-    if (!config) return "";
-    let cmd = `$ ${config.id} -t ${target || "<target>"}`;
-
-    if (config.params) {
-      Object.entries(formParams).forEach(([key, value]) => {
-        // Skip default values to keep command clean (optional preference)
-        const paramDef = config.params.find((p) => p.key === key);
-        if (value === "" || value === null) return;
-
-        if (paramDef?.type === "boolean") {
-          if (value === true) cmd += ` --${key}`;
-        } else {
-          cmd += ` --${key} ${value}`;
-        }
-      });
-    }
-    return cmd;
-  };
-
-  // --- Loading State ---
   if (loadingConfig) {
     return (
       <div className="flex flex-col h-[calc(100vh-6rem)] space-y-6 animate-pulse p-4">
@@ -199,18 +214,14 @@ export default function ToolScanPage() {
     );
   }
 
-  // --- Not Found State ---
-  if (!config) {
+  // Adjusted strictly for fallback state
+  if (!config && toolSlug !== "asset-discovery") {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400">
         <AlertCircle className="h-12 w-12 mb-4 text-red-500" />
         <h2 className="text-xl font-bold text-white">Tool Not Found</h2>
         <p>The scanner "{toolSlug}" does not exist.</p>
-        <Button
-          onClick={() => router.back()}
-          variant="link"
-          className="mt-4 text-violet-400"
-        >
+        <Button onClick={() => router.back()} variant="link" className="mt-4 text-violet-400">
           Go Back
         </Button>
       </div>
@@ -231,18 +242,18 @@ export default function ToolScanPage() {
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
-              {config.name}
-              {config.version && (
+              {config?.name || "Asset Discovery"}
+              {config?.version && (
                 <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-400">
                   {config.version}
                 </span>
               )}
             </h1>
-            <p className="text-slate-400 max-w-2xl">{config.description}</p>
+            <p className="text-slate-400 max-w-2xl">{config?.description || "Interactive Multi-Phase Asset Enumeration Scanner."}</p>
           </div>
           <div className="hidden md:flex items-center gap-2">
             <span className="text-xs text-slate-500 px-3 py-1 rounded-full bg-[#0B0C15] border border-white/10">
-              {config.category} Tool
+              {config?.category || "Discovery"} Tool
             </span>
           </div>
         </div>
@@ -255,10 +266,7 @@ export default function ToolScanPage() {
             <div className="rounded-2xl border border-white/10 bg-[#0B0C15]/50 backdrop-blur-md shadow-xl p-6 md:p-8 space-y-8">
               {/* Target Input */}
               <div className="space-y-3">
-                <Label
-                  htmlFor="target"
-                  className="text-base font-semibold text-white flex items-center gap-2"
-                >
+                <Label htmlFor="target" className="text-base font-semibold text-white flex items-center gap-2">
                   <Globe className="h-4 w-4 text-violet-500" /> Target
                 </Label>
                 <div className="relative">
@@ -278,7 +286,7 @@ export default function ToolScanPage() {
               </div>
 
               {/* Dynamic Params */}
-              {config.params && config.params.length > 0 && (
+              {activeParams && activeParams.length > 0 && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 pb-2 border-b border-white/5">
                     <Settings2 className="h-4 w-4 text-slate-400" />
@@ -288,7 +296,7 @@ export default function ToolScanPage() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {config.params.map((param) => (
+                    {activeParams.map((param) => (
                       <div
                         key={param.key}
                         className={cn(
@@ -392,26 +400,19 @@ export default function ToolScanPage() {
 
         {/* --- RIGHT COL: Info --- */}
         <div className="space-y-6">
-          {/* About Card */}
           <div className="rounded-2xl border border-white/10 bg-[#0B0C15]/30 p-6 space-y-4">
             <div className="flex items-center gap-2 text-white font-semibold">
               <Info className="h-4 w-4 text-violet-400" /> About this tool
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
-              {config.long_description || config.description}
+              {config?.long_description || config?.description || "Asset discovery scans through domains, subdomains, cloud IPs, and unmanaged network perimeters."}
             </p>
 
             <div className="pt-4 flex gap-2">
-              <Badge
-                variant="outline"
-                className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]"
-              >
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
                 <CheckCircle2 className="w-3 h-3 mr-1" /> Active
               </Badge>
-              <Badge
-                variant="outline"
-                className="bg-white/5 text-slate-400 border-white/10 text-[10px]"
-              >
+              <Badge variant="outline" className="bg-white/5 text-slate-400 border-white/10 text-[10px]">
                 <Shield className="w-3 h-3 mr-1" /> Verified
               </Badge>
             </div>
