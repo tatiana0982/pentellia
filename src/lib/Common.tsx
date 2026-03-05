@@ -140,7 +140,7 @@ export function CommonScanReport({
       });
     }, observerOptions);
 
-    ["executive", "findings", "methodology", "ai"].forEach((id) => {
+    ["executive", "findings", "methodology"].forEach((id) => {
       const el = document.getElementById(id);
       if (el) observer.observe(el);
     });
@@ -170,12 +170,6 @@ export function CommonScanReport({
             active={activeSection === "methodology"}
             onClick={() => scrollToSection("methodology")}
             icon={<Layers className="w-4 h-4" />}
-          />
-          <NavButton
-            label="AI Intelligence"
-            active={activeSection === "ai"}
-            onClick={() => scrollToSection("ai")}
-            icon={<Sparkles className="w-4 h-4 text-indigo-400" />}
           />
         </div>
       </div>
@@ -405,38 +399,6 @@ export function CommonScanReport({
               </CardContent>
             </Card>
           </div>
-        </section>
-
-        {/* --- SECTION 4: AI ANALYSIS --- */}
-        <section id="ai" className="space-y-8 scroll-mt-28">
-          <Card className="bg-[#0B0C15] border-indigo-500/30 shadow-[0_0_100px_rgba(79,70,229,0.1)] overflow-hidden relative">
-            <CardHeader className="border-b border-white/5 bg-indigo-500/5 py-6 px-8 flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-3 text-indigo-300 text-lg font-medium">
-                <Sparkles className="h-5 w-5 text-indigo-400 fill-indigo-400/20" />
-                Pentellia Intelligent Analysis
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-8">
-              {aiSummary ? (
-                <div className="animate-in fade-in duration-700">
-                  <ReactMarkdown
-                    components={{
-                      h2: ({ node, ...props }) => <h2 className="text-lg font-bold text-white mt-6 mb-3 flex items-center gap-2 border-l-2 border-indigo-500 pl-3" {...props} />,
-                      li: ({ node, ...props }) => <li className="flex items-start gap-2 relative pl-2"><span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" /><span>{props.children}</span></li>,
-                      code: ({ node, ...props }: any) => <code className="bg-black/50 border border-white/10 rounded px-1.5 py-0.5 font-mono text-xs text-orange-300" {...props} />,
-                    }}
-                  >
-                    {aiSummary}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-                  <Terminal className="h-8 w-8 text-slate-600" />
-                  <p className="text-slate-300 font-medium">Analysis Pending</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </section>
       </div>
     </div>

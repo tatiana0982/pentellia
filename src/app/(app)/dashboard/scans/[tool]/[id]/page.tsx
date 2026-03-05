@@ -550,52 +550,39 @@ export default function ScanReportPage() {
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-6 duration-1000">
              
-             {/* STUNNING HERO WRAPPER FOR THE REPORT */}
-             <div className="relative overflow-hidden rounded-3xl md:rounded-[2.5rem] bg-gradient-to-br from-white/[0.04] to-transparent border border-white/10 p-6 md:p-10 mb-8 md:mb-10 backdrop-blur-md shadow-2xl">
-               <div className="absolute top-0 right-0 w-[400px] md:w-[600px] h-[400px] md:h-[600px] bg-violet-500/10 blur-[100px] md:blur-[150px] pointer-events-none translate-x-1/3 -translate-y-1/3" />
-               <div className="absolute bottom-0 left-0 w-[300px] md:w-[400px] h-[300px] md:h-[400px] bg-fuchsia-500/10 blur-[100px] md:blur-[120px] pointer-events-none -translate-x-1/3 translate-y-1/3" />
+             {/* COMPACT EXECUTIVE OVERVIEW CARD */}
+             <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-black/20 border border-white/10 rounded-2xl p-6 md:p-8 shadow-xl mb-8 backdrop-blur-md">
+               <div className="flex items-center gap-4 md:gap-5 mb-6 md:mb-0">
+                 <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0 shadow-inner">
+                   <Shield className="h-6 w-6 md:h-7 md:w-7 text-violet-400" />
+                 </div>
+                 <div className="text-left">
+                   <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Comprehensive Security Audit</h2>
+                   <p className="text-slate-400 text-xs md:text-sm mt-1">Automated vulnerability assessment & intelligence gathering.</p>
+                 </div>
+               </div>
                
-               <div className="relative z-10 flex flex-col xl:flex-row xl:items-end justify-between gap-6 md:gap-8">
-                  <div className="space-y-4 md:space-y-6">
-                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                        <div className="p-3 md:p-4 w-fit rounded-xl md:rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/5 border border-violet-500/30 shadow-[0_0_30px_rgba(139,92,246,0.2)]">
-                           <Shield className="h-8 w-8 md:h-10 md:w-10 text-violet-400" />
-                        </div>
-                        <div className="space-y-1 md:space-y-2">
-                           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                             <h2 className="text-2xl md:text-4xl lg:text-5xl font-black text-white">Comprehensive Security Audit</h2>
-                             <div className="w-fit">
-                               <StatusBadge status={scan.status} />
-                             </div>
-                           </div>
-                           <p className="text-slate-400 font-medium text-sm md:text-lg">
-                             Automated vulnerability assessment & intelligence gathering.
-                           </p>
-                        </div>
-                     </div>
-                  </div>
-
-                  <div className="flex flex-col items-start xl:items-end gap-3 bg-black/20 p-4 md:p-5 rounded-xl md:rounded-2xl border border-white/5 backdrop-blur-sm w-full xl:w-auto">
-                     <div className="flex flex-row items-center gap-4 md:gap-6">
-                       <div className="space-y-1 text-left xl:text-right">
-                         <p className="text-[10px] text-slate-500 font-mono uppercase">Scan Initiated</p>
-                         <p className="text-xs md:text-sm font-semibold text-white">{new Date(scan.created_at).toLocaleString()}</p>
-                       </div>
-                       <div className="w-[1px] h-8 md:h-10 bg-white/10" />
-                       <div className="space-y-1 text-left xl:text-right">
-                         <p className="text-[10px] text-slate-500 font-mono uppercase">Engine Protocol</p>
-                         <p className="text-xs md:text-sm font-semibold text-white flex items-center gap-2">
-                           <Network className="h-3 w-3 text-violet-400" /> Distributed Node
-                         </p>
-                       </div>
-                     </div>
-                  </div>
+               <div className="flex flex-wrap items-center gap-6 md:gap-10 border-t md:border-t-0 md:border-l border-white/10 pt-6 md:pt-0 md:pl-10 w-full md:w-auto">
+                 <div className="flex flex-col">
+                   <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5">Target Scope</span>
+                   <span className="text-xs md:text-sm text-slate-200 font-mono bg-white/5 px-2 py-0.5 rounded border border-white/5">{scan.target}</span>
+                 </div>
+                 <div className="flex flex-col">
+                   <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5">Engine Protocol</span>
+                   <span className="text-xs md:text-sm text-slate-200 flex items-center gap-1.5">
+                     <Network className="h-3.5 w-3.5 text-violet-400"/> Distributed Node
+                   </span>
+                 </div>
+                 <div className="flex flex-col">
+                   <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5">Execution Time</span>
+                   <span className="text-xs md:text-sm text-slate-200">{new Date(scan.created_at).toLocaleString()}</span>
+                 </div>
                </div>
              </div>
 
              {/* RENDER THE COMMON SCAN REPORT (Prop aiSummary Removed = No Duplicates) */}
              <div className="bg-[#05050A]/40 border border-white/5 rounded-3xl md:rounded-[2.5rem] p-4 md:p-10 shadow-2xl backdrop-blur-md overflow-x-auto">
-               <CommonScanReport data={processedData} activeTabOverride={null} />
+               <CommonScanReport data={processedData} />
              </div>
 
              {/* RENDER THE BEAUTIFUL AI SUMMARY AT THE BOTTOM */}
