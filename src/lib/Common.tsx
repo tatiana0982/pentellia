@@ -97,6 +97,12 @@ export function CommonScanReport({
     return { primaryFindings: primary, secondaryFindings: secondary };
   }, [allFindings, severityFilter]);
 
+  // Check if current filter only includes low/info to hide "No Issues Found" in primary section
+  const isOnlyLowInfoSelected = useMemo(() => {
+    if (isAllSelected || severityFilter.size === 0) return false;
+    return Array.from(severityFilter).every(sev => sev === "low" || sev === "info");
+  }, [severityFilter, isAllSelected]);
+
   // UPDATED TOGGLE LOGIC: Clicking a severity now selects ONLY that severity
   const toggleFilter = (sev: Severity) => {
     setSeverityFilter(new Set([sev]));
@@ -300,7 +306,7 @@ export function CommonScanReport({
                 primaryFindings.map((finding: any, idx: number) => (
                   <ExpandableFindingCard key={idx} finding={finding} />
                 ))
-              ) : (severityFilter.size > 0 && !isAllSelected) ? (
+              ) : (severityFilter.size > 0 && !isAllSelected && !isOnlyLowInfoSelected) ? (
                  <div className="p-8 text-center border border-dashed border-white/10 rounded-xl bg-white/[0.01]">
                    <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mx-auto mb-2" />
                    <h3 className="text-base font-medium text-white">No Issues Found</h3>
