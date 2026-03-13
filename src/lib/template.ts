@@ -454,7 +454,7 @@ ${findingPages.length > 0 ? findingPages.map((page, i) => `
     <span>Vulnerabilities • Page ${i + 1}</span>
   </div>
 </div>
-`}).join("") : `
+`).join("") : `
 <div class="pdf-page flex flex-col items-center justify-center text-center">
     <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-6 opacity-50"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
     <h2 class="text-2xl font-bold text-white mb-2">No Vulnerabilities Detected</h2>
