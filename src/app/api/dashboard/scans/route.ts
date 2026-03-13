@@ -3,7 +3,7 @@ import { query } from "@/config/db";
 import { adminAuth } from "@/config/firebaseAdmin";
 import { cookies } from "next/headers";
 import { createNotification } from "@/lib/notifications";
-// Helper: Get UID
+
 async function getUid() {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get("__session")?.value;
@@ -15,7 +15,7 @@ async function getUid() {
     return null;
   }
 }
-// GET: Fetch List of Scans (DB Only)
+
 export async function GET(req: NextRequest) {
   const uid = await getUid();
   if (!uid)
@@ -27,7 +27,6 @@ export async function GET(req: NextRequest) {
   const offset = (page - 1) * limit;
 
   try {
-    // FIX: Added 's.tool_id' to the SELECT list below
     const scansQuery = `
       SELECT s.id, s.target, s.status, s.tool_id, s.created_at, s.completed_at, t.name as tool_name
       FROM scans s
@@ -63,15 +62,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ------------------------------------------------------------------
-// 2. POST: CREATE SCAN (Trigger Python)
-// ------------------------------------------------------------------
-// NOTE: Usually this belongs in `/api/dashboard/scans/route.ts`
-// but since you pasted it here, I am keeping it.
-// If this file is `[id]/route.ts`, POST technically shouldn't be here unless
-// you are "re-running" a specific ID.
-// Assuming you meant this logic lives in the main scans route file:
-
 export async function POST(req: NextRequest) {
   const uid = await getUid();
   if (!uid)
@@ -83,28 +73,34 @@ export async function POST(req: NextRequest) {
 
     console.log(`[API] 🚀 Starting New Scan`);
     console.log(`[API] Tool: ${tool} | Target: ${target}`);
-    console.log(`[API] Forwarding to: ${process.env.TOOLS_BASE_URL}/scan`);
+    
+    // Check if it's the new Discovery Tool
+    const isDiscovery = tool === "discovery" || tool === "asset-discovery";
+    const endpoint = isDiscovery 
+      ? `${process.env.TOOLS_BASE_URL}/discovery` 
+      : `${process.env.TOOLS_BASE_URL}/scan`;
 
-    // 1. Call External Python API
-    const toolsRes = await fetch(`${process.env.TOOLS_BASE_URL}/scan`, {
+    const payload = isDiscovery ? { target, params } : { tool, target, params };
+
+    console.log(`[API] Forwarding to: ${endpoint}`);
+
+    const toolsRes = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-API-Key": process.env.TOOLS_API_KEY || "",
       },
-      body: JSON.stringify({ tool, target, params }),
+      body: JSON.stringify(payload),
     });
 
     const toolsData = await toolsRes.json();
 
     console.log(`[API] Python Response Code: ${toolsRes.status}`);
-    console.log(`[API] Python Response Body:`, toolsData);
 
     if (!toolsRes.ok) {
       throw new Error(toolsData.error || "External API Failed");
     }
 
-    // 2. Create DB Entry
     const insertText = `
       INSERT INTO scans (user_uid, tool_id, target, params, external_job_id, status)
       VALUES ($1, $2, $3, $4, $5, 'queued')
@@ -117,7 +113,7 @@ export async function POST(req: NextRequest) {
       JSON.stringify(params),
       toolsData.job_id,
     ]);
-    // --- NEW: Add Start Notification ---
+
     await createNotification(
       uid,
       "Scan Started",

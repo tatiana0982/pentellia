@@ -1,18 +1,49 @@
 export function getPurpleReportHtml(data: any) {
-  const { result, target, completed_at } = data;
-  // Handle ai_summary being inside result or data
-  const ai_summary = data.ai_summary || result.ai_summary;
-  const { meta, summary, findings, tool_coverage } = result;
+  // Handle variations in payload nesting
+  const result = data.result || data;
+  const target = data.target || result.target || result.meta?.target || "Unknown Target";
+  const completed_at = data.completed_at || result.completed_at || result.meta?.completed_at || new Date().toISOString();
+  
+  // Extract core modules with safe fallbacks
+  const ai_summary = data.ai_summary || result.ai_summary || "";
+  const meta = result.meta || {};
+  const summary = result.summary || { risk_score: 0, total_findings: 0, affected_assets: 0, risk_level: "Unknown", top_categories: [] };
+  const findings = result.findings || [];
+  const tool_coverage = result.tool_coverage || { tools_executed: [] };
 
-  /* ================= CONFIG ================= */
+  // Compliance Objects
+  const owasp = result.owasp_compliance || { categories: {}, passed: 0, failed: 0, total_categories: 0 };
+  const sans = result.sans_compliance || { categories: {}, passed: 0, failed: 0, total_categories: 0 };
+
+  /* ================= CONFIG & HELPERS ================= */
   const logoUrl = "https://pentellia.vercel.app/logo.png";
   const PAGE_HEIGHT = 1122;
   const PAGE_PADDING = 160;
   const MAX_HEIGHT = PAGE_HEIGHT - PAGE_PADDING;
 
+  function getColor(sev: string) {
+    const s = (sev || '').toLowerCase();
+    if (s === 'critical') return 'red';
+    if (s === 'high') return 'orange';
+    if (s === 'medium') return 'yellow';
+    if (s === 'low') return 'blue';
+    return 'slate';
+  }
+
+  function escapeHtml(unsafe: string) {
+    if (!unsafe) return "";
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+  }
+
   /* ================= PAGINATION ENGINE ================= */
   function estimateTextHeight(text = "") {
-    return text.length * 0.28;
+    if (!text) return 0;
+    return text.length * 0.25; 
   }
 
   function paginate<T>(items: T[], estimator: (item: T) => number): T[][] {
@@ -35,65 +66,44 @@ export function getPurpleReportHtml(data: any) {
 
   function formatAiMarkdown(text: string) {
     return text
-      .replace(
-        /^### (.*$)/gim,
-        '<h3 class="text-lg font-bold text-purple-400 mt-4 mb-2">$1</h3>',
-      )
-      .replace(
-        /^## (.*$)/gim,
-        '<h2 class="text-xl font-bold text-white mt-6 mb-3 border-b border-purple-500/30 pb-1">$1</h2>',
-      )
-      .replace(
-        /^# (.*$)/gim,
-        '<h1 class="text-2xl font-bold text-white mb-4">$1</h1>',
-      )
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-purple-300">$1</strong>') // Bold
-      .replace(/^\* (.*$)/gim, '<li class="ml-4 mb-1 text-dim">• $1</li>') // List items
-      .replace(/---\n/g, '<hr class="border-white/10 my-4">') // Horizontal rule
-      .replace(
-        /`(.*?)`/g,
-        '<code class="bg-purple-900/30 px-1 rounded text-purple-200">$1</code>',
-      ); // Inline code
+      .replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold text-purple-400 mt-4 mb-2">$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold text-white mt-6 mb-3 border-b border-purple-500/30 pb-1">$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold text-white mb-4">$1</h1>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-purple-300">$1</strong>')
+      .replace(/^\* (.*$)/gim, '<li class="ml-4 mb-1 text-dim">• $1</li>')
+      .replace(/---\n/g, '<hr class="border-white/10 my-4">')
+      .replace(/`(.*?)`/g, '<code class="bg-purple-900/30 px-1 rounded font-mono text-purple-200">$1</code>');
   }
 
-  /* ================= UPDATED PAGINATION ENGINE ================= */
-  const aiRaw = ai_summary || result.ai_summary || "";
-  // Split by double newlines or table separators to avoid breaking blocks mid-page
-  const aiBlocks = aiRaw
-    .split(/\n\n|---/)
-    .filter((b: string) => b.trim() !== "");
-
-  // Increase estimate to account for larger headers and list padding
-  const aiPages = paginate(aiBlocks, (block: any) => {
+  /* ================= PRE-PROCESSING ================= */
+  
+  // 1. AI Summary Pagination
+  const aiBlocks = ai_summary.split(/\n\n|---/).filter((b: string) => b.trim() !== "");
+  const aiPages = paginate(aiBlocks, (block: string) => {
     const lines = block.split("\n").length;
-    return block.length * 0.35 + lines * 25; // Add height for line breaks and headers
+    return block.length * 0.35 + lines * 25; 
   });
 
-  /* ================= FINDINGS PAGINATION ================= */
+  // 2. Findings Pagination (Updated to account for larger NVD / Host grids)
   function estimateFindingHeight(f: any) {
-    let h = 150;
-    h += estimateTextHeight(f.impact);
+    let h = 200; // Base height (title, layout, padding)
+    h += estimateTextHeight(f.description || f.impact);
     h += estimateTextHeight(f.recommendation);
+    if (f.owasp_category || f.sans_category) h += 45; 
+    if (f.evidence?.additional?.nvd_enrichment) h += 80;
+    if (f.evidence?.additional?.affected_hosts?.length > 0) h += 70;
     return h;
   }
-  const indexedFindings = findings.map((f: any, index: number) => ({
-    ...f,
-    __index: index + 1,
-  }));
+  
+  const indexedFindings = findings.map((f: any, index: number) => ({ ...f, __index: index + 1 }));
   const findingPages = paginate(indexedFindings, estimateFindingHeight);
 
-  const reconFindings = findings.filter(
-    (f: any) =>
-      f.category === "reconnaissance" || f.tags?.includes("intelligence"),
-  );
-  const headerFindings = findings.filter(
-    (f: any) => f.category === "security_headers",
-  );
+  // 3. SANS Column Splitting (25 items split into 2 columns of 13 and 12)
+  const sansEntries = Object.entries(sans.categories || {});
+  const sansCol1 = sansEntries.slice(0, 13);
+  const sansCol2 = sansEntries.slice(13);
 
-  const headerPages = paginate(headerFindings, estimateFindingHeight);
-  const reconPages = paginate(reconFindings, estimateFindingHeight);
-
-  /* ================= HTML ================= */
+  /* ================= HTML TEMPLATE GENERATION ================= */
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -103,471 +113,430 @@ export function getPurpleReportHtml(data: any) {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 :root { --bg-deep: #0a0514; --bg-card: #150e26; --accent: #9333ea; --text-main: #f3f4f6; --text-dim: #9ca3af; }
 body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-deep); color: var(--text-main); -webkit-print-color-adjust: exact; }
 .pdf-page { width: 210mm; height: 297mm; padding: 60px; page-break-after: always; position: relative; overflow: hidden; }
-.glass { background: var(--bg-card); border: 1px solid rgba(147,51,234,0.2); border-radius: 12px; padding: 20px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); }
-.footer { position: absolute; bottom: 30px; left: 60px; right: 60px; font-size: 9px; color: var(--text-dim); display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; }
-.badge { font-size: 10px; padding: 3px 8px; border-radius: 999px; font-weight: 700; text-transform: uppercase; }
+.glass { background: var(--bg-card); border: 1px solid rgba(147,51,234,0.2); border-radius: 12px; padding: 24px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2); }
+.footer { position: absolute; bottom: 30px; left: 60px; right: 60px; font-size: 10px; color: var(--text-dim); display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 16px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+.badge { font-size: 10px; padding: 4px 10px; border-radius: 6px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
 canvas { max-height: 100%; max-width: 100%; }
 </style>
 </head>
 <body>
 
-<div class="pdf-page flex flex-col justify-between">
-  <div>
-    <img src="${logoUrl}" class="h-52 mb-20 mr-16" />
-    <h1 class="text-6xl font-bold leading-tight mb-4">${meta.tool}</h1>
-    <p class="uppercase tracking-widest text-purple-400">Pentellia Security Suite</p>
+<div class="pdf-page flex flex-col justify-between relative">
+  <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-600/10 blur-[120px] rounded-full pointer-events-none -mr-40 -mt-40"></div>
+  
+  <div class="relative z-10 pt-10">
+    <img src="${logoUrl}" class="h-40 mb-24 opacity-90" />
+    <h1 class="text-6xl font-extrabold leading-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+      ${meta.tool || "Security Audit"} Report
+    </h1>
+    <p class="text-lg uppercase tracking-[0.3em] text-purple-400 font-bold">Pentellia Security Suite</p>
   </div>
-  <div class="grid grid-cols-2 gap-10 border-t border-white/10 pt-10">
-    <div><p class="text-xs text-purple-500 font-bold uppercase">Target</p><p class="text-xl font-semibold">${target}</p></div>
-    <div><p class="text-xs text-purple-500 font-bold uppercase">Risk Level</p><p class="text-xl font-bold text-yellow-400">${summary.risk_level.toUpperCase()}</p></div>
-  </div>
-  <div class="footer"><span>Pentellia</span><span>${completed_at}</span></div>
-</div>
-${aiPages
-  .map(
-    (blocks, idx) => `
-<div class="pdf-page">
-  <div class="flex items-center gap-3 mb-6">
-    <div class="p-2 bg-purple-500/20 rounded-lg">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
+  
+  <div class="grid grid-cols-2 gap-12 border-t border-white/10 pt-12 relative z-10">
+    <div>
+      <p class="text-xs text-purple-500 font-bold uppercase tracking-widest mb-2">Target Asset</p>
+      <p class="text-2xl font-semibold font-mono text-slate-200">${target}</p>
     </div>
-    <h2 class="text-3xl font-bold">AI Intelligence Summary ${aiPages.length > 1 ? `<span class="text-sm text-dim">(${idx + 1}/${aiPages.length})</span>` : ""}</h2>
-  </div>
-
-  <div class="glass border-purple-500/30 mb-20" style="min-height: 750px; max-height: 850px; overflow: hidden;">
-    <div class="prose prose-invert max-w-none">
-      ${blocks
-        .map(
-          (block) => `
-        <div class="mb-4">
-          ${formatAiMarkdown(block)}
-        </div>
-      `,
-        )
-        .join("")}
+    <div>
+      <p class="text-xs text-purple-500 font-bold uppercase tracking-widest mb-2">Assessed Risk Level</p>
+      <p class="text-2xl font-black uppercase ${summary.risk_level === 'critical' ? 'text-red-500' : summary.risk_level === 'high' ? 'text-orange-500' : 'text-yellow-400'}">
+        ${summary.risk_level}
+      </p>
     </div>
   </div>
-
-  <div class="footer">
-    <span>Pentellia AI Engine</span>
-    <span>AI Analysis • Page ${idx + 1}</span>
-  </div>
+  <div class="footer"><span>Pentellia Core</span><span>Generated: ${new Date(completed_at).toLocaleString()}</span></div>
 </div>
-`,
-  )
-  .join("")}
 
 <div class="pdf-page">
-  <h2 class="text-3xl font-bold mb-10 text-white">Executive Analytics</h2>
+  <div class="flex items-center gap-3 mb-8">
+    <div class="p-2.5 bg-purple-500/20 rounded-xl border border-purple-500/30">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+    </div>
+    <h2 class="text-3xl font-extrabold text-white">Executive Analytics</h2>
+  </div>
 
-  <div class="grid grid-cols-3 gap-6 mb-10">
-    <div class="glass text-center relative overflow-hidden group">
-      <div class="absolute inset-0 bg-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-      <p class="text-xs uppercase text-purple-400 font-semibold tracking-wider mb-2">Risk Score</p>
-      <p class="text-5xl font-extrabold text-white">${summary.risk_score}</p>
+  <div class="grid grid-cols-3 gap-6 mb-8">
+    <div class="glass text-center relative overflow-hidden flex flex-col justify-center">
+      <p class="text-[10px] uppercase text-purple-400 font-bold tracking-widest mb-3">Risk Score</p>
+      <p class="text-6xl font-black text-white">${summary.risk_score}</p>
     </div>
-    <div class="glass text-center relative overflow-hidden group">
-      <div class="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-      <p class="text-xs uppercase text-blue-400 font-semibold tracking-wider mb-2">Total Findings</p>
-      <p class="text-5xl font-extrabold text-white">${summary.total_findings}</p>
+    <div class="glass text-center relative overflow-hidden flex flex-col justify-center">
+      <p class="text-[10px] uppercase text-blue-400 font-bold tracking-widest mb-3">Total Findings</p>
+      <p class="text-6xl font-black text-white">${summary.total_findings}</p>
     </div>
-    <div class="glass text-center relative overflow-hidden group">
-      <div class="absolute inset-0 bg-green-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-      <p class="text-xs uppercase text-green-400 font-semibold tracking-wider mb-2">Affected Assets</p>
-      <p class="text-5xl font-extrabold text-white">${summary.affected_assets}</p>
+    <div class="glass text-center relative overflow-hidden flex flex-col justify-center">
+      <p class="text-[10px] uppercase text-green-400 font-bold tracking-widest mb-3">Affected Assets</p>
+      <p class="text-6xl font-black text-white">${summary.affected_assets || 0}</p>
     </div>
   </div>
+
+  ${summary.top_categories && summary.top_categories.length > 0 ? `
+  <div class="mb-8 p-4 bg-white/[0.02] border border-white/5 rounded-xl">
+    <p class="text-[10px] uppercase text-dim font-bold tracking-widest mb-3">Primary Risk Domains Detected</p>
+    <div class="flex gap-2 flex-wrap">
+      ${summary.top_categories.map((c: string) => `<span class="px-3 py-1.5 bg-[#0B0C15] border border-white/10 rounded-md text-[10px] font-bold text-slate-300 uppercase tracking-wider">${c.replace(/_/g, ' ')}</span>`).join('')}
+    </div>
+  </div>
+  ` : ''}
 
   <div class="grid grid-cols-2 gap-8 h-[340px] mb-12">
     <div class="glass flex flex-col items-center justify-between">
       <p class="font-bold w-full text-left text-lg text-white mb-2">Severity Distribution</p>
-      <div class="relative w-full flex-1 flex items-center justify-center min-h-[220px]">
+      <div class="relative w-full flex-1 flex items-center justify-center min-h-[200px]">
         <canvas id="severityChart"></canvas>
         <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
           <span class="text-4xl font-extrabold text-white">${summary.total_findings}</span>
-          <span class="text-[10px] font-bold uppercase tracking-widest text-dim">Total</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-dim mt-1">Total</span>
         </div>
       </div>
-      <div class="flex gap-4 mt-4 w-full justify-center text-xs font-medium text-dim">
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>High <span class="text-white ml-0.5">${summary.high}</span></div>
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]"></span>Med <span class="text-white ml-0.5">${summary.medium}</span></div>
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]"></span>Low <span class="text-white ml-0.5">${summary.low}</span></div>
-        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span>Info <span class="text-white ml-0.5">${summary.info}</span></div>
+      <div class="flex flex-wrap gap-4 mt-4 w-full justify-center text-xs font-semibold text-dim">
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>Cri <span class="text-white ml-0.5">${summary.critical || 0}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]"></span>Hi <span class="text-white ml-0.5">${summary.high || 0}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]"></span>Med <span class="text-white ml-0.5">${summary.medium || 0}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span>Low <span class="text-white ml-0.5">${summary.low || 0}</span></div>
       </div>
     </div>
     
     <div class="glass flex flex-col items-center justify-between">
-      <p class="font-bold w-full text-left text-lg text-white mb-2">Risk Comparison</p>
-      <div class="relative w-full flex-1 flex items-center justify-center min-h-[220px]">
+      <p class="font-bold w-full text-left text-lg text-white mb-2">Risk Comparison Benchmark</p>
+      <div class="relative w-full flex-1 flex items-center justify-center min-h-[200px]">
         <canvas id="riskChart"></canvas>
       </div>
       <div class="flex gap-4 mt-4 w-full justify-center text-xs font-medium text-dim">
-         <span class="italic text-dim/70">Benchmarked against industry standards</span>
+         <span class="italic text-dim/70">Measured against industry standards</span>
       </div>
     </div>
   </div>
 
-  <div class="glass bg-purple-900/10 border-purple-500/20">
-    <div class="flex gap-3 items-start">
+  ${result.executive_summary ? `
+  <div class="glass bg-gradient-to-r from-purple-900/20 to-transparent border-purple-500/20 border-l-4 border-l-purple-500">
+    <div class="flex gap-4 items-start">
       <div class="mt-1 text-purple-400">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
       </div>
-      <p class="italic text-sm text-dim leading-relaxed">
-        "${result.executive_summary}"
+      <p class="text-sm text-slate-300 leading-relaxed font-medium">
+        ${escapeHtml(result.executive_summary)}
       </p>
     </div>
   </div>
+  ` : ''}
 
   <div class="footer">
     <span>Pentellia</span>
-    <span>Page 2</span>
+    <span>Executive Analytics</span>
   </div>
 </div>
 
 <div class="pdf-page">
-  <h2 class="text-3xl font-bold mb-8">Tools & Scan Coverage</h2>
+  <div class="flex items-center gap-3 mb-8">
+    <div class="p-2.5 bg-emerald-500/20 rounded-xl border border-emerald-500/30">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+    </div>
+    <h2 class="text-3xl font-extrabold text-white">OWASP Top 10 (2021) Matrix</h2>
+  </div>
 
-  <div class="glass mb-8">
-    <div class="grid grid-cols-2 gap-4">
-      ${tool_coverage.tools_executed
-        .map(
-          (t: string) => `
-        <div class="flex items-center gap-2 text-sm">
-          <span class="w-2 h-2 rounded-full bg-green-500"></span>
-          ${t}
+  <div class="glass mb-8 p-6 bg-gradient-to-br from-emerald-900/10 to-transparent border-emerald-500/20">
+      <div class="flex items-center justify-between">
+         <div class="space-y-1">
+            <h3 class="text-xl font-bold text-white tracking-wide">Application Security Compliance</h3>
+            <p class="text-xs text-dim">Assessment against the Open Worldwide Application Security Project standards.</p>
+         </div>
+         <div class="flex gap-4 text-sm font-bold uppercase tracking-widest">
+            <span class="text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">Passed: ${owasp.passed}</span>
+            <span class="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20">Failed: ${owasp.failed}</span>
+         </div>
+      </div>
+  </div>
+
+  <div class="space-y-3">
+    ${Object.entries(owasp.categories).map(([catName, catData]: any) => `
+      <div class="p-4 rounded-xl border ${catData.safe ? 'border-white/5 bg-white/[0.02]' : 'border-red-500/20 bg-red-500/5'} flex justify-between items-center">
+         <div class="flex flex-col">
+            <span class="${catData.safe ? 'text-slate-300' : 'text-red-300 font-bold'} text-sm">${escapeHtml(catName)}</span>
+         </div>
+         ${catData.safe
+           ? `<span class="text-xs font-bold uppercase tracking-widest text-emerald-500 flex items-center gap-1.5"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg> Pass</span>`
+           : `<span class="badge bg-red-500/20 text-red-400 border border-red-500/30 whitespace-nowrap">${catData.count} Violations Found</span>`
+         }
+      </div>
+    `).join('')}
+  </div>
+
+  <div class="footer">
+    <span>Pentellia</span>
+    <span>OWASP Compliance Matrix</span>
+  </div>
+</div>
+
+<div class="pdf-page">
+  <div class="flex items-center gap-3 mb-8">
+    <div class="p-2.5 bg-blue-500/20 rounded-xl border border-blue-500/30">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    </div>
+    <h2 class="text-3xl font-extrabold text-white">SANS Top 25 CWE Matrix</h2>
+  </div>
+
+  <div class="glass mb-8 p-6 bg-gradient-to-br from-blue-900/10 to-transparent border-blue-500/20">
+      <div class="flex items-center justify-between">
+         <div class="space-y-1">
+            <h3 class="text-xl font-bold text-white tracking-wide">Common Weakness Enumeration</h3>
+            <p class="text-xs text-dim">Assessment against the SANS Top 25 Most Dangerous Software Errors.</p>
+         </div>
+         <div class="flex gap-4 text-sm font-bold uppercase tracking-widest">
+            <span class="text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">Passed: ${sans.passed}</span>
+            <span class="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20">Failed: ${sans.failed}</span>
+         </div>
+      </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-x-6 gap-y-2">
+    <div class="flex flex-col gap-2">
+      ${sansCol1.map(([catName, catData]: any) => {
+        const parts = catName.split(':');
+        const cweId = parts[0];
+        const cweDesc = parts.slice(1).join(':').trim();
+        return `
+        <div class="p-3 rounded-lg border ${catData.safe ? 'border-white/5 bg-white/[0.01]' : 'border-red-500/20 bg-red-500/5'} flex justify-between items-center">
+           <div class="flex flex-col pr-2 overflow-hidden">
+              <span class="${catData.safe ? 'text-slate-400' : 'text-red-300'} font-bold text-xs mb-0.5">${escapeHtml(cweId)}</span>
+              <span class="${catData.safe ? 'text-dim' : 'text-white'} text-[10px] truncate w-[220px]">${escapeHtml(cweDesc)}</span>
+           </div>
+           ${catData.safe
+             ? `<span class="text-[9px] font-bold uppercase tracking-widest text-emerald-500/70">Pass</span>`
+             : `<span class="text-[9px] font-bold uppercase text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 whitespace-nowrap">${catData.count} Found</span>`
+           }
         </div>
-      `,
-        )
-        .join("")}
+      `}).join('')}
     </div>
-  </div>
-
-  <div class="glass">
-    <p class="text-xs uppercase text-purple-400 font-bold mb-2">
-      Scan Timeline
-    </p>
-    <p class="text-sm text-dim">Started: ${meta.started_at}</p>
-    <p class="text-sm text-dim">Completed: ${meta.completed_at}</p>
+    <div class="flex flex-col gap-2">
+      ${sansCol2.map(([catName, catData]: any) => {
+        const parts = catName.split(':');
+        const cweId = parts[0];
+        const cweDesc = parts.slice(1).join(':').trim();
+        return `
+        <div class="p-3 rounded-lg border ${catData.safe ? 'border-white/5 bg-white/[0.01]' : 'border-red-500/20 bg-red-500/5'} flex justify-between items-center">
+           <div class="flex flex-col pr-2 overflow-hidden">
+              <span class="${catData.safe ? 'text-slate-400' : 'text-red-300'} font-bold text-xs mb-0.5">${escapeHtml(cweId)}</span>
+              <span class="${catData.safe ? 'text-dim' : 'text-white'} text-[10px] truncate w-[220px]">${escapeHtml(cweDesc)}</span>
+           </div>
+           ${catData.safe
+             ? `<span class="text-[9px] font-bold uppercase tracking-widest text-emerald-500/70">Pass</span>`
+             : `<span class="text-[9px] font-bold uppercase text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20 whitespace-nowrap">${catData.count} Found</span>`
+           }
+        </div>
+      `}).join('')}
+    </div>
   </div>
 
   <div class="footer">
     <span>Pentellia</span>
-    <span>Page 3</span>
+    <span>SANS Top 25 Compliance</span>
   </div>
 </div>
 
-${reconPages
-  .map(
-    (page, i) => `
+${aiPages.map((blocks, idx) => `
 <div class="pdf-page">
-  <h2 class="text-3xl font-bold mb-8">Attack Surface & Reconnaissance</h2>
-
-  ${page
-    .map(
-      (f: any) => `
-    <div class="glass mb-6">
-      <div class="flex justify-between mb-2">
-        <h4 class="font-semibold">${f.title}</h4>
-        <span class="badge bg-blue-500/20 text-blue-400">${f.severity}</span>
-      </div>
-      <p class="text-sm text-dim mb-2">${f.description}</p>
-      <p class="text-xs text-purple-400">${f.recommendation}</p>
+  <div class="flex items-center gap-3 mb-8">
+    <div class="p-2.5 bg-fuchsia-500/20 rounded-xl border border-fuchsia-500/30">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e879f9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="m3 12 18 0"/><path d="m6 6 12 12"/><path d="m18 6-12 12"/></svg>
     </div>
-  `,
-    )
-    .join("")}
+    <h2 class="text-3xl font-extrabold text-white">AI Synthesis ${aiPages.length > 1 ? `<span class="text-lg font-medium text-dim ml-2">(${idx + 1}/${aiPages.length})</span>` : ""}</h2>
+  </div>
+
+  <div class="glass border-fuchsia-500/20 shadow-[0_4px_40px_rgba(232,121,249,0.05)]" style="min-height: 800px; max-height: 900px; overflow: hidden;">
+    <div class="prose prose-invert max-w-none text-sm leading-relaxed">
+      ${blocks.map((block) => `<div class="mb-4">${formatAiMarkdown(block)}</div>`).join("")}
+    </div>
+  </div>
 
   <div class="footer">
-    <span>Pentellia</span>
-    <span>Recon ${i + 1}/${reconPages.length}</span>
+    <span>Pentellia LLM Engine</span>
+    <span>AI Analysis • Page ${idx + 1}</span>
   </div>
 </div>
-`,
-  )
-  .join("")}
+`).join("")}
 
-${headerPages
-  .map(
-    (page, i) => `
+${findingPages.length > 0 ? findingPages.map((page, i) => `
 <div class="pdf-page">
-  <h2 class="text-3xl font-bold mb-8">Security Headers Assessment</h2>
-
-  ${page
-    .map(
-      (f: any) => `
-    <div class="glass mb-4">
-      <div class="flex justify-between mb-2">
-        <h4 class="font-semibold">${f.title}</h4>
-        <span class="badge bg-red-500/20 text-red-400">${f.severity}</span>
-      </div>
-      <p class="text-sm text-dim mb-2">${f.impact}</p>
-      <p class="text-xs text-purple-400">${f.recommendation}</p>
+  <div class="flex items-center gap-3 mb-8">
+    <div class="p-2.5 bg-red-500/20 rounded-xl border border-red-500/30">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
     </div>
-  `,
-    )
-    .join("")}
-
-  <div class="footer">
-    <span>Pentellia</span>
-    <span>Headers ${i + 1}/${headerPages.length}</span>
+    <h2 class="text-3xl font-extrabold text-white">Detailed Findings <span class="text-lg font-medium text-dim ml-2">(${i + 1}/${findingPages.length})</span></h2>
   </div>
-</div>
-`,
-  )
-  .join("")}
 
-${findingPages
-  .map(
-    (page, i) => `
-<div class="pdf-page">
-  <h2 class="text-3xl font-bold mb-8">Detailed Findings</h2>
-
-  ${page
-    .map(
-      (f: any, idx: number) => `
-    <div class="glass mb-6">
-      <div class="flex justify-between mb-2">
-        <h4 class="font-semibold text-sm">
-          ${i * 10 + idx + 1}. ${f.title}
+  <div class="space-y-6">
+  ${page.map((f: any) => {
+    const sevColor = getColor(f.severity);
+    const nvd = f.evidence?.additional?.nvd_enrichment;
+    const cveId = f.evidence?.additional?.cve_id;
+    const hosts = f.evidence?.additional?.affected_hosts || [];
+    
+    return `
+    <div class="glass border-white/5 bg-[#100b1a] relative overflow-hidden p-6">
+      <div class="absolute top-0 left-0 w-1.5 h-full bg-${sevColor}-500"></div>
+      
+      <div class="flex justify-between items-start mb-3">
+        <h4 class="font-bold text-lg text-white w-5/6 leading-snug">
+          <span class="text-dim mr-2">${f.__index}.</span>${escapeHtml(f.title)}
         </h4>
-        <span class="badge bg-purple-500/20 text-purple-400">${f.severity}</span>
+        <span class="badge bg-${sevColor}-500/20 text-${sevColor}-400 border border-${sevColor}-500/30">${f.severity}</span>
       </div>
-      <p class="text-xs text-dim mb-1"><strong>Impact:</strong> ${f.impact}</p>
-      <p class="text-xs text-dim mb-1"><strong>Confidence:</strong> ${(f.confidence * 100).toFixed(0)}%</p>
-      <p class="text-xs text-purple-400"><strong>Recommendation:</strong> ${f.recommendation}</p>
+
+      ${(f.owasp_category || f.sans_category) ? `
+      <div class="flex flex-wrap gap-2 mb-4">
+        ${f.owasp_category ? `<span class="text-[10px] font-bold tracking-wider bg-purple-500/10 text-purple-300 border border-purple-500/20 px-2.5 py-1 rounded-md uppercase">${escapeHtml(f.owasp_category)}</span>` : ''}
+        ${f.sans_category ? `<span class="text-[10px] font-bold tracking-wider bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/20 px-2.5 py-1 rounded-md uppercase truncate max-w-[300px]">${escapeHtml(f.sans_category.split(':')[0])}</span>` : ''}
+      </div>
+      ` : ''}
+
+      ${nvd ? `
+      <div class="grid grid-cols-4 gap-4 mb-4 bg-black/30 border border-white/5 rounded-lg p-3">
+         <div>
+            <p class="text-[9px] uppercase tracking-widest text-dim mb-1">CVE ID</p>
+            <p class="text-xs font-bold text-white">${escapeHtml(cveId || 'N/A')}</p>
+         </div>
+         <div class="col-span-2">
+            <p class="text-[9px] uppercase tracking-widest text-dim mb-1">CVSS v3 Vector</p>
+            <p class="text-[10px] font-mono text-blue-300 truncate">${escapeHtml(nvd.cvss_v3?.vector_string || 'N/A')}</p>
+         </div>
+         <div>
+            <p class="text-[9px] uppercase tracking-widest text-dim mb-1">Exploitability</p>
+            <p class="text-xs font-bold text-white">${nvd.exploitability_score ? `${nvd.exploitability_score}/10` : 'N/A'}</p>
+         </div>
+      </div>
+      ` : ''}
+
+      <div class="mb-4">
+        <p class="text-[11px] font-bold uppercase tracking-widest text-dim mb-1">Description & Impact</p>
+        <p class="text-sm text-slate-300 leading-relaxed font-light">${escapeHtml(f.description || f.impact)}</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-6 mb-4">
+         <div class="bg-white/[0.02] border border-white/5 rounded-lg p-3 flex flex-col justify-center">
+           <p class="text-[10px] uppercase tracking-widest text-dim mb-1">Primary Asset</p>
+           <p class="text-sm font-mono text-blue-300 break-all">${escapeHtml(f.affected_asset)}</p>
+         </div>
+         <div class="bg-white/[0.02] border border-white/5 rounded-lg p-3 flex flex-col justify-center">
+           <p class="text-[10px] uppercase tracking-widest text-dim mb-1">Detector Module</p>
+           <p class="text-sm text-slate-300">${escapeHtml(f.source_tool || "Orchestrator")}</p>
+         </div>
+      </div>
+
+      ${hosts.length > 0 ? `
+      <div class="mb-4 pt-4 border-t border-white/5">
+        <p class="text-[10px] uppercase tracking-widest text-dim mb-2">Affected Endpoints (${hosts.length})</p>
+        <div class="flex flex-wrap gap-2">
+          ${hosts.slice(0, 8).map((h: any) => `<span class="bg-[#0B0C15] border border-white/10 text-slate-400 text-[10px] px-2.5 py-1 rounded font-mono">${escapeHtml(h.ip)}:${escapeHtml(String(h.port))} ${h.service !== 'unknown' ? `<span class="text-slate-600">(${escapeHtml(h.service)})</span>` : ''}</span>`).join('')}
+          ${hosts.length > 8 ? `<span class="bg-[#0B0C15] border border-white/10 text-slate-500 text-[10px] px-2.5 py-1 rounded font-mono">+${hosts.length - 8} more</span>` : ''}
+        </div>
+      </div>
+      ` : ''}
+
+      ${f.recommendation ? `
+      <div class="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-lg">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-1.5 flex items-center gap-2">
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg> Remediation
+        </p>
+        <p class="text-sm text-slate-300 leading-relaxed">${escapeHtml(f.recommendation)}</p>
+      </div>
+      ` : ''}
     </div>
-  `,
-    )
-    .join("")}
-
-  <div class="footer">
-    <span>Pentellia</span>
-    <span>Findings ${i + 1}/${findingPages.length}</span>
-  </div>
-</div>
-`,
-  )
-  .join("")}
-
-
-  <div class="pdf-page">
-  <h2 class="text-3xl font-bold mb-8">Compliance & Risk Mapping</h2>
-
-  <div class="glass mb-6">
-    <h3 class="text-sm font-bold text-purple-400 uppercase mb-4">
-      OWASP Top 10 Coverage
-    </h3>
-
-    <div class="space-y-3 text-sm text-dim">
-      <div class="flex justify-between">
-        <span>A05: Security Misconfiguration</span>
-        <span class="text-yellow-400 font-bold">Detected</span>
-      </div>
-      <div class="flex justify-between">
-        <span>A03: Injection</span>
-        <span class="text-green-400 font-bold">Not Detected</span>
-      </div>
-      <div class="flex justify-between">
-        <span>A01: Broken Access Control</span>
-        <span class="text-blue-400 font-bold">Informational</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="glass">
-    <h3 class="text-sm font-bold text-purple-400 uppercase mb-4">
-      Compliance Readiness
-    </h3>
-
-    <div class="grid grid-cols-3 gap-4 text-center">
-      <div>
-        <p class="text-xs text-dim uppercase">ISO 27001</p>
-        <p class="text-lg font-bold text-yellow-400">Partial</p>
-      </div>
-      <div>
-        <p class="text-xs text-dim uppercase">SOC 2</p>
-        <p class="text-lg font-bold text-yellow-400">Partial</p>
-      </div>
-      <div>
-        <p class="text-xs text-dim uppercase">PCI DSS</p>
-        <p class="text-lg font-bold text-green-400">Low Scope</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="footer">
-    <span>Pentellia</span>
-    <span>Compliance Overview</span>
-  </div>
-</div>
-<div class="pdf-page">
-  <h2 class="text-3xl font-bold mb-8">Potential Attack Scenarios</h2>
-
-  <div class="glass mb-6">
-    <h3 class="text-sm font-bold text-red-400 uppercase mb-2">
-      Scenario 1: XSS via Missing CSP
-    </h3>
-    <p class="text-sm text-dim mb-2">
-      An attacker could inject malicious JavaScript through third-party
-      resources due to the absence of a Content-Security-Policy header.
-    </p>
-    <p class="text-xs text-purple-400">
-      Impact: Session hijacking, credential theft, client-side malware.
-    </p>
-  </div>
-
-  <div class="glass mb-6">
-    <h3 class="text-sm font-bold text-yellow-400 uppercase mb-2">
-      Scenario 2: Clickjacking
-    </h3>
-    <p class="text-sm text-dim mb-2">
-      Without X-Frame-Options, attackers may embed the site inside
-      malicious iframes to trick users into unintended actions.
-    </p>
-    <p class="text-xs text-purple-400">
-      Impact: Unauthorized actions, user manipulation.
-    </p>
-  </div>
-
-  <div class="glass">
-    <h3 class="text-sm font-bold text-blue-400 uppercase mb-2">
-      Scenario 3: Infrastructure Fingerprinting
-    </h3>
-    <p class="text-sm text-dim mb-2">
-      Disclosure of server technology allows attackers to tailor exploits
-      based on known platform weaknesses.
-    </p>
+  `}).join("")}
   </div>
 
   <div class="footer">
     <span>Pentellia</span>
-    <span>Attack Simulation</span>
+    <span>Vulnerabilities • Page ${i + 1}</span>
   </div>
 </div>
-
-<div class="pdf-page">
-  <h2 class="text-3xl font-bold mb-8">Security Maturity Scorecard</h2>
-
-  <div class="glass mb-8">
-    <div class="grid grid-cols-2 gap-6 text-sm">
-      <div class="flex justify-between">
-        <span>Perimeter Protection</span>
-        <span class="text-yellow-400 font-bold">Basic</span>
-      </div>
-      <div class="flex justify-between">
-        <span>Application Hardening</span>
-        <span class="text-red-400 font-bold">Weak</span>
-      </div>
-      <div class="flex justify-between">
-        <span>Security Headers</span>
-        <span class="text-red-400 font-bold">Poor</span>
-      </div>
-      <div class="flex justify-between">
-        <span>Threat Visibility</span>
-        <span class="text-green-400 font-bold">Good</span>
-      </div>
-      <div class="flex justify-between">
-        <span>Exposure Management</span>
-        <span class="text-yellow-400 font-bold">Moderate</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="glass">
-    <p class="text-sm text-dim italic">
-      Overall maturity indicates early-stage security posture with
-      significant improvement potential through configuration hardening
-      and proactive controls.
-    </p>
-  </div>
-
-  <div class="footer">
-    <span>Pentellia</span>
-    <span>Security Maturity</span>
-  </div>
+`}).join("") : `
+<div class="pdf-page flex flex-col items-center justify-center text-center">
+    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mb-6 opacity-50"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+    <h2 class="text-2xl font-bold text-white mb-2">No Vulnerabilities Detected</h2>
+    <p class="text-slate-400 max-w-md">The selected scanners did not find any issues matching the requested scope. The infrastructure appears secure against the executed profiles.</p>
 </div>
+`}
 
 <script>
-// Register DataLabels globally
 Chart.register(ChartDataLabels);
-
-// Styling defaults
 Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
 Chart.defaults.color = '#9ca3af';
 
-// 1. Severity Doughnut Chart
-new Chart(document.getElementById('severityChart'), {
-  type: 'doughnut',
-  data: {
-    labels: ['High', 'Medium', 'Low', 'Info'],
-    datasets: [{
-      data: [${summary.high}, ${summary.medium}, ${summary.low}, ${summary.info}],
-      backgroundColor: ['#ef4444', '#f97316', '#eab308', '#3b82f6'],
-      borderWidth: 0,
-      hoverOffset: 4
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    cutout: '75%',
-    plugins: { 
-      legend: { display: false },
-      tooltip: { enabled: false }, // Optimized for PDF print
-      datalabels: {
-        color: '#ffffff',
-        font: { weight: 'bold', size: 14 },
-        formatter: (value) => value > 0 ? value : '' // Only show numbers > 0
-      }
-    }
-  }
-});
-
-// 2. Risk Bar Chart
-new Chart(document.getElementById('riskChart'), {
-  type: 'bar',
-  data: {
-    labels: ['Score', 'Baseline', 'Threshold'],
-    datasets: [{
-      data: [${summary.risk_score}, 50, 80],
-      backgroundColor: ['#a855f7', '#312e81', '#312e81'],
-      borderRadius: 6,
-      borderSkipped: false
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { 
-      legend: { display: false },
-      tooltip: { enabled: false },
-      datalabels: {
-        color: '#ffffff',
-        anchor: 'end',
-        align: 'bottom', // Positions label inside the top of the bar
-        offset: -25,     // Adjusts spacing downward
-        font: { weight: 'bold', size: 16 },
-        formatter: (value) => value
-      }
+const sevCtx = document.getElementById('severityChart');
+if(sevCtx) {
+  new Chart(sevCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Critical', 'High', 'Medium', 'Low'],
+      datasets: [{
+        data: [${summary.critical || 0}, ${summary.high || 0}, ${summary.medium || 0}, ${summary.low || 0}],
+        backgroundColor: ['#ef4444', '#f97316', '#eab308', '#3b82f6'],
+        borderWidth: 0,
+        hoverOffset: 4
+      }]
     },
-    scales: { 
-      y: { 
-        display: false,
-        max: 100, // Ensure bars scale proportionally to a max score of 100
-        beginAtZero: true
-      }, 
-      x: { 
-        grid: { display: false },
-        border: { display: false },
-        ticks: { font: { weight: '600' }, color: '#d1d5db' }
-      } 
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '75%',
+      plugins: { 
+        legend: { display: false },
+        tooltip: { enabled: false },
+        datalabels: {
+          color: '#ffffff',
+          font: { weight: 'bold', size: 14 },
+          formatter: (value) => value > 0 ? value : ''
+        }
+      }
     }
-  }
-});
+  });
+}
+
+const riskCtx = document.getElementById('riskChart');
+if(riskCtx) {
+  new Chart(riskCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Score', 'Baseline', 'Threshold'],
+      datasets: [{
+        data: [${summary.risk_score || 0}, 50, 80],
+        backgroundColor: ['#a855f7', '#312e81', '#312e81'],
+        borderRadius: 8,
+        borderSkipped: false,
+        barThickness: 50
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { 
+        legend: { display: false },
+        tooltip: { enabled: false },
+        datalabels: {
+          color: '#ffffff',
+          anchor: 'end',
+          align: 'bottom',
+          offset: -30,
+          font: { weight: 'bold', size: 16 },
+          formatter: (value) => value
+        }
+      },
+      scales: { 
+        y: { display: false, max: 100, beginAtZero: true }, 
+        x: { 
+          grid: { display: false },
+          border: { display: false },
+          ticks: { font: { weight: '700', size: 12 }, color: '#9ca3af', padding: 10 }
+        } 
+      }
+    }
+  });
+}
 </script>
 
 </body>

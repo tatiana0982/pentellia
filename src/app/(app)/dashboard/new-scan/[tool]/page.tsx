@@ -159,7 +159,14 @@ export default function ToolScanPage() {
       // Explicit type casting logic critical for the python backend expectations
       activeParams?.forEach((p) => {
         if (p.type === "number" && parsedParams[p.key] !== undefined && parsedParams[p.key] !== "") {
-          parsedParams[p.key] = Number(parsedParams[p.key]);
+          let numVal = Number(parsedParams[p.key]);
+          
+          // FIX: Defensive safeguard. Python often evaluates `if 0:` as False. 
+          // Force 0 to 1 to guarantee the interactive threshold triggers.
+          if (p.key === "confirm_threshold" && numVal === 0) {
+            numVal = 1;
+          }
+          parsedParams[p.key] = numVal;
         }
         if (p.type === "boolean" && parsedParams[p.key] !== undefined) {
           parsedParams[p.key] = Boolean(parsedParams[p.key]);
@@ -214,7 +221,6 @@ export default function ToolScanPage() {
     );
   }
 
-  // Adjusted strictly for fallback state
   if (!config && toolSlug !== "asset-discovery") {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400">

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
 import { adminAuth } from "@/config/firebaseAdmin";
 import { cookies } from "next/headers";
-import { createNotification } from "@/lib/notifications"; // Ensure this path is correct
+import { createNotification } from "@/lib/notifications"; 
 
 // --- Helper: Get User ID from Session ---
 async function getUid() {
@@ -55,7 +55,6 @@ export async function POST(
     const toolsBaseUrl = process.env.TOOLS_BASE_URL;
     const apiKey = process.env.TOOLS_API_KEY || "";
 
-    // FIX: Removed invisible characters from the URL string below
     const pythonRes = await fetch(
       `${toolsBaseUrl}/confirm-cms/${external_job_id}`,
       {
@@ -102,7 +101,6 @@ export async function GET(
 
   try {
     // 1. Fetch current state from DB
-    // We join tools to get the tool name for the notification message
     const dbRes = await query(
       `SELECT s.*, t.name as tool_name 
        FROM scans s
@@ -118,7 +116,6 @@ export async function GET(
     let scan = dbRes.rows[0];
 
     // 2. Optimization: If already finished, return DB result immediately
-    // No need to call Python API or trigger notifications again
     if (["completed", "failed", "cancelled"].includes(scan.status)) {
       return NextResponse.json({ success: true, scan });
     }
@@ -142,7 +139,6 @@ export async function GET(
       );
       scan = { ...scan, ...updateRes.rows[0] };
 
-      // Notify User of Failure
       await createNotification(
         uid,
         "Scan Failed",
@@ -154,20 +150,33 @@ export async function GET(
     }
 
     if (!statusRes.ok) {
-      // Temporary API error, just return current DB state, don't update anything
       return NextResponse.json({ success: true, scan });
     }
 
     const statusData = await statusRes.json();
     const newStatus = statusData.status;
 
+    // FETCH CONFIRMATIONS IF PENDING OR RUNNING
+    let confirmations = [];
+    if (newStatus !== "completed" && newStatus !== "failed" && newStatus !== "cancelled") {
+      try {
+        const confRes = await fetch(`${toolsBaseUrl}/confirmations/${externalJobId}`, {
+          headers: { "X-API-Key": apiKey }
+        });
+        if (confRes.ok) {
+          const confData = await confRes.json();
+          confirmations = confData.confirmations || confData || [];
+        }
+      } catch (e) {
+        console.error("[API] Failed to fetch confirmations", e);
+      }
+    }
+
     // =========================================================
     // LOGIC BLOCK: Status is NOT Completed (Running/Queued/Failed)
     // =========================================================
     if (newStatus !== "completed") {
-      // Only update DB if status has changed
       if (newStatus !== scan.status) {
-        // --- NOTIFICATION: Handle Explicit Failure from Python ---
         if (newStatus === "failed") {
           await createNotification(
             uid,
@@ -176,23 +185,20 @@ export async function GET(
             "error",
           );
         }
-        // ---------------------------------------------------------
 
-        // Update DB status
         await query(`UPDATE scans SET status = $1 WHERE id = $2`, [
           newStatus,
           id,
         ]);
 
-        // Update local object for response
         scan.status = newStatus;
       }
 
-      // Return status + Python progress data (for progress bar)
       return NextResponse.json({
         success: true,
         scan,
         pythonStatus: statusData,
+        confirmations, 
       });
     }
 
@@ -203,23 +209,23 @@ export async function GET(
       console.log(`[API] Job Completed! Fetching Results...`);
 
       // A. Fetch Results
-      // FIX: Added '?' before normalized=true
-      const resultRes = await fetch(
-        `${toolsBaseUrl}/results/${externalJobId}?normalized=true`,
-        { headers: { "X-API-Key": apiKey } },
-      );
+      // FIX: Prevent normalization on Asset Discovery to preserve the custom schema
+      const isDiscoveryTool = scan.tool_id === "discovery" || scan.tool_name === "Asset Discovery";
+      const resultEndpoint = isDiscoveryTool 
+        ? `${toolsBaseUrl}/results/${externalJobId}` 
+        : `${toolsBaseUrl}/results/${externalJobId}?normalized=true`;
+
+      const resultRes = await fetch(resultEndpoint, { headers: { "X-API-Key": apiKey } });
       const resultData = await resultRes.json();
 
       // B. Check if result contains an application-level error
       if (resultData.error) {
-        // Mark as failed in DB
         const updateRes = await query(
           `UPDATE scans SET status = 'failed', result = $1, completed_at = NOW() WHERE id = $2 RETURNING *`,
           [JSON.stringify(resultData), id],
         );
         scan = { ...scan, ...updateRes.rows[0] };
 
-        // Notify Failure
         await createNotification(
           uid,
           "Scan Failed",
@@ -234,14 +240,12 @@ export async function GET(
         );
         scan = { ...scan, ...updateRes.rows[0] };
 
-        // --- NOTIFICATION: Scan Completed Successfully ---
         await createNotification(
           uid,
           "Scan Completed",
           `Scan finished successfully for ${scan.target}. Click to view report.`,
           "success",
         );
-        // -------------------------------------------------
       }
     }
 
@@ -255,7 +259,6 @@ export async function GET(
   }
 }
 
-// DELETE: Remove record from Postgres
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } },
