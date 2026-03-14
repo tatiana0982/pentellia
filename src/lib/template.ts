@@ -4,6 +4,7 @@ export function getPurpleReportHtml(data: any) {
   const target = data.target || result.target || result.meta?.target || "Unknown Target";
   const started_at = result.meta?.started_at || new Date().toISOString();
   const completed_at = data.completed_at || result.completed_at || result.meta?.completed_at || new Date().toISOString();
+  const scanId = String(data.id || data.scan_id || result.id || result.scan_id || "");
   
   // Extract core modules with safe fallbacks
   const ai_summary = data.ai_summary || result.ai_summary || "";
@@ -114,7 +115,7 @@ export function getPurpleReportHtml(data: any) {
   const sansCol2 = sansEntries.slice(Math.ceil(sansEntries.length / 2));
 
   // Generate Unique Report ID
-  const reportId = `REP-${Date.now().toString(36).toUpperCase()}-${scanId?.slice(0, 6).toUpperCase() || 'SYS'}`;
+  const reportId = `REP-${Date.now().toString(36).toUpperCase()}-${scanId ? scanId.slice(0, 6).toUpperCase() : 'SYS'}`;
 
   /* ================= HTML TEMPLATE GENERATION ================= */
   return `
