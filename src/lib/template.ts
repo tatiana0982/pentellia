@@ -343,30 +343,33 @@ canvas { max-height: 100%; max-width: 100%; }
     </div>
   </div>
 
-  <div class="grid grid-cols-3 gap-6 mb-8 h-[240px]">
-    <div class="report-card flex flex-col items-center justify-between p-4">
-      <p class="font-bold w-full text-center text-xs text-slate-300 mb-2 uppercase tracking-wider">Severity Breakdown</p>
-      <div class="relative w-full flex-1 flex items-center justify-center min-h-[120px]">
+<div class="grid grid-cols-3 gap-6 mb-8 h-[340px]">
+    <div class="report-card flex flex-col items-center justify-between p-6">
+      <p class="font-bold w-full text-center text-sm text-slate-300 mb-4 uppercase tracking-wider">Severity Breakdown</p>
+      <div class="relative w-full flex-1 flex items-center justify-center min-h-[180px]">
         <canvas id="severityChart"></canvas>
+        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
+          <span class="text-5xl font-extrabold text-white">${summary.total_findings}</span>
+        </div>
       </div>
-      <div class="flex flex-wrap gap-2 mt-4 w-full justify-center text-[9px] font-bold uppercase tracking-wider text-slate-400">
-        <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span>CRI <span class="text-white">${summary.critical || 0}</span></div>
-        <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-500"></span>HI <span class="text-white">${summary.high || 0}</span></div>
-        <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-500"></span>MED <span class="text-white">${summary.medium || 0}</span></div>
-        <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span>LOW <span class="text-white">${summary.low || 0}</span></div>
+      <div class="flex flex-wrap gap-3 mt-6 w-full justify-center text-[11px] font-bold uppercase tracking-wider text-slate-300">
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span>CRI <span class="text-white ml-0.5">${summary.critical || 0}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]"></span>HI <span class="text-white ml-0.5">${summary.high || 0}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]"></span>MED <span class="text-white ml-0.5">${summary.medium || 0}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></span>LOW <span class="text-white ml-0.5">${summary.low || 0}</span></div>
       </div>
     </div>
     
-    <div class="report-card flex flex-col items-center justify-between p-4">
-      <p class="font-bold w-full text-center text-xs text-slate-300 mb-2 uppercase tracking-wider">Security Posture Area</p>
-      <div class="relative w-full flex-1 flex items-center justify-center min-h-[120px]">
+    <div class="report-card flex flex-col items-center justify-between p-6">
+      <p class="font-bold w-full text-center text-sm text-slate-300 mb-4 uppercase tracking-wider">Security Posture Area</p>
+      <div class="relative w-full flex-1 flex items-center justify-center min-h-[180px]">
         <canvas id="postureChart"></canvas>
       </div>
     </div>
 
-    <div class="report-card flex flex-col items-center justify-between p-4">
-      <p class="font-bold w-full text-center text-xs text-slate-300 mb-2 uppercase tracking-wider">Risk Benchmark</p>
-      <div class="relative w-full flex-1 flex items-center justify-center min-h-[120px]">
+    <div class="report-card flex flex-col items-center justify-between p-6">
+      <p class="font-bold w-full text-center text-sm text-slate-300 mb-4 uppercase tracking-wider">Risk Benchmark</p>
+      <div class="relative w-full flex-1 flex items-center justify-center min-h-[180px]">
         <canvas id="riskChart"></canvas>
       </div>
     </div>
@@ -716,6 +719,14 @@ Chart.register(ChartDataLabels);
 Chart.defaults.font.family = "'Inter', sans-serif";
 Chart.defaults.color = '#94A3B8';
 
+// CRITICAL FIX: Forces high resolution and stops animations for PDF printing
+const commonOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: false, // Prevents PDF capturing mid-animation
+  devicePixelRatio: 3, // Renders at 3x resolution to fix blurriness
+};
+
 // 1. Severity Doughnut Chart
 const sevCtx = document.getElementById('severityChart');
 if(sevCtx) {
@@ -731,15 +742,14 @@ if(sevCtx) {
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '80%',
+      ...commonOptions,
+      cutout: '75%',
       plugins: { 
         legend: { display: false },
         tooltip: { enabled: false },
         datalabels: {
           color: '#ffffff',
-          font: { weight: 'bold', size: 10 },
+          font: { weight: 'bold', size: 16 },
           formatter: (value) => value > 0 ? value : ''
         }
       }
@@ -757,14 +767,13 @@ if(riskCtx) {
       datasets: [{
         data: [${summary.risk_score || 0}, 50, 80],
         backgroundColor: ['#8b5cf6', '#1e293b', '#1e293b'],
-        borderRadius: 4,
+        borderRadius: 6,
         borderSkipped: false,
-        barThickness: 24
+        barThickness: 45
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      ...commonOptions,
       plugins: { 
         legend: { display: false },
         tooltip: { enabled: false },
@@ -772,8 +781,8 @@ if(riskCtx) {
           color: '#ffffff',
           anchor: 'end',
           align: 'bottom',
-          offset: -22,
-          font: { weight: 'bold', size: 12 },
+          offset: -26,
+          font: { weight: 'bold', size: 18 },
           formatter: (value) => value
         }
       },
@@ -782,7 +791,7 @@ if(riskCtx) {
         x: { 
           grid: { display: false },
           border: { display: false },
-          ticks: { font: { weight: '600', size: 9, family: "'Inter', sans-serif" }, color: '#94A3B8', padding: 8 }
+          ticks: { font: { weight: '700', size: 12, family: "'Inter', sans-serif" }, color: '#94A3B8', padding: 12 }
         } 
       }
     }
@@ -799,23 +808,22 @@ if(postureCtx) {
       datasets: [{
         label: 'Posture',
         data: [${appSecScore}, ${netSecScore}, ${densityScore}, ${defenseScore}, ${exposureScore}],
-        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+        backgroundColor: 'rgba(139, 92, 246, 0.25)',
         borderColor: 'rgba(139, 92, 246, 1)',
         pointBackgroundColor: 'rgba(217, 70, 239, 1)',
         pointBorderColor: '#fff',
         pointHoverBackgroundColor: '#fff',
         pointHoverBorderColor: 'rgba(217, 70, 239, 1)',
-        borderWidth: 2,
+        borderWidth: 2.5,
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      ...commonOptions,
       scales: {
         r: {
           angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
           grid: { color: 'rgba(255, 255, 255, 0.1)' },
-          pointLabels: { color: '#94A3B8', font: { size: 8, family: "'Inter', sans-serif", weight: 'bold' } },
+          pointLabels: { color: '#F8FAFC', font: { size: 11, family: "'Inter', sans-serif", weight: 'bold' } },
           ticks: { display: false, min: 0, max: 100 }
         }
       },
