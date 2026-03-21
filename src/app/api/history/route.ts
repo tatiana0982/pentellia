@@ -1,43 +1,37 @@
+// src/app/api/history/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
-import { adminAuth } from "@/config/firebaseAdmin";
-import { cookies } from "next/headers";
-
-async function getUid() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("__session")?.value;
-  if (!sessionCookie) return null;
-  try {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    return decoded.uid;
-  } catch (e) {
-    return null;
-  }
-}
+import { getUid } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const uid = await getUid();
-  if (!uid)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const sp     = new URL(req.url).searchParams;
+  const page   = Math.max(1, parseInt(sp.get("page")  || "1"));
+  const limit  = Math.min(20, Math.max(1, parseInt(sp.get("limit") || "5")));
+  const offset = (page - 1) * limit;
 
   try {
-    // Fetch last 20 logins
-    const text = `
-      SELECT id, ip_address, location, user_agent, login_at
-      FROM login_history
-      WHERE user_uid = $1
-      ORDER BY login_at DESC
-      LIMIT 20
-    `;
+    const [rows, countRes] = await Promise.all([
+      query(
+        `SELECT id, ip_address, location, user_agent, login_at
+         FROM login_history
+         WHERE user_uid = $1
+         ORDER BY login_at DESC
+         LIMIT $2 OFFSET $3`,
+        [uid, limit, offset],
+      ),
+      query(`SELECT COUNT(*) FROM login_history WHERE user_uid = $1`, [uid]),
+    ]);
 
-    const res = await query(text, [uid]);
-
-    return NextResponse.json({ success: true, history: res.rows });
-  } catch (error) {
-    console.error("Fetch History Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    const total = parseInt(countRes.rows[0].count);
+    return NextResponse.json({
+      success:    true,
+      history:    rows.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  } catch {
+    return NextResponse.json({ error: "Failed to fetch history" }, { status: 500 });
   }
 }

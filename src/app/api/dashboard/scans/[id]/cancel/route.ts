@@ -1,49 +1,42 @@
+// src/app/api/dashboard/scans/[id]/cancel/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
-import { adminAuth } from "@/config/firebaseAdmin";
-import { cookies } from "next/headers";
-async function getUid() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("__session")?.value;
-  if (!sessionCookie) return null;
-  try {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    return decoded.uid;
-  } catch (e) {
-    return null;
-  }
-}
+import { getUid } from "@/lib/auth";
+
 export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const uid = await getUid();
-  if (!uid)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { id } = await Promise.resolve(params);
+  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
 
   try {
-    // 1. Get External Job ID
     const dbRes = await query(
-      `SELECT external_job_id FROM scans WHERE id=$1 AND user_uid=$2`,
-      [id, uid]
+      `SELECT external_job_id FROM scans WHERE id = $1 AND user_uid = $2`,
+      [id, uid],
     );
-    if (dbRes.rowCount === 0)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!dbRes.rowCount) {
+      return NextResponse.json({ error: "Scan not found" }, { status: 404 });
+    }
 
     const externalId = dbRes.rows[0].external_job_id;
 
-    // 2. Call External Cancel API
+    // Best-effort cancel — don't fail if the worker already finished
     await fetch(`${process.env.TOOLS_BASE_URL}/cancel/${externalId}`, {
-      method: "POST",
+      method:  "POST",
       headers: { "X-API-Key": process.env.TOOLS_API_KEY || "" },
-    });
+      signal:  AbortSignal.timeout(10_000),
+    }).catch(() => {});
 
-    // 3. Update DB Status
-    await query(`UPDATE scans SET status='cancelled' WHERE id=$1`, [id]);
+    await query(
+      `UPDATE scans SET status = 'cancelled', completed_at = NOW() WHERE id = $1`,
+      [id],
+    );
 
-    return NextResponse.json({ success: true, message: "Job cancelled" });
-  } catch (error) {
+    return NextResponse.json({ success: true });
+  } catch {
     return NextResponse.json({ error: "Cancel failed" }, { status: 500 });
   }
 }

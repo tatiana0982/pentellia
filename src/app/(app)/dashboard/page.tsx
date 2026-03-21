@@ -67,7 +67,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("/api/dashboard/stats");
+        const res  = await fetch("/api/dashboard/init");
         const json = await res.json();
         if (json.success) setData(json);
       } catch (error) {

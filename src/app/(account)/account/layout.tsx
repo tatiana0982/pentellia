@@ -1,97 +1,83 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ArrowLeft, User, Globe, Key, Code2, Bell, Settings, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  User,
-  CreditCard,
-  FileText,
-  History,
-  ShieldCheck,
-  Key,
-  Code2,
-  Settings,
-  ArrowLeft,
-  LayoutDashboard,
-} from "lucide-react";
 
-// Define the sidebar structure
-const sidebarItems = [
+const NAV = [
   {
-    title: "User settings",
-    items: [{ label: "Overview", href: "/account/user-settings", icon: User }],
+    group: "User Settings",
+    items: [{ label: "Overview",      href: "/account/user-settings", icon: User      }],
   },
   {
-    title: "Security",
+    group: "Security",
     items: [
-      { label: "Login history", href: "/account/login-history", icon: Key },
+      { label: "Domains",       href: "/account/domains",       icon: Globe      },
+      { label: "Password",      href: "/account/security",      icon: ShieldAlert },
+      { label: "Login History", href: "/account/login-history", icon: Key        },
     ],
   },
   {
-    title: "API",
+    group: "Activity",
+    items: [{ label: "Notifications", href: "/account/notifications", icon: Bell }],
+  },
+  {
+    group: "API",
     items: [{ label: "REST API", href: "/account/api", icon: Code2 }],
   },
 ];
 
-export default function AccountLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AccountLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col md:flex-row  gap-6 p-6 md:p-8 font-sans text-slate-200">
-      {/* --- Settings Sidebar --- */}
-      <aside className="w-full md:w-64 flex-none fixed flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
-        {/* 'Back to Product' Header Link */}
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 px-2 text-sm font-semibold text-slate-400 hover:text-white transition-colors group"
-        >
-          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-          <span>Back to Dashboard</span>
-        </Link>
+    <div className="flex h-screen w-full bg-[#08080f] overflow-hidden font-sans">
 
-        {/* Settings Title */}
-        <div className="flex items-center gap-2 px-2 pt-2 border-t border-white/5">
-          <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
-            <Settings className="h-4 w-4 text-violet-400" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-white">Account</h2>
-            <p className="text-xs text-slate-500">Manage your preferences</p>
+      <aside className="w-64 shrink-0 h-full flex flex-col bg-[#0a0a13] border-r border-slate-800/50">
+        <div className="px-5 pt-6 pb-4 shrink-0">
+          <Link href="/dashboard"
+            className="group inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-white transition-colors">
+            <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
+            Back to Dashboard
+          </Link>
+        </div>
+
+        <div className="px-5 pb-5 shrink-0 border-b border-slate-800/50">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-600/20 to-indigo-600/15 border border-violet-500/20 flex items-center justify-center shrink-0">
+              <Settings className="h-4 w-4 text-violet-400" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Account</p>
+              <p className="text-[11px] text-slate-600">Preferences</p>
+            </div>
           </div>
         </div>
 
-        {/* Navigation Groups */}
-        <nav className="space-y-6">
-          {sidebarItems.map((group, idx) => (
-            <div key={idx} className="space-y-2">
-              <h3 className="px-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                {group.title}
-              </h3>
-              <div className="space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+          {NAV.map((group) => (
+            <div key={group.group}>
+              <p className="px-3 mb-1.5 text-[10px] font-bold text-slate-700 uppercase tracking-widest">
+                {group.group}
+              </p>
+              <div className="space-y-0.5">
                 {group.items.map((item) => {
-                  const isActive = pathname === item.href;
+                  const active = pathname === item.href;
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
+                    <Link key={item.href} href={item.href}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                        isActive
-                          ? "bg-violet-600/10 text-violet-300 border border-violet-500/20"
-                          : "text-slate-400 border border-transparent hover:text-slate-200 hover:bg-white/5",
-                      )}
-                    >
-                      <item.icon
-                        className={cn(
-                          "h-4 w-4",
-                          isActive ? "text-violet-400" : "text-slate-500",
-                        )}
-                      />
-                      {item.label}
+                        "group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer",
+                        active
+                          ? "bg-violet-500/10 text-white shadow-[inset_0_0_0_1px_rgba(139,92,246,0.2)]"
+                          : "text-slate-400 hover:text-white hover:bg-slate-800/50",
+                      )}>
+                      <item.icon className={cn(
+                        "h-4 w-4 shrink-0 transition-colors",
+                        active ? "text-violet-400" : "text-slate-600 group-hover:text-slate-300",
+                      )} />
+                      <span className="truncate flex-1">{item.label}</span>
+                      {active && <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shadow-[0_0_6px_#8b5cf6] shrink-0" />}
                     </Link>
                   );
                 })}
@@ -101,9 +87,10 @@ export default function AccountLayout({
         </nav>
       </aside>
 
-      {/* --- Main Content Area --- */}
-      <main className="flex-1 ml-64  overflow-y-auto custom-scrollbar rounded-2xl">
-        {children}
+      <main className="flex-1 min-w-0 h-full overflow-y-auto bg-[#08080f]">
+        <div className="h-full px-8 py-8 xl:px-12">
+          {children}
+        </div>
       </main>
     </div>
   );

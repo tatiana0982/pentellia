@@ -1,333 +1,400 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  Check,
-  Zap,
-  Shield,
-  Globe,
-  Server,
-  Building2,
-  ArrowRight,
-  Box,
+  Wallet, CreditCard, Zap, Check, ChevronRight,
+  Loader2, RefreshCw, Clock, ArrowUpRight, ArrowDownLeft,
+  Shield, Lock, BadgeCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import toast from "react-hot-toast";
 
-// --- Configuration ---
-const PLANS = [
-  {
-    id: "free",
-    name: "Community",
-    description: "Basic security hygiene for individuals and students.",
-    price: { monthly: 0, yearly: 0 },
-    assets: 1,
-    features: [
-      "Lightweight Port Scanning",
-      "Basic Asset Discovery",
-      "Manual Scan Triggers",
-      "Community Support",
-      "7-Day Log Retention",
-    ],
-    popular: false,
-    icon: Box,
-    color: "slate",
-    cta: "Get Started Free",
-  },
-  {
-    id: "starter",
-    name: "Essentials", // Renamed from NetSec
-    description: "Automated vulnerability monitoring for growing startups.",
-    price: { monthly: 9014, yearly: 6310 },
-    assets: 5,
-    features: [
-      "Everything in Community",
-      "Network Vulnerability Scans",
-      "15,000+ CVEs Database",
-      "Cloud Config Review",
-      "PDF Report Exports",
-    ],
-    popular: false,
-    icon: Server,
-    color: "blue",
-    cta: "Upgrade to Essentials",
-  },
-  {
-    id: "pro",
-    name: "Professional", // Renamed from WebNetSec
-    description: "Advanced web & API security for production teams.",
-    price: { monthly: 13284, yearly: 9299 },
-    assets: 15,
-    features: [
-      "Everything in Essentials",
-      "DAST (OWASP Top 10)",
-      "Authenticated Web Scans",
-      "API Scanning (REST/GraphQL)",
-      "Priority Email Support",
-    ],
-    popular: true,
-    icon: Globe,
-    color: "violet",
-    cta: "Go Professional",
-  },
-  {
-    id: "elite",
-    name: "Advanced", // Renamed from Pentest Suite
-    description: "Full-scale offensive security for compliance & auditing.",
-    price: { monthly: 18028, yearly: 12620 },
-    assets: 50,
-    features: [
-      "Everything in Professional",
-      "Auto-Exploitation (Sniper)",
-      "SQLi & XSS Validation",
-      "White-label Reports",
-      "Burp Suite Integration",
-    ],
-    popular: false,
-    icon: Shield,
-    color: "amber",
-    cta: "Contact Sales",
-  },
-];
-
-export default function SubscriptionPage() {
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
-    "yearly"
-  );
-
-  return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] space-y-8 font-sans text-slate-200 overflow-y-auto custom-scrollbar p-2">
-      {/* --- Header & Toggle --- */}
-      <div className="flex flex-col items-center text-center space-y-6 py-8">
-        <div className="space-y-2">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
-            Plans that scale with your threat landscape
-          </h1>
-          <p className="text-slate-400 max-w-2xl mx-auto">
-            From individual researchers to enterprise SOCs. Secure your
-            infrastructure with the right toolkit.
-          </p>
-        </div>
-
-        {/* Billing Toggle */}
-        <div className="flex items-center gap-4 bg-[#0B0C15] border border-white/10 p-1.5 rounded-full">
-          <button
-            onClick={() => setBillingCycle("monthly")}
-            className={cn(
-              "px-6 py-2 rounded-full text-sm font-medium transition-all",
-              billingCycle === "monthly"
-                ? "bg-white/10 text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-300"
-            )}
-          >
-            Monthly
-          </button>
-          <button
-            onClick={() => setBillingCycle("yearly")}
-            className={cn(
-              "px-6 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2",
-              billingCycle === "yearly"
-                ? "bg-violet-600 text-white shadow-lg shadow-violet-900/20"
-                : "text-slate-500 hover:text-slate-300"
-            )}
-          >
-            Yearly{" "}
-            <span className="text-[10px] bg-white/20 px-1.5 rounded text-white">
-              SAVE 30%
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* --- Pricing Cards --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2  gap-6 max-w-[1600px] mx-auto w-full px-4">
-        {PLANS.map((plan) => (
-          <PricingCard key={plan.id} plan={plan} billingCycle={billingCycle} />
-        ))}
-      </div>
-
-      {/* --- Feature Comparison / Bottom Section --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-7xl mx-auto w-full px-4 pt-8 pb-12">
-        {/* Included Features */}
-        <div className="p-8 rounded-2xl bg-[#0B0C15] border border-white/10">
-          <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
-            <Zap className="h-5 w-5 text-yellow-400" /> Platform Standard
-            Features
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[
-              "Encrypted Data Storage",
-              "Unlimited Rescans",
-              "Cron Job Scheduling",
-              "Real-time Slack Alerts",
-              "Role-Based Access (RBAC)",
-              "24/7 Knowledge Base",
-            ].map((feature, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 text-sm text-slate-400"
-              >
-                <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                {feature}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Enterprise Call to Action */}
-        <div className="relative overflow-hidden p-8 rounded-2xl bg-gradient-to-br from-violet-900/20 to-[#0B0C15] border border-violet-500/20 flex flex-col justify-center">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-violet-600/10 blur-[80px] rounded-full pointer-events-none" />
-
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-3">
-              <Building2 className="h-6 w-6 text-violet-300" />
-              <h3 className="text-xl font-bold text-white">
-                Need an Enterprise Audit?
-              </h3>
-            </div>
-            <p className="text-slate-400 mb-6 max-w-md">
-              We offer dedicated pentesting services, custom asset limits, and
-              on-premise deployment for large organizations.
-            </p>
-            <Button
-              variant="outline"
-              className="border-violet-500/50 text-violet-300 hover:bg-violet-500/10 hover:text-white"
-            >
-              Talk to Sales <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+// ─── Types ─────────────────────────────────────────────────────────────
+interface WalletData {
+  balance:         number;
+  totalSpent:      number;
+  totalBought:     number;
+  totalScans:      number;
+  verifiedDomains: number;
 }
 
-// --- Sub-Components ---
+interface Transaction {
+  id:            string;
+  type:          "credit" | "debit";
+  amount:        number;
+  balance_after: number;
+  description:   string;
+  ref_type:      string;
+  created_at:    string;
+}
 
-function PricingCard({
-  plan,
-  billingCycle,
-}: {
-  plan: any;
-  billingCycle: "monthly" | "yearly";
-}) {
-  const isPopular = plan.popular;
-  const isFree = plan.price.monthly === 0;
+// ─── Server-authoritative tiers (must match create-order/route.ts) ────
+const TIERS = [
+  { id: "plan_299",  inr:  299, label: "₹299",  popular: false, bonus: ""        },
+  { id: "plan_499",  inr:  499, label: "₹499",  popular: true,  bonus: "Popular" },
+  { id: "plan_999",  inr:  999, label: "₹999",  popular: false, bonus: "Best"    },
+  { id: "plan_1999", inr: 1999, label: "₹1,999", popular: false, bonus: ""       },
+  { id: "plan_2499", inr: 2499, label: "₹2,499", popular: false, bonus: "Max"    },
+];
 
-  const currentPrice =
-    billingCycle === "yearly" ? plan.price.yearly : plan.price.monthly;
+// Scan estimator — how many operations ₹N buys
+function estimateScans(inr: number) {
+  return {
+    standard: Math.floor(inr / 0.5),
+    light:    Math.floor(inr / 1.0),
+    deep:     Math.floor(inr / 2.0),
+    ai:       Math.floor(inr / 5.0),
+  };
+}
 
-  // Color Mapping
-  const colorMap: any = {
-    slate: "from-white/5 to-white/5 border-white/10 hover:border-white/20",
-    blue: "from-blue-500/10 to-cyan-500/10 border-blue-500/20 hover:border-blue-500/50",
-    violet:
-      "from-violet-600/20 to-indigo-600/20 border-violet-500/30 hover:border-violet-500/60 shadow-[0_0_40px_-10px_rgba(124,58,237,0.15)]",
-    amber:
-      "from-amber-500/10 to-orange-500/10 border-amber-500/20 hover:border-amber-500/50",
+// ─── Skeleton ──────────────────────────────────────────────────────────
+function Skeleton({ className }: { className?: string }) {
+  return <div className={cn("rounded-lg bg-slate-800/50 animate-pulse", className)} />;
+}
+
+// ─── Main Page ─────────────────────────────────────────────────────────
+export default function SubscriptionPage() {
+  // Safe default: all zeros — never null, never crashes on render
+  const [wallet,       setWallet]       = useState<WalletData>({
+    balance: 0, totalSpent: 0, totalBought: 0, totalScans: 0, verifiedDomains: 0,
+  });
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [paying,       setPaying]       = useState<string | null>(null);
+  const [activeTab,    setActiveTab]    = useState<"topup" | "history">("topup");
+
+  // ── Fetch wallet + transactions ────────────────────────────────────
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const [wRes, tRes] = await Promise.all([
+        fetch("/api/subscription/wallet-summary"),
+        fetch("/api/subscription/status?limit=20"),
+      ]);
+      const [wData, tData] = await Promise.all([wRes.json(), tRes.json()]);
+
+      if (wData.success) {
+        setWallet({
+          balance:         wData.balance         ?? 0,
+          totalSpent:      wData.totalSpent       ?? 0,
+          totalBought:     wData.totalBought      ?? 0,
+          totalScans:      wData.totalScans       ?? 0,
+          verifiedDomains: wData.verifiedDomains  ?? 0,
+        });
+      }
+      if (tData.success) setTransactions(tData.transactions ?? []);
+    } catch {
+      // Silent — don't crash the page on network error
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ── Razorpay payment flow ──────────────────────────────────────────
+  const handleTopUp = async (planId: string, amountINR: number) => {
+    setPaying(planId);
+    try {
+      // 1. Create order server-side
+      const orderRes  = await fetch("/api/subscription/create-order", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ planId }),
+      });
+      const orderData = await orderRes.json();
+      if (!orderData.success) throw new Error(orderData.error || "Order creation failed");
+
+      // 2. Open Razorpay checkout
+      const rzp = new (window as any).Razorpay({
+        key:         orderData.keyId,
+        amount:      orderData.amount,
+        currency:    "INR",
+        name:        "Pentellia",
+        description: orderData.name,
+        order_id:    orderData.orderId,
+        prefill:     {},
+        theme:       { color: "#7c3aed" },
+        handler: async (response: any) => {
+          // 3. Verify on server
+          const verifyRes  = await fetch("/api/subscription/verify-payment", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({
+              razorpay_order_id:   response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature:  response.razorpay_signature,
+            }),
+          });
+          const verifyData = await verifyRes.json();
+
+          if (verifyData.success) {
+            toast.success(`₹${amountINR} added to your wallet!`);
+            fetchData(true); // Refresh wallet silently
+          } else {
+            toast.error("Payment verification failed. Contact support.");
+          }
+          setPaying(null);
+        },
+        modal: {
+          ondismiss: () => setPaying(null),
+        },
+      });
+      rzp.open();
+    } catch (err: any) {
+      toast.error(err.message || "Payment failed");
+      setPaying(null);
+    }
   };
 
-  const btnColor: any = {
-    slate: "bg-white/10 text-white hover:bg-white/20",
-    blue: "bg-blue-600 hover:bg-blue-500 text-white",
-    violet:
-      "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-500/20 text-white",
-    amber: "bg-amber-600 hover:bg-amber-500 text-white",
-  };
+  // ── Render ─────────────────────────────────────────────────────────
+  const balance     = wallet.balance;
+  const pct         = wallet.totalBought > 0
+    ? Math.min(100, Math.round((balance / 2499) * 100))
+    : 0;
+
+  const walletStatus =
+    balance === 0   ? { label: "Empty",   color: "text-red-400",    bar: "bg-red-500"    }
+    : balance < 5   ? { label: "Low",     color: "text-amber-400",  bar: "bg-amber-500"  }
+    : balance < 50  ? { label: "Active",  color: "text-violet-400", bar: "bg-violet-500" }
+                    : { label: "Healthy", color: "text-emerald-400", bar: "bg-emerald-500" };
 
   return (
-    <div
-      className={cn(
-        "relative flex flex-col p-6 rounded-2xl border bg-gradient-to-b transition-all duration-300 group h-full",
-        colorMap[plan.color],
-        isPopular && "scale-[1.02] z-10 ring-1 ring-violet-500/30"
-      )}
-    >
-      {/* Popular Badge */}
-      {isPopular && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg uppercase tracking-wider">
-          Best Value
+    <>
+      {/* Razorpay checkout script */}
+      <script src="https://checkout.razorpay.com/v1/checkout.js" async />
+
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8 font-sans text-slate-200">
+
+        {/* ── Wallet card ─────────────────────────────────────────── */}
+        <div className="relative rounded-2xl overflow-hidden border border-violet-500/20 bg-gradient-to-br from-violet-950/60 via-indigo-950/40 to-[#08080f]">
+          <div className="absolute inset-0 opacity-30" style={{ backgroundImage:"radial-gradient(circle at 20% 50%, rgba(124,58,237,0.4) 0%, transparent 55%)" }} />
+          <div className="relative z-10 p-6">
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Wallet Balance</p>
+                {loading
+                  ? <Skeleton className="h-10 w-36 mt-1" />
+                  : <h2 className="text-4xl font-black text-white tracking-tight">
+                      ₹{balance.toFixed(2)}
+                    </h2>}
+                <p className={cn("text-sm font-semibold mt-1", walletStatus.color)}>
+                  {walletStatus.label}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => fetchData(true)}
+                  className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-all"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+                <div className="h-12 w-12 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center">
+                  <Wallet className="h-6 w-6 text-violet-400" />
+                </div>
+              </div>
+            </div>
+
+            {/* Balance bar */}
+            <div className="mb-6">
+              <div className="h-1.5 w-full rounded-full bg-slate-800/60 overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full transition-all duration-700", walletStatus.bar)}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-slate-600 mt-1.5">
+                {pct}% of ₹2,499 reference capacity
+              </p>
+            </div>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { label: "Total Added",  value: loading ? null : `₹${wallet.totalBought.toFixed(0)}`  },
+                { label: "Total Spent",  value: loading ? null : `₹${wallet.totalSpent.toFixed(0)}`   },
+                { label: "Scans Run",    value: loading ? null : wallet.totalScans.toString()          },
+              ].map((s) => (
+                <div key={s.label} className="p-3 rounded-xl bg-slate-900/40 border border-slate-800/40">
+                  <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-1">{s.label}</p>
+                  {s.value === null
+                    ? <Skeleton className="h-5 w-16" />
+                    : <p className="text-sm font-bold text-white">{s.value}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* Header */}
-      <div className="mb-6">
-        <div
-          className={cn(
-            "w-12 h-12 rounded-lg flex items-center justify-center mb-4 bg-white/5",
-            isPopular && "bg-violet-500/10"
-          )}
-        >
-          <plan.icon
-            className={cn(
-              "h-6 w-6",
-              isPopular ? "text-violet-400" : "text-slate-400"
-            )}
-          />
-        </div>
-        <h3 className="text-xl font-bold text-white">{plan.name}</h3>
-        <p className="text-sm text-slate-400 mt-2 min-h-[40px]">
-          {plan.description}
-        </p>
-      </div>
-
-      {/* Price */}
-      <div className="mb-6">
-        <div className="flex items-baseline gap-1">
-          <span className="text-3xl font-bold text-white">
-            {isFree ? "Free" : `₹${currentPrice.toLocaleString()}`}
-          </span>
-          {!isFree && <span className="text-sm text-slate-500">/mo</span>}
-        </div>
-
-        {billingCycle === "yearly" && !isFree ? (
-          <p className="text-xs text-emerald-400 mt-1 font-medium">
-            Billed ₹{(currentPrice * 12).toLocaleString()} yearly
-          </p>
-        ) : (
-          <p className="text-xs text-slate-600 mt-1 font-medium min-h-[16px]">
-            {isFree ? "Forever free" : "Billed monthly"}
-          </p>
-        )}
-
-        <div className="mt-4 p-2 rounded bg-white/5 border border-white/5 text-center">
-          <span className="text-xs font-semibold text-slate-300">
-            {plan.assets} Active Asset{plan.assets > 1 ? "s" : ""}
-          </span>
-        </div>
-      </div>
-
-      {/* Features */}
-      <div className="flex-1 space-y-4 mb-8">
-        {plan.features.map((feature: string, idx: number) => (
-          <div
-            key={idx}
-            className="flex items-start gap-3 text-sm text-slate-300"
-          >
-            <div
+        {/* ── Tabs ───────────────────────────────────────────────── */}
+        <div className="flex gap-1 p-1 rounded-xl bg-slate-900/60 border border-slate-800/50 w-fit">
+          {(["topup", "history"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
               className={cn(
-                "mt-0.5 flex items-center justify-center h-4 w-4 rounded-full shrink-0",
-                isPopular
-                  ? "bg-violet-500/20 text-violet-400"
-                  : "bg-white/10 text-slate-400"
+                "px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all",
+                activeTab === tab
+                  ? "bg-violet-600 text-white shadow-[0_2px_8px_rgba(124,58,237,0.35)]"
+                  : "text-slate-500 hover:text-slate-200 hover:bg-slate-800/50",
               )}
             >
-              <Check className="h-2.5 w-2.5" />
-            </div>
-            <span className="leading-tight">{feature}</span>
-          </div>
-        ))}
-      </div>
+              {tab === "topup" ? "Add Funds" : "Transaction History"}
+            </button>
+          ))}
+        </div>
 
-      {/* Action */}
-      <Button
-        className={cn(
-          "w-full border-0 transition-all font-semibold",
-          btnColor[plan.color]
+        {/* ── Top-up tab ──────────────────────────────────────────── */}
+        {activeTab === "topup" && (
+          <div className="space-y-6">
+
+            {/* Tiers grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+              {TIERS.map((tier) => {
+                const est     = estimateScans(tier.inr);
+                const isPaying = paying === tier.id;
+                return (
+                  <div
+                    key={tier.id}
+                    className={cn(
+                      "relative rounded-2xl border p-5 flex flex-col gap-3 transition-all duration-150 cursor-pointer group",
+                      tier.popular
+                        ? "bg-violet-600/10 border-violet-500/30 hover:border-violet-500/50"
+                        : "bg-[#0d0e1a] border-slate-800/60 hover:border-slate-700/60",
+                    )}
+                    onClick={() => !isPaying && handleTopUp(tier.id, tier.inr)}
+                  >
+                    {tier.bonus && (
+                      <span className={cn(
+                        "absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-widest px-3 py-0.5 rounded-full",
+                        tier.popular ? "bg-violet-600 text-white" : "bg-emerald-600/20 text-emerald-400 border border-emerald-500/25",
+                      )}>
+                        {tier.bonus}
+                      </span>
+                    )}
+
+                    <div className="text-center">
+                      <p className="text-2xl font-black text-white">{tier.label}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">wallet credits</p>
+                    </div>
+
+                    <div className="space-y-1.5 text-[11px] text-slate-400">
+                      <div className="flex items-center justify-between">
+                        <span>Standard scans</span>
+                        <span className="font-semibold text-white">{est.standard}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Deep scans</span>
+                        <span className="font-semibold text-white">{est.deep}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>AI summaries</span>
+                        <span className="font-semibold text-white">{est.ai}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      disabled={isPaying}
+                      className={cn(
+                        "w-full mt-auto flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all",
+                        tier.popular
+                          ? "bg-violet-600 hover:bg-violet-500 text-white shadow-[0_2px_12px_rgba(124,58,237,0.35)]"
+                          : "bg-slate-800/60 hover:bg-slate-700/60 text-slate-300 border border-slate-700/50",
+                        isPaying && "opacity-50 cursor-not-allowed",
+                      )}
+                    >
+                      {isPaying
+                        ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Processing…</>
+                        : <><CreditCard className="h-3.5 w-3.5" />Pay ₹{tier.inr}</>}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Credit rate table */}
+            <div className="rounded-2xl bg-[#0d0e1a] border border-slate-800/60 p-5">
+              <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-400" /> Credit Usage Rates
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: "Normal Scan",    cost: "₹0.50", color: "text-emerald-400" },
+                  { label: "Light Scan",     cost: "₹1.00", color: "text-blue-400"    },
+                  { label: "Deep Scan",      cost: "₹2.00", color: "text-amber-400"   },
+                  { label: "AI Summary",     cost: "₹5.00", color: "text-violet-400"  },
+                ].map((r) => (
+                  <div key={r.label} className="p-3 rounded-xl bg-slate-900/40 border border-slate-800/40 text-center">
+                    <p className={cn("text-lg font-black", r.color)}>{r.cost}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{r.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Trust signals */}
+            <div className="flex flex-wrap items-center justify-center gap-6 py-2">
+              {[
+                { icon: Lock,       label: "256-bit SSL Encrypted"  },
+                { icon: Shield,     label: "PCI DSS Compliant"      },
+                { icon: BadgeCheck, label: "Powered by Razorpay"    },
+              ].map((t) => (
+                <div key={t.label} className="flex items-center gap-2 text-xs text-slate-500">
+                  <t.icon className="h-3.5 w-3.5 text-violet-400" />
+                  {t.label}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
-      >
-        {plan.cta}
-      </Button>
-    </div>
+
+        {/* ── History tab ─────────────────────────────────────────── */}
+        {activeTab === "history" && (
+          <div className="space-y-2">
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className={cn("h-16 rounded-xl", i % 2 && "opacity-60")} />
+              ))
+            ) : transactions.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-700/50 bg-slate-900/20 py-16 flex flex-col items-center gap-3">
+                <Clock className="h-8 w-8 text-slate-600" />
+                <p className="text-slate-500 text-sm">No transactions yet</p>
+              </div>
+            ) : (
+              transactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center gap-4 p-4 rounded-xl bg-[#0d0e1a] border border-slate-800/50 hover:border-slate-700/60 transition-all"
+                >
+                  <div className={cn(
+                    "h-9 w-9 rounded-xl flex items-center justify-center shrink-0",
+                    tx.type === "credit" ? "bg-emerald-500/10" : "bg-red-500/10",
+                  )}>
+                    {tx.type === "credit"
+                      ? <ArrowDownLeft className="h-4 w-4 text-emerald-400" />
+                      : <ArrowUpRight  className="h-4 w-4 text-red-400" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{tx.description}</p>
+                    <p className="text-[11px] text-slate-500">
+                      {new Date(tx.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={cn(
+                      "text-sm font-bold",
+                      tx.type === "credit" ? "text-emerald-400" : "text-red-400",
+                    )}>
+                      {tx.type === "credit" ? "+" : "−"}₹{Math.abs(parseFloat(String(tx.amount))).toFixed(2)}
+                    </p>
+                    <p className="text-[10px] text-slate-600">bal ₹{parseFloat(String(tx.balance_after)).toFixed(2)}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

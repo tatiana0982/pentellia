@@ -1,85 +1,122 @@
-import {  Domain } from "@/models/domain.model";
+// src/services/domain.service.ts
+import { Domain } from "@/models/domain.model";
 import { DomainRepository } from "@/repositories/domain.repository";
 import { ApiError } from "@/utils/ApiError";
 import crypto from "crypto";
 import { DnsService } from "./dns.service";
 
-//TODO add domain verification process
-
 export class DomainService {
-    private domainRepo = new DomainRepository();
+  private domainRepo = new DomainRepository();
+  private dnsService = new DnsService();
 
-    private dnsService = new DnsService();
+  async generateVerificationToken(): Promise<string> {
+    return crypto.randomBytes(16).toString("hex");
+  }
 
+  normalizeDomain(input: string): string {
+    return input
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .replace(/\/.*$/, "");
+  }
 
-    async generateVerificationToken(): Promise<string> {
-        return crypto.randomBytes(16).toString("hex");
+  async getDomainsForUser(userId: string): Promise<Domain[]> {
+    return this.domainRepo.findByUserId(userId);
+  }
+
+  async getSingleDomainForUser(
+    userId: string,
+    domainId: string,
+  ): Promise<Domain | null> {
+    const domainDoc = await this.domainRepo.findByUserAndDomainId(
+      userId,
+      domainId,
+    );
+    if (!domainDoc) throw new ApiError(400, "Domain does not exist for this user");
+    return domainDoc;
+  }
+
+  async verifyDomain(userId: string, domainId: string): Promise<void> {
+    const domain = await this.domainRepo.findByUserAndDomainId(userId, domainId);
+    if (!domain) throw new ApiError(404, "Domain not found");
+
+    const token = domain.verificationToken;
+    const name  = domain.name;
+
+    // ── Method 1: DNS TXT record ───────────────────────────────────
+    const dnsPassed = await this.dnsService
+      .verifyTxt(domain.verificationHost, token)
+      .catch(() => false);
+
+    if (dnsPassed) {
+      // UpdateDomainInput uses 'verified' (matches the Zod schema)
+      await this.domainRepo.update(domainId, { verified: true } as any);
+      return;
     }
 
-
-    normalizeDomain(input: string): string {
-        return input
-            .trim()
-            .toLowerCase()
-            .replace(/^https?:\/\//, "")
-            .replace(/^www\./, "")
-            .replace(/\/.*$/, "");
+    // ── Method 2: HTTP file ────────────────────────────────────────
+    const fileUrl = `https://${name}/.well-known/pentellia-verification.txt`;
+    let filePassed = false;
+    try {
+      const res = await fetch(fileUrl, {
+        signal: AbortSignal.timeout(10_000),
+        headers: { "User-Agent": "Pentellia-Verifier/1.0" },
+      });
+      if (res.ok) {
+        const text = (await res.text()).trim();
+        filePassed = text === token || text.includes(token);
+      }
+    } catch {
+      filePassed = false;
     }
 
-    async getDomainsForUser(userId: string): Promise<Domain[]> {
-
-        return this.domainRepo.findByUserId(userId);
+    if (filePassed) {
+      await this.domainRepo.update(domainId, { verified: true } as any);
+      return;
     }
 
-    async getSingleDomainForUser(userId: string, domainId: string): Promise<Domain | null> {
-
-        const domainDoc = await this.domainRepo.findByUserAndDomainId(userId, domainId);
-
-        if (!domainDoc) {
-            throw new ApiError(400, "Domain does not exists for this user");
-        }
-
-        return domainDoc
-
+    // ── Method 3: HTML meta tag ────────────────────────────────────
+    let metaPassed = false;
+    try {
+      const res = await fetch(`https://${name}`, {
+        signal: AbortSignal.timeout(10_000),
+        headers: { "User-Agent": "Pentellia-Verifier/1.0" },
+      });
+      if (res.ok) {
+        const html = await res.text();
+        metaPassed =
+          html.includes(`name="pentellia-verification"`) &&
+          html.includes(`content="${token}"`);
+      }
+    } catch {
+      metaPassed = false;
     }
 
-    async verifyDomain( userId: string , domainId: string) {
-        const domain = await this.domainRepo.findByUserAndDomainId(userId, domainId);
-        if (!domain) throw new ApiError(404, "Domain not found");
-
-
-        const isValid = await this.dnsService.verifyTxt(
-            domain.verificationHost,
-            domain.verificationToken
-        );
-
-        if (!isValid) {
-            throw new ApiError(400, "TXT record not found");
-        }
-
-        await this.domainRepo.update(domainId, { isVerified: true });
-
+    if (metaPassed) {
+      await this.domainRepo.update(domainId, { verified: true } as any);
+      return;
     }
 
+    throw new ApiError(
+      400,
+      "Verification failed. DNS TXT record, verification file, and meta tag were all checked. Please verify your setup and try again.",
+    );
+  }
 
+  async createDomain(name: string, userId: string): Promise<Domain> {
+    const domain = this.normalizeDomain(name);
 
-    async createDomain(name: string, userId: string): Promise<Domain> {
+    const existing = await this.domainRepo.findByUserAndDomainName(userId, domain);
+    if (existing) throw new ApiError(400, "Domain already exists for this user");
 
-        const domain = this.normalizeDomain(name);
-
-        const domainDoc = await this.domainRepo.findByUserAndDomainName(userId, domain);
-
-        if (domainDoc) {
-            throw new ApiError(400, "Domain already exists for this user");
-        }
-
-        return this.domainRepo.create({
-            name: domain,
-            userId: userId,
-            verificationToken: await this.generateVerificationToken(),
-            verificationHost : `_pentellia.${domain}`,
-            isVerified: false,
-        });
-
-    }
+    return this.domainRepo.create({
+      name:              domain,
+      userId,
+      verificationToken: await this.generateVerificationToken(),
+      verificationHost:  `_pentellia.${domain}`,
+      isVerified:        false,
+    });
+  }
 }

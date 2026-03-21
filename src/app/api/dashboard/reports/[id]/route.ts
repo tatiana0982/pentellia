@@ -1,82 +1,62 @@
+// src/app/api/dashboard/reports/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
-import { adminAuth } from "@/config/firebaseAdmin";
-import { cookies } from "next/headers";
+import { getUid } from "@/lib/auth";
 
-async function getUid() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("__session")?.value;
-  if (!sessionCookie) return null;
-  try {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    return decoded.uid;
-  } catch (e) {
-    return null;
-  }
-}
-
-// GET: Download PDF
+// ─── GET — download PDF blob ──────────────────────────────────────────
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const uid = await getUid();
-  if (!uid)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = await Promise.resolve(params);
+  const { id } = await params;
 
   try {
-    // Fetch the BLOB
     const res = await query(
       `SELECT pdf_blob FROM reports WHERE id = $1 AND user_uid = $2`,
-      [id, uid]
+      [id, uid],
     );
 
-    if (res.rowCount === 0) {
+    if (!res.rowCount || !res.rows[0].pdf_blob) {
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
 
-    const pdfBuffer = res.rows[0].pdf_blob;
-
-    // Return as a downloadable file
-    return new NextResponse(pdfBuffer, {
+    const safeId = id.replace(/[^a-z0-9-]/gi, "").slice(0, 16);
+    return new NextResponse(res.rows[0].pdf_blob, {
       headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="Report_${id.slice(
-          0,
-          8
-        )}.pdf"`,
+        "Content-Type":        "application/pdf",
+        "Content-Disposition": `attachment; filename="Report_${safeId}.pdf"`,
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control":       "private, no-store",
       },
     });
-  } catch (error) {
-    console.error("Download Error:", error);
+  } catch {
     return NextResponse.json({ error: "Download failed" }, { status: 500 });
   }
 }
 
-// DELETE: Remove Report
+// ─── DELETE — remove report ──────────────────────────────────────────
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const uid = await getUid();
-  if (!uid)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { id } = await Promise.resolve(params);
+  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
 
   try {
     const res = await query(
       `DELETE FROM reports WHERE id = $1 AND user_uid = $2 RETURNING id`,
-      [id, uid]
+      [id, uid],
     );
-
-    if (res.rowCount === 0) {
+    if (!res.rowCount) {
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
-
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: "Delete failed" }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "Failed to delete report" }, { status: 500 });
   }
 }

@@ -1,138 +1,120 @@
 // src/app/api/users/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
-import { adminAuth } from "@/config/firebaseAdmin";
-import { cookies } from "next/headers";
+import { getUid } from "@/lib/auth";
 
-async function getUid() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("__session")?.value;
-  if (!sessionCookie) return null;
-  try {
-    // PERFORMANCE FIX: Set checkRevoked to false to avoid external network calls on every request.
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, false);
-    return decoded.uid;
-  } catch (e) {
-    return null;
-  }
+function sanitize(val: unknown, maxLen = 256): string {
+  if (typeof val !== "string") return "";
+  return val.replace(/<[^>]*>/g, "").replace(/[\x00-\x1F\x7F]/g, "").trim().slice(0, maxLen);
 }
 
-export async function GET(req: NextRequest) {
-  const start = Date.now();
-  const uid = await getUid();
+const FIELD_MAP: Record<string, string> = {
+  firstName:      "first_name",
+  lastName:       "last_name",
+  company:        "company",
+  size:           "size",
+  role:           "role",
+  country:        "country",
+  timezone:       "timezone",
+  phone:          "phone",
+  industry:       "industry",
+  preferredLang:  "preferred_lang",
+  yearsInSec:     "years_in_sec",
+  secRole:        "sec_role",
+  certifications: "certifications",
+  focusAreas:     "focus_areas",
+  avatar:         "avatar",   // binary blob — handled separately
+};
 
-  if (!uid)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+// ─── GET ─────────────────────────────────────────────────────────────
+export async function GET() {
+  const uid = await getUid();
+  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    // We do NOT select 'avatar' (the blob) here to keep this query extremely fast.
-    const text = `
-      SELECT first_name, last_name, email, company, size, role, country, timezone, verified_domain
-      FROM users WHERE uid = $1
-    `;
-    const res = await query(text, [uid]);
+    const res = await query(
+      `SELECT first_name, last_name, email, company, size, role,
+              country, timezone, phone, industry, preferred_lang,
+              years_in_sec, sec_role, certifications, focus_areas,
+              created_at, updated_at
+       FROM users WHERE uid = $1`,
+      [uid],
+    );
 
-    if (res.rows.length === 0) {
+    if (!res.rows.length) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const u = res.rows[0];
-
     return NextResponse.json({
       success: true,
       user: {
-        firstName: u.first_name || "",
-        lastName: u.last_name || "",
-        email: u.email || "",
-        company: u.company || "",
-        size: u.size || "",
-        role: u.role || "",
-        country: u.country || "",
-        timezone: u.timezone || "",
-        verifiedDomain: u.verified_domain || "",
+        firstName:      u.first_name      || "",
+        lastName:       u.last_name       || "",
+        email:          u.email           || "",
+        company:        u.company         || "",
+        size:           u.size            || "",
+        role:           u.role            || "",
+        country:        u.country         || "",
+        timezone:       u.timezone        || "",
+        phone:          u.phone           || "",
+        industry:       u.industry        || "",
+        preferredLang:  u.preferred_lang  || "en",
+        yearsInSec:     u.years_in_sec    || "",
+        secRole:        u.sec_role        || "",
+        certifications: u.certifications  || "",
+        focusAreas:     u.focus_areas     || "",
+        createdAt:      u.created_at,
+        updatedAt:      u.updated_at,
       },
     });
-  } catch (error) {
-    console.error("Fetch Profile Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+  } catch {
+    return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 });
   }
 }
 
+// ─── PUT ─────────────────────────────────────────────────────────────
 export async function PUT(req: NextRequest) {
   const uid = await getUid();
-  if (!uid)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  let body: any;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const setClauses: string[] = [];
+  const values:     any[]    = [];
+  let   idx = 1;
+
+  for (const [key, value] of Object.entries(body)) {
+    const col = FIELD_MAP[key];
+    if (!col) continue;
+
+    if (key === "avatar" && typeof value === "string") {
+      const b64 = (value as string).replace(/^data:image\/\w+;base64,/, "");
+      if (!b64) continue;
+      setClauses.push(`${col} = $${idx}`);
+      values.push(Buffer.from(b64, "base64"));
+    } else {
+      setClauses.push(`${col} = $${idx}`);
+      values.push(typeof value === "string" ? sanitize(value) : (value ?? null));
+    }
+    idx++;
+  }
+
+  if (!setClauses.length) {
+    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+  }
+
+  values.push(uid);
   try {
-    const body = await req.json();
-    const fields: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
-
-    // 1. Map Frontend keys to Database columns
-    const fieldMap: Record<string, string> = {
-      firstName: "first_name",
-      lastName: "last_name",
-      company: "company",
-      size: "size",
-      role: "role",
-      country: "country",
-      timezone: "timezone",
-      verifiedDomain: "verified_domain",
-      avatar: "avatar", // This is the blob column
-    };
-
-    for (const [key, value] of Object.entries(body)) {
-      if (fieldMap[key]) {
-        fields.push(`${fieldMap[key]} = $${idx}`);
-
-        // 2. Special handling for Avatar (Base64 to Buffer)
-        if (key === "avatar" && typeof value === "string") {
-          // Check if it's a base64 data URL
-          const base64Data = value.replace(/^data:image\/\w+;base64,/, "");
-          values.push(Buffer.from(base64Data, "base64"));
-        } else {
-          values.push(value);
-        }
-
-        idx++;
-      }
-    }
-
-    if (fields.length === 0) {
-      return NextResponse.json(
-        { error: "No valid fields provided" },
-        { status: 400 },
-      );
-    }
-
-    // 3. Execute the Dynamic Update
-    values.push(uid);
-    const sql = `
-      UPDATE users 
-      SET ${fields.join(", ")}, updated_at = NOW() 
-      WHERE uid = $${idx} 
-      RETURNING uid
-    `;
-
-    const res = await query(sql, values);
-
-    if (res.rowCount === 0) {
-      return NextResponse.json(
-        { error: "Update failed: User not found" },
-        { status: 404 },
-      );
-    }
-
-    return NextResponse.json({ success: true, message: "Profile updated" });
-  } catch (error) {
-    console.error("Update Profile Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
+    await query(
+      `UPDATE users SET ${setClauses.join(", ")}, updated_at = NOW() WHERE uid = $${idx}`,
+      values,
     );
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
   }
 }
