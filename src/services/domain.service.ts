@@ -7,7 +7,7 @@ import { DnsService } from "./dns.service";
 
 export class DomainService {
   private domainRepo = new DomainRepository();
-  private dnsService = new DnsService();
+  private dnsService  = new DnsService();
 
   async generateVerificationToken(): Promise<string> {
     return crypto.randomBytes(16).toString("hex");
@@ -27,9 +27,9 @@ export class DomainService {
   }
 
   async getSingleDomainForUser(userId: string, domainId: string): Promise<Domain | null> {
-    const domainDoc = await this.domainRepo.findByUserAndDomainId(userId, domainId);
-    if (!domainDoc) throw new ApiError(400, "Domain does not exist for this user");
-    return domainDoc;
+    const domain = await this.domainRepo.findByUserAndDomainId(userId, domainId);
+    if (!domain) throw new ApiError(400, "Domain does not exist for this user");
+    return domain;
   }
 
   async verifyDomain(userId: string, domainId: string): Promise<void> {
@@ -39,39 +39,35 @@ export class DomainService {
     const token = domain.verificationToken;
     const name  = domain.name;
 
-    // ── Method 1: DNS TXT record ──────────────────────────────────────
+    // ── Method 1: DNS TXT record ──────────────────────────────────────────
     const dnsPassed = await this.dnsService
       .verifyTxt(domain.verificationHost, token)
       .catch(() => false);
 
     if (dnsPassed) {
-      // markVerified() uses PostgreSQL directly — NOT Firestore BaseRepository.update()
       await this.domainRepo.markVerified(domainId);
       return;
     }
 
-    // ── Method 2: HTTP file ───────────────────────────────────────────
-    const fileUrl = `https://${name}/.well-known/pentellia-verification.txt`;
+    // ── Method 2: HTTP verification file ─────────────────────────────────
     let filePassed = false;
     try {
-      const res = await fetch(fileUrl, {
-        signal: AbortSignal.timeout(10_000),
-        headers: { "User-Agent": "Pentellia-Verifier/1.0" },
-      });
+      const res = await fetch(
+        `https://${name}/.well-known/pentellia-verification.txt`,
+        { signal: AbortSignal.timeout(10_000), headers: { "User-Agent": "Pentellia-Verifier/1.0" } },
+      );
       if (res.ok) {
         const text = (await res.text()).trim();
         filePassed = text === token || text.includes(token);
       }
-    } catch {
-      filePassed = false;
-    }
+    } catch { filePassed = false; }
 
     if (filePassed) {
       await this.domainRepo.markVerified(domainId);
       return;
     }
 
-    // ── Method 3: HTML meta tag ───────────────────────────────────────
+    // ── Method 3: HTML meta tag ───────────────────────────────────────────
     let metaPassed = false;
     try {
       const res = await fetch(`https://${name}`, {
@@ -84,9 +80,7 @@ export class DomainService {
           html.includes(`name="pentellia-verification"`) &&
           html.includes(`content="${token}"`);
       }
-    } catch {
-      metaPassed = false;
-    }
+    } catch { metaPassed = false; }
 
     if (metaPassed) {
       await this.domainRepo.markVerified(domainId);
@@ -95,7 +89,7 @@ export class DomainService {
 
     throw new ApiError(
       400,
-      "Verification failed. DNS TXT record, verification file, and meta tag were all checked. Please verify your setup and try again.",
+      "Verification failed. DNS TXT record, verification file, and meta tag were all checked.",
     );
   }
 

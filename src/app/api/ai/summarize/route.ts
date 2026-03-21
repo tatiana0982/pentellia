@@ -1,37 +1,33 @@
 // src/app/api/ai/summarize/route.ts
-export const runtime = "edge";
-
+// ⚠ NO edge runtime — uses @/lib/auth which requires Node.js crypto
+import { NextRequest, NextResponse } from "next/server";
 import { getUid } from "@/lib/auth";
 import { query } from "@/config/db";
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
-const AI_COST      = 5.0; // ₹5 per summary — matches plans table
+const AI_COST      = 5.0;
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const uid = await getUid();
-  if (!uid) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: any;
   try { body = await req.json(); } catch {
-    return Response.json({ error: "Invalid request" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
   const { scanData, toolName, scanId } = body;
   if (!scanData || !toolName) {
-    return Response.json({ error: "Missing scan data" }, { status: 400 });
+    return NextResponse.json({ error: "Missing scan data" }, { status: 400 });
   }
 
-  // Verify scan ownership
   if (scanId) {
     const check = await query(
       `SELECT id FROM scans WHERE id = $1 AND user_uid = $2 LIMIT 1`,
       [scanId, uid],
     ).catch(() => null);
-    if (!check?.rows.length) {
-      return Response.json({ error: "Scan not found" }, { status: 404 });
-    }
+    if (!check?.rows.length) return NextResponse.json({ error: "Scan not found" }, { status: 404 });
 
-    // Return cached summary — don't charge again (column is 'content' not 'summary')
     const cached = await query(
       `SELECT content FROM ai_summaries WHERE scan_id = $1 LIMIT 1`,
       [scanId],
@@ -39,39 +35,32 @@ export async function POST(req: Request) {
     if (cached?.rows?.[0]?.content) {
       const enc = new TextEncoder();
       return new Response(
-        new ReadableStream({
-          start(c) { c.enqueue(enc.encode(cached.rows[0].content)); c.close(); },
-        }),
+        new ReadableStream({ start(c) { c.enqueue(enc.encode(cached.rows[0].content)); c.close(); } }),
         { headers: { "Content-Type": "text/plain" } },
       );
     }
   }
 
-  // Credit gate
   const creditRes = await query(
-    `SELECT balance FROM user_credits WHERE user_uid = $1 FOR UPDATE`,
-    [uid],
+    `SELECT balance FROM user_credits WHERE user_uid = $1 FOR UPDATE`, [uid],
   ).catch(() => null);
-
   const balance = parseFloat(creditRes?.rows?.[0]?.balance ?? "0");
+
   if (balance < AI_COST) {
-    return Response.json(
+    return NextResponse.json(
       { error: `Insufficient credits. AI summary costs ₹${AI_COST}. Available: ₹${balance.toFixed(2)}` },
       { status: 402 },
     );
   }
 
-  // Deduct atomically
   const deducted = await query(
-    `UPDATE user_credits
-     SET balance = balance - $1, total_spent = total_spent + $1, updated_at = NOW()
-     WHERE user_uid = $2 AND balance >= $1
-     RETURNING balance`,
+    `UPDATE user_credits SET balance = balance - $1, total_spent = total_spent + $1, updated_at = NOW()
+     WHERE user_uid = $2 AND balance >= $1 RETURNING balance`,
     [AI_COST, uid],
   ).catch(() => null);
 
   if (!deducted?.rows.length) {
-    return Response.json({ error: "Credit deduction failed" }, { status: 402 });
+    return NextResponse.json({ error: "Credit deduction failed" }, { status: 402 });
   }
   const balanceAfter = parseFloat(deducted.rows[0].balance);
 
@@ -81,7 +70,7 @@ export async function POST(req: Request) {
       `UPDATE user_credits SET balance = balance + $1, total_spent = total_spent - $1 WHERE user_uid = $2`,
       [AI_COST, uid],
     ).catch(() => {});
-    return Response.json({ error: "AI service not configured" }, { status: 503 });
+    return NextResponse.json({ error: "AI service not configured" }, { status: 503 });
   }
 
   const prompt = `You are a Senior Security Analyst presenting to a Corporate Board.
@@ -99,12 +88,7 @@ Data: ${JSON.stringify(scanData).slice(0, 12_000)}`;
   const dsRes = await fetch(DEEPSEEK_URL, {
     method:  "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model:       "deepseek-chat",
-      messages:    [{ role: "user", content: prompt }],
-      stream:      true,
-      temperature: 0.3,
-    }),
+    body: JSON.stringify({ model: "deepseek-chat", messages: [{ role: "user", content: prompt }], stream: true, temperature: 0.3 }),
   });
 
   if (!dsRes.ok) {
@@ -112,7 +96,7 @@ Data: ${JSON.stringify(scanData).slice(0, 12_000)}`;
       `UPDATE user_credits SET balance = balance + $1, total_spent = total_spent - $1 WHERE user_uid = $2`,
       [AI_COST, uid],
     ).catch(() => {});
-    return Response.json({ error: "AI service error" }, { status: 502 });
+    return NextResponse.json({ error: "AI service error" }, { status: 502 });
   }
 
   let accumulated = "";
@@ -141,23 +125,18 @@ Data: ${JSON.stringify(scanData).slice(0, 12_000)}`;
       }
       controller.close();
 
-      // Save to ai_summaries — column is 'content' not 'summary'
       if (accumulated && scanId) {
         const toolId = (await query(`SELECT tool_id FROM scans WHERE id = $1`, [scanId]).catch(() => null))?.rows?.[0]?.tool_id || "unknown";
         await query(
-          `INSERT INTO ai_summaries (scan_id, user_uid, tool_id, content)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (scan_id)
-           DO UPDATE SET content = $4, updated_at = NOW()`,
+          `INSERT INTO ai_summaries (scan_id, user_uid, tool_id, content) VALUES ($1,$2,$3,$4)
+           ON CONFLICT (scan_id) DO UPDATE SET content = $4, updated_at = NOW()`,
           [scanId, uid, toolId, accumulated],
         ).catch(() => {});
       }
 
-      // Audit trail with correct schema
       await query(
-        `INSERT INTO credit_transactions
-           (user_uid, type, amount, balance_after, description, ref_type, ref_id, tool_id)
-         VALUES ($1, 'debit', $2, $3, 'AI Executive Summary', 'ai_summary', $4, 'ai')`,
+        `INSERT INTO credit_transactions (user_uid,type,amount,balance_after,description,ref_type,ref_id,tool_id)
+         VALUES ($1,'debit',$2,$3,'AI Executive Summary','ai_summary',$4,'ai')`,
         [uid, AI_COST, balanceAfter, scanId || "unknown"],
       ).catch(() => {});
     },
