@@ -26,14 +26,8 @@ export class DomainService {
     return this.domainRepo.findByUserId(userId);
   }
 
-  async getSingleDomainForUser(
-    userId: string,
-    domainId: string,
-  ): Promise<Domain | null> {
-    const domainDoc = await this.domainRepo.findByUserAndDomainId(
-      userId,
-      domainId,
-    );
+  async getSingleDomainForUser(userId: string, domainId: string): Promise<Domain | null> {
+    const domainDoc = await this.domainRepo.findByUserAndDomainId(userId, domainId);
     if (!domainDoc) throw new ApiError(400, "Domain does not exist for this user");
     return domainDoc;
   }
@@ -45,18 +39,18 @@ export class DomainService {
     const token = domain.verificationToken;
     const name  = domain.name;
 
-    // ── Method 1: DNS TXT record ───────────────────────────────────
+    // ── Method 1: DNS TXT record ──────────────────────────────────────
     const dnsPassed = await this.dnsService
       .verifyTxt(domain.verificationHost, token)
       .catch(() => false);
 
     if (dnsPassed) {
-      // UpdateDomainInput uses 'verified' (matches the Zod schema)
-      await this.domainRepo.update(domainId, { verified: true } as any);
+      // markVerified() uses PostgreSQL directly — NOT Firestore BaseRepository.update()
+      await this.domainRepo.markVerified(domainId);
       return;
     }
 
-    // ── Method 2: HTTP file ────────────────────────────────────────
+    // ── Method 2: HTTP file ───────────────────────────────────────────
     const fileUrl = `https://${name}/.well-known/pentellia-verification.txt`;
     let filePassed = false;
     try {
@@ -73,11 +67,11 @@ export class DomainService {
     }
 
     if (filePassed) {
-      await this.domainRepo.update(domainId, { verified: true } as any);
+      await this.domainRepo.markVerified(domainId);
       return;
     }
 
-    // ── Method 3: HTML meta tag ────────────────────────────────────
+    // ── Method 3: HTML meta tag ───────────────────────────────────────
     let metaPassed = false;
     try {
       const res = await fetch(`https://${name}`, {
@@ -95,7 +89,7 @@ export class DomainService {
     }
 
     if (metaPassed) {
-      await this.domainRepo.update(domainId, { verified: true } as any);
+      await this.domainRepo.markVerified(domainId);
       return;
     }
 
@@ -113,10 +107,9 @@ export class DomainService {
 
     return this.domainRepo.create({
       name:              domain,
-      userId,
+      userUid:           userId,
       verificationToken: await this.generateVerificationToken(),
       verificationHost:  `_pentellia.${domain}`,
-      isVerified:        false,
     });
   }
 }

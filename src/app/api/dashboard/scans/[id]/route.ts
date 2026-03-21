@@ -1,174 +1,194 @@
 // src/app/api/dashboard/scans/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
-import { getUid } from "@/lib/auth";
+import { adminAuth } from "@/config/firebaseAdmin";
+import { cookies } from "next/headers";
 import { createNotification } from "@/lib/notifications";
 
-type Params = { params: Promise<{ id: string }> };
+async function getUid() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("__session")?.value;
+  if (!sessionCookie) return null;
+  try {
+    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+    return decoded.uid;
+  } catch {
+    return null;
+  }
+}
 
-// ─── POST — CMS confirmation / interactive confirm ────────────────────
-export async function POST(req: NextRequest, { params }: Params) {
+async function safeFetch(url: string, opts?: RequestInit) {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(20_000), ...opts });
+    let json: any = null;
+    try { json = await res.json(); } catch { json = null; }
+    return { ok: res.ok, status: res.status, json };
+  } catch (err: any) {
+    return { ok: false, status: 0, json: null, error: err.message };
+  }
+}
+
+// ── POST: CMS confirmation ──────────────────────────────────────────────
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
 
-  let body: any;
-  try { body = await req.json(); } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const { confirm, external_job_id } = body;
-
   try {
+    const body = await req.json();
+    const { confirm, external_job_id } = body;
+
     const dbRes = await query(
       `SELECT external_job_id FROM scans WHERE id = $1 AND user_uid = $2`,
       [id, uid],
     );
-    if (!dbRes.rows.length) {
-      return NextResponse.json({ error: "Scan not found" }, { status: 404 });
-    }
+    if (!dbRes.rows.length) return NextResponse.json({ error: "Scan not found" }, { status: 404 });
 
     const dbJobId = dbRes.rows[0].external_job_id;
-    if (external_job_id !== dbJobId) {
+    if (external_job_id !== dbJobId)
       return NextResponse.json({ error: "Job ID mismatch" }, { status: 400 });
-    }
 
-    const toolsBase = process.env.TOOLS_BASE_URL!;
-    const apiKey    = process.env.TOOLS_API_KEY || "";
-
-    const pythonRes = await fetch(`${toolsBase}/confirm-cms/${external_job_id}`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-      body:    JSON.stringify({ confirm }),
-      signal:  AbortSignal.timeout(15_000),
-    });
-
-    if (!pythonRes.ok) {
-      return NextResponse.json({ error: "Upstream service error" }, { status: 502 });
-    }
-
-    const data = await pythonRes.json();
-    return NextResponse.json({ success: true, data });
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const { ok, json, status } = await safeFetch(
+      `${process.env.TOOLS_BASE_URL}/confirm-cms/${external_job_id}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": process.env.TOOLS_API_KEY || "" },
+        body: JSON.stringify({ confirm }),
+      },
+    );
+    if (!ok) return NextResponse.json({ error: "Python server error" }, { status: status || 502 });
+    return NextResponse.json({ success: true, data: json });
+  } catch (err: any) {
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
-// ─── GET — poll scan status, sync results from external API ───────────
-export async function GET(req: NextRequest, { params }: Params) {
+// ── GET: Sync scan status ───────────────────────────────────────────────
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
 
   try {
     const dbRes = await query(
-      `SELECT s.*, t.name AS tool_name,
-              a.summary AS ai_summary
-       FROM scans s
-       LEFT JOIN tools t ON s.tool_id = t.id
-       LEFT JOIN ai_summaries a ON a.scan_id = s.id
+      `SELECT s.*, t.name AS tool_name
+       FROM scans s LEFT JOIN tools t ON s.tool_id = t.id
        WHERE s.id = $1 AND s.user_uid = $2`,
       [id, uid],
     );
-
-    if (!dbRes.rows.length) {
+    if (!dbRes.rows.length)
       return NextResponse.json({ error: "Scan not found" }, { status: 404 });
-    }
 
     let scan = dbRes.rows[0];
 
-    // If already terminal, return immediately — no external call needed
+    // Already finished — return DB data immediately, no Flask call needed
     if (["completed", "failed", "cancelled"].includes(scan.status)) {
       return NextResponse.json({ success: true, scan });
     }
 
-    // Sync with external Python API
-    const externalJobId = scan.external_job_id;
-    const toolsBase     = process.env.TOOLS_BASE_URL!;
-    const apiKey        = process.env.TOOLS_API_KEY || "";
+    const toolsBase = process.env.TOOLS_BASE_URL;
+    const apiKey    = process.env.TOOLS_API_KEY || "";
+    const jobId     = scan.external_job_id;
 
-    const statusRes = await fetch(`${toolsBase}/status/${externalJobId}`, {
+    // Fetch status from Flask
+    const statusResult = await safeFetch(`${toolsBase}/status/${jobId}`, {
       headers: { "X-API-Key": apiKey },
-      signal:  AbortSignal.timeout(15_000),
     });
 
-    // Handle zombie job (job missing from worker)
-    if (statusRes.status === 404) {
-      const update = await query(
-        `UPDATE scans SET status = 'failed', completed_at = NOW()
-         WHERE id = $1 RETURNING *`,
-        [id],
+    // Flask unreachable
+    if (statusResult.status === 0) {
+      console.error(`[Scan] Flask unreachable: ${statusResult.error}`);
+      return NextResponse.json({ success: true, scan, confirmations: [] });
+    }
+
+    // Job missing on Flask — mark failed
+    if (statusResult.status === 404) {
+      const updateRes = await query(
+        `UPDATE scans SET status='failed', result=$1, completed_at=NOW() WHERE id=$2 RETURNING *`,
+        [JSON.stringify({ error: "Job no longer exists on scan server" }), id],
       );
-      scan = { ...scan, ...update.rows[0] };
-      createNotification(uid, "Scan Failed", `Scan for ${scan.target} could not be found on the worker.`, "error").catch(() => {});
+      scan = { ...scan, ...updateRes.rows[0] };
+      createNotification(uid, "Scan Failed", `Scan for ${scan.target} was lost.`, "error").catch(() => {});
       return NextResponse.json({ success: true, scan });
     }
 
-    if (!statusRes.ok) {
-      return NextResponse.json({ success: true, scan }); // return cached state
+    // Flask returned non-ok but not 404
+    if (!statusResult.ok) {
+      return NextResponse.json({ success: true, scan, confirmations: [] });
     }
 
-    const pythonStatus = await statusRes.json();
+    const statusData = statusResult.json;
+    const newStatus  = statusData?.status;
 
-    // Pass interactive confirmations back to the client
-    if (pythonStatus.confirmations?.length) {
-      return NextResponse.json({ success: true, scan, confirmations: pythonStatus.confirmations, pythonStatus });
-    }
-
-    if (pythonStatus.status === "running" || pythonStatus.status === "queued") {
-      await query(`UPDATE scans SET status = $1 WHERE id = $2`, [pythonStatus.status, id]).catch(() => {});
-      return NextResponse.json({ success: true, scan: { ...scan, status: pythonStatus.status }, pythonStatus });
-    }
-
-    if (pythonStatus.status === "completed" || pythonStatus.status === "failed") {
-      const isDiscovery = scan.tool_id === "discovery" || scan.tool_name === "Asset Discovery";
-      const resultUrl   = isDiscovery
-        ? `${toolsBase}/results/${externalJobId}`
-        : `${toolsBase}/results/${externalJobId}?normalized=true`;
-
-      const resultRes  = await fetch(resultUrl, { headers: { "X-API-Key": apiKey }, signal: AbortSignal.timeout(30_000) });
-      const resultData = await resultRes.json();
-
-      const newStatus  = resultData.error ? "failed" : "completed";
-      const updateRes  = await query(
-        `UPDATE scans SET status = $1, result = $2, completed_at = NOW()
-         WHERE id = $3 RETURNING *`,
-        [newStatus, JSON.stringify(resultData), id],
-      );
-      scan = { ...scan, ...updateRes.rows[0] };
-
-      if (newStatus === "completed") {
-        createNotification(uid, "Scan Completed", `Scan finished for ${scan.target}.`, "success").catch(() => {});
-      } else {
-        createNotification(uid, "Scan Failed", `Scan for ${scan.target} failed.`, "error").catch(() => {});
+    // Fetch confirmations if still running
+    let confirmations: any[] = [];
+    if (!["completed", "failed", "cancelled"].includes(newStatus)) {
+      const confResult = await safeFetch(`${toolsBase}/confirmations/${jobId}`, {
+        headers: { "X-API-Key": apiKey },
+      });
+      if (confResult.ok && confResult.json) {
+        confirmations = confResult.json.confirmations || confResult.json || [];
       }
     }
 
+    // Still running / failed
+    if (newStatus !== "completed") {
+      if (newStatus && newStatus !== scan.status) {
+        await query(`UPDATE scans SET status=$1 WHERE id=$2`, [newStatus, id]);
+        scan.status = newStatus;
+        if (newStatus === "failed") {
+          createNotification(uid, "Scan Failed", `Scan for ${scan.target} failed.`, "error").catch(() => {});
+        }
+      }
+      return NextResponse.json({ success: true, scan, pythonStatus: statusData, confirmations });
+    }
+
+    // Completed — fetch results
+    const isDiscovery = scan.tool_id === "discovery" || scan.tool_name === "Asset Discovery";
+    const resultUrl   = isDiscovery
+      ? `${toolsBase}/results/${jobId}`
+      : `${toolsBase}/results/${jobId}?normalized=true`;
+
+    const resultResult = await safeFetch(resultUrl, { headers: { "X-API-Key": apiKey } });
+    const resultData   = resultResult.json ?? { error: "Failed to fetch results" };
+
+    const newStatusVal = resultData.error ? "failed" : "completed";
+    const updateRes = await query(
+      `UPDATE scans SET status=$1, result=$2, completed_at=NOW() WHERE id=$3 RETURNING *`,
+      [newStatusVal, JSON.stringify(resultData), id],
+    );
+    scan = { ...scan, ...updateRes.rows[0] };
+
+    const notifTitle = newStatusVal === "completed" ? "Scan Completed" : "Scan Failed";
+    const notifMsg   = newStatusVal === "completed"
+      ? `Scan finished for ${scan.target}. Click to view.`
+      : `Scan for ${scan.target} failed.`;
+    createNotification(uid, notifTitle, notifMsg, newStatusVal === "completed" ? "success" : "error").catch(() => {});
+
     return NextResponse.json({ success: true, scan });
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err: any) {
+    console.error("[Scan GET]", err);
+    return NextResponse.json(
+      { error: process.env.NODE_ENV !== "production" ? err.message : "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }
 
-// ─── DELETE — remove scan ────────────────────────────────────────────
-export async function DELETE(_req: NextRequest, { params }: Params) {
+// ── DELETE ──────────────────────────────────────────────────────────────
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
 
   try {
     const res = await query(
-      `DELETE FROM scans WHERE id = $1 AND user_uid = $2 RETURNING id`,
+      `DELETE FROM scans WHERE id=$1 AND user_uid=$2 RETURNING *`,
       [id, uid],
     );
-    if (!res.rowCount) {
-      return NextResponse.json({ error: "Scan not found" }, { status: 404 });
-    }
+    if (!res.rowCount) return NextResponse.json({ error: "Scan not found" }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json({ error: "Failed to delete scan" }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

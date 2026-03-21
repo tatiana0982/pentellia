@@ -4,23 +4,20 @@ import { createNotification } from "@/lib/notifications";
 import { CreateUserInput } from "@/models/user.model";
 
 interface LocationData {
-  ip:        string;
-  country?:  string;
-  city?:     string;
+  ip: string;
+  country?: string;
+  city?: string;
   timezone?: string;
   userAgent?: string;
 }
 
 export class UserService {
-
-  // ── Sync user — upsert with new-user detection ───────────────────
   async syncUser(user: CreateUserInput, loc?: LocationData) {
-    // xmax::text = '0' means the row was freshly INSERTed (new signup).
-    // Any non-zero xmax means the row was UPDATEd (returning login).
-    const text = `
+    const upsertText = `
       INSERT INTO users (uid, email, first_name, last_name, avatar, country, timezone, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-      ON CONFLICT (uid) DO UPDATE SET
+      ON CONFLICT (uid)
+      DO UPDATE SET
         email      = EXCLUDED.email,
         first_name = COALESCE(users.first_name, EXCLUDED.first_name),
         last_name  = COALESCE(users.last_name,  EXCLUDED.last_name),
@@ -28,7 +25,7 @@ export class UserService {
         country    = COALESCE(EXCLUDED.country,  users.country),
         timezone   = COALESCE(EXCLUDED.timezone, users.timezone),
         updated_at = NOW()
-      RETURNING *, xmax::text AS xmax_val
+      RETURNING *, (xmax = 0) AS is_new_user
     `;
 
     const values = [
@@ -42,82 +39,58 @@ export class UserService {
     ];
 
     try {
-      const res     = await query(text, values);
-      const row     = res.rows[0];
-      const isNew   = row.xmax_val === "0"; // INSERT path
+      const res = await query(upsertText, values);
+      const row = res.rows[0];
 
-      if (isNew) {
-        // Welcome notification — only on first signup, never on login
-        createNotification(
+      // Only fire welcome notification + signup bonus on brand-new users
+      if (row.is_new_user) {
+        // Welcome notification (fires sendEmail internally)
+        await createNotification(
           user.uid,
           "Welcome to Pentellia! 🚀",
-          "Thanks for joining. Verify a domain and run your first scan to get started.",
+          "Thanks for joining. Ready to secure your infrastructure? Start your first scan from the dashboard.",
           "success",
-        ).catch(() => {});
+        );
 
-        // ₹10 first-scan bonus credit
-        this.giveFirstScanBonus(user.uid).catch(() => {});
+        // ₹10 signup bonus
+        await query(
+          `INSERT INTO user_credits (user_uid, balance, total_bought, total_spent)
+           VALUES ($1, 10, 10, 0)
+           ON CONFLICT (user_uid) DO NOTHING`,
+          [user.uid],
+        );
+
+        await query(
+          `INSERT INTO credit_transactions
+             (user_uid, type, amount, balance_after, description, ref_type, ref_id)
+           VALUES ($1, 'credit', 10, 10, 'Signup bonus ₹10', 'signup_bonus', $1)`,
+          [user.uid],
+        );
       }
 
       return row;
-    } catch (err: any) {
-      // Legacy: email conflict from account re-linking
-      if (err.code === "23505" && err.constraint === "users_email_key") {
-        const relinkText = `
+    } catch (error: any) {
+      // Legacy: relink existing email to new UID (Google re-auth edge case)
+      if (error.code === "23505" && error.constraint === "users_email_key") {
+        const updateText = `
           UPDATE users
-          SET uid = $1, first_name = $3, last_name = $4, avatar = $5,
-              country = $6, timezone = $7, updated_at = NOW()
+          SET uid        = $1,
+              first_name = $3,
+              last_name  = $4,
+              avatar     = $5,
+              country    = $6,
+              timezone   = $7,
+              updated_at = NOW()
           WHERE email = $2
           RETURNING *
         `;
-        const res = await query(relinkText, values);
+        const res = await query(updateText, values);
         return res.rows[0];
       }
-      throw err;
+      throw error;
     }
   }
 
-  // ── First-scan bonus — ₹10 credited once per user ────────────────
-  private async giveFirstScanBonus(uid: string) {
-    // Atomic: only runs if bonus hasn't been given yet
-    const res = await query(
-      `UPDATE users SET first_scan_bonus_given = TRUE
-       WHERE uid = $1 AND first_scan_bonus_given = FALSE
-       RETURNING uid`,
-      [uid],
-    );
-    if (!res.rows.length) return; // already given
-
-    const BONUS = 10.0;
-    const creditRes = await query(
-      `INSERT INTO user_credits (user_uid, balance, total_bought, total_spent)
-       VALUES ($1, $2, $2, 0)
-       ON CONFLICT (user_uid)
-       DO UPDATE SET
-         balance      = user_credits.balance + $2,
-         total_bought = user_credits.total_bought + $2,
-         updated_at   = NOW()
-       RETURNING balance`,
-      [uid, BONUS],
-    );
-    const balanceAfter = parseFloat(creditRes.rows[0].balance);
-
-    await query(
-      `INSERT INTO credit_transactions
-         (user_uid, type, amount, balance_after, description, ref_type, ref_id)
-       VALUES ($1, 'credit', $2, $3, 'Welcome bonus — first scan on us!', 'bonus', 'signup')`,
-      [uid, BONUS, balanceAfter],
-    );
-
-    createNotification(
-      uid,
-      "₹10 Welcome Credit Added! 🎁",
-      "We've added ₹10 to your wallet to try your first scan. No card required.",
-      "success",
-    ).catch(() => {});
-  }
-
-  // ── Log login history ────────────────────────────────────────────
   async logLoginHistory(uid: string, loc: LocationData) {
     const location =
       loc.city && loc.country
@@ -127,7 +100,7 @@ export class UserService {
     await query(
       `INSERT INTO login_history (user_uid, ip_address, location, user_agent)
        VALUES ($1, $2, $3, $4)`,
-      [uid, loc.ip, location, loc.userAgent?.slice(0, 512) || null],
-    ).catch(() => {}); // non-blocking — never fail the login
+      [uid, loc.ip, location, loc.userAgent || null],
+    ).catch(() => {}); // Non-blocking, never throw
   }
 }

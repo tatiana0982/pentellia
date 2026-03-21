@@ -1,6 +1,4 @@
 // src/app/api/dashboard/init/route.ts
-// Replaces 5 parallel fetches (stats, wallet, domains, notifications, user)
-// with one round-trip. Dashboard loads ~4x faster.
 import { NextResponse } from "next/server";
 import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
@@ -10,9 +8,7 @@ export async function GET() {
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    // All queries run in parallel — total time = slowest single query
     const [statsRes, walletRes, domainsRes, notiRes, userRes] = await Promise.all([
-      // ── Stats (single CTE) ────────────────────────────────────
       query(
         `WITH sc AS (
            SELECT COUNT(*) AS total,
@@ -24,8 +20,9 @@ export async function GET() {
          rc AS (
            SELECT s.id, s.target, s.status, s.created_at,
                   t.name AS tool_name, t.id AS tool_id,
-                  (s.result->'summary'->>'risk_score')::numeric     AS risk_score,
-                  (s.result->'summary'->>'total_findings')::int      AS finding_count
+                  s.result,
+                  COALESCE((s.result->'summary'->>'risk_score')::numeric, 0)    AS risk_score,
+                  COALESCE((s.result->'summary'->>'total_findings')::int, 0)    AS finding_count
            FROM scans s LEFT JOIN tools t ON s.tool_id=t.id
            WHERE s.user_uid=$1 ORDER BY s.created_at DESC LIMIT 7
          ),
@@ -42,7 +39,6 @@ export async function GET() {
         [uid],
       ),
 
-      // ── Wallet (LEFT JOIN handles new users) ─────────────────
       query(
         `SELECT COALESCE(balance,0) AS balance,
                 COALESCE(total_spent,0) AS total_spent,
@@ -52,7 +48,6 @@ export async function GET() {
         [uid],
       ),
 
-      // ── Domains ──────────────────────────────────────────────
       query(
         `SELECT COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE is_verified=TRUE) AS verified
@@ -60,7 +55,6 @@ export async function GET() {
         [uid],
       ),
 
-      // ── Unread notification count ─────────────────────────────
       query(
         `SELECT COUNT(*) AS unread
          FROM notifications
@@ -68,7 +62,6 @@ export async function GET() {
         [uid],
       ),
 
-      // ── User basics ───────────────────────────────────────────
       query(
         `SELECT first_name, last_name, email, company, role FROM users WHERE uid=$1`,
         [uid],
@@ -82,11 +75,17 @@ export async function GET() {
     const domains = domainsRes.rows[0] ?? {};
     const user    = userRes.rows[0] ?? {};
 
-    // Risk aggregation from recent scans
-    let crit=0, high=0, med=0, low=0;
+    // Aggregate risk from the full result JSON (now returned by CTE)
+    let crit = 0, high = 0, med = 0, low = 0;
     for (const s of recent) {
+      // result is returned as parsed JSON by pg (jsonb column)
       const sm = s.result?.summary;
-      if (sm) { crit+=sm.critical||0; high+=sm.high||0; med+=sm.medium||0; low+=sm.low||0; }
+      if (sm) {
+        crit += Number(sm.critical) || 0;
+        high += Number(sm.high)     || 0;
+        med  += Number(sm.medium)   || 0;
+        low  += Number(sm.low)      || 0;
+      }
     }
 
     return NextResponse.json({
@@ -100,16 +99,21 @@ export async function GET() {
         openHigh:       high,
       },
       charts: {
-        exposureTrend:    trend.map((t:any) => ({ date:t.date, scans:parseInt(t.count) })),
+        exposureTrend:    trend.map((t: any) => ({ date: t.date, scans: parseInt(t.count) })),
         riskDistribution: [
-          { name:"Critical", value:crit, fill:"#ef4444" },
-          { name:"High",     value:high, fill:"#f97316" },
-          { name:"Medium",   value:med,  fill:"#eab308" },
-          { name:"Low",      value:low,  fill:"#3b82f6" },
+          { name: "Critical", value: crit, fill: "#ef4444" },
+          { name: "High",     value: high, fill: "#f97316" },
+          { name: "Medium",   value: med,  fill: "#eab308" },
+          { name: "Low",      value: low,  fill: "#3b82f6" },
         ],
       },
-      recentScans: recent.map((s:any) => ({
-        ...s,
+      recentScans: recent.map((s: any) => ({
+        id:            s.id,
+        target:        s.target,
+        status:        s.status,
+        created_at:    s.created_at,
+        tool_name:     s.tool_name,
+        tool_id:       s.tool_id,
         risk_score:    parseFloat(s.risk_score    ?? "0"),
         finding_count: parseInt(s.finding_count   ?? "0"),
       })),
@@ -131,7 +135,7 @@ export async function GET() {
         role:      user.role       || "",
       },
     });
-  } catch {
+  } catch (err: any) {
     return NextResponse.json({ error: "Failed to load dashboard" }, { status: 500 });
   }
 }
