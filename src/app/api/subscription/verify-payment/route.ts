@@ -1,16 +1,19 @@
 // src/app/api/subscription/verify-payment/route.ts
-// Hardened payment verification with receipt data + balance notifications.
+// Hardened payment verification for dynamic top-ups.
+// Amount is ALWAYS read from the DB (razorpay_orders), never from the client.
+
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
 import { createNotification } from "@/lib/notifications";
 
-const MAX_DAILY_TOPUP = 10_000;
+const MAX_DAILY_TOPUP = 100_000;
 const isDev = process.env.NODE_ENV !== "production";
 
 /**
- * Razorpay signature verification — constant-time, length-safe.
+ * Razorpay HMAC-SHA256 signature verification.
+ * Constant-time comparison with length pre-check to prevent RangeError crash.
  */
 function verifyRazorpaySignature(
   orderId:   string,
@@ -25,7 +28,7 @@ function verifyRazorpaySignature(
       .update(payload)
       .digest("hex");
 
-    // CRITICAL: Length check BEFORE timingSafeEqual — prevents RangeError crash
+    // CRITICAL: length check BEFORE timingSafeEqual — avoids RangeError
     if (expected.length !== signature.length) return false;
 
     return crypto.timingSafeEqual(
@@ -42,9 +45,8 @@ export async function POST(req: NextRequest) {
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: any;
-  try { body = await req.json(); } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  }
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ error: "Invalid request" }, { status: 400 }); }
 
   const {
     razorpay_order_id,
@@ -54,13 +56,15 @@ export async function POST(req: NextRequest) {
   } = body;
 
   // Input validation
-  if (!razorpay_order_id || typeof razorpay_order_id !== "string" ||
-      !razorpay_payment_id || typeof razorpay_payment_id !== "string" ||
-      !razorpay_signature  || typeof razorpay_signature  !== "string") {
+  if (
+    !razorpay_order_id   || typeof razorpay_order_id   !== "string" ||
+    !razorpay_payment_id || typeof razorpay_payment_id !== "string" ||
+    !razorpay_signature  || typeof razorpay_signature  !== "string"
+  ) {
     return NextResponse.json({ error: "Missing or invalid payment fields" }, { status: 400 });
   }
 
-  // Sanitize inputs — only allow alphanumeric + underscore (Razorpay format)
+  // Sanitize — Razorpay IDs are alphanumeric + underscore only
   const idPattern = /^[a-zA-Z0-9_]+$/;
   if (!idPattern.test(razorpay_order_id) || !idPattern.test(razorpay_payment_id)) {
     return NextResponse.json({ error: "Invalid payment ID format" }, { status: 400 });
@@ -71,7 +75,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Payment service not configured" }, { status: 500 });
   }
 
-  // ── 1. Verify HMAC signature ──────────────────────────────────────
+  // ── 1. Verify HMAC signature ─────────────────────────────────────
   const sigOk = verifyRazorpaySignature(
     razorpay_order_id,
     razorpay_payment_id,
@@ -84,9 +88,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
   }
 
-  // ── 2. Fetch order from DB (amount from DB only, never from client) ─
+  // ── 2. Fetch order from DB (NEVER trust client-supplied amount) ──
   const orderRes = await query(
-    `SELECT amount_inr, credits_inr, plan_id, status
+    `SELECT amount_inr, credits_inr, status, calculator_config
      FROM razorpay_orders
      WHERE razorpay_order_id = $1 AND user_uid = $2
      LIMIT 1`,
@@ -107,7 +111,7 @@ export async function POST(req: NextRequest) {
   const creditsToAdd = parseFloat(order.credits_inr);
   const amountFromDB = parseFloat(order.amount_inr);
 
-  // Data integrity assertion
+  // Integrity check
   if (Math.abs(creditsToAdd - amountFromDB) > 0.01) {
     return NextResponse.json(
       { error: "Order amount mismatch — contact support" },
@@ -139,6 +143,7 @@ export async function POST(req: NextRequest) {
     const safe4 =
       typeof last4 === "string" && /^\d{4}$/.test(last4) ? last4 : null;
 
+    // Mark order as paid
     await query(
       `UPDATE razorpay_orders
        SET status              = 'paid',
@@ -149,6 +154,7 @@ export async function POST(req: NextRequest) {
       [razorpay_payment_id, razorpay_order_id, safe4, uid],
     );
 
+    // Credit wallet — upsert (new users don't have a row yet)
     const creditRes = await query(
       `INSERT INTO user_credits (user_uid, balance, total_bought, total_spent)
        VALUES ($1, $2, $2, 0)
@@ -162,7 +168,7 @@ export async function POST(req: NextRequest) {
 
     const balanceAfter = parseFloat(String(creditRes.rows[0].balance));
 
-    // Log credit transaction and capture its ID for receipt
+    // Log credit transaction
     const txRes = await query(
       `INSERT INTO credit_transactions
          (user_uid, type, amount, balance_after, description, ref_type, ref_id)
@@ -172,7 +178,7 @@ export async function POST(req: NextRequest) {
         uid,
         creditsToAdd,
         balanceAfter,
-        `Wallet top-up ₹${creditsToAdd}`,
+        `Wallet top-up ₹${new Intl.NumberFormat("en-IN").format(creditsToAdd)} via Razorpay`,
         razorpay_payment_id,
       ],
     );
@@ -181,16 +187,13 @@ export async function POST(req: NextRequest) {
 
     await query("COMMIT");
 
-    // ── Post-payment actions (fire-and-forget) ──────────────────────
+    // ── Post-payment async actions ───────────────────────────────────
     createNotification(
       uid,
       "Credits Added ✓",
-      `₹${creditsToAdd} has been credited to your wallet. Payment ID: ${razorpay_payment_id}`,
+      `₹${new Intl.NumberFormat("en-IN").format(creditsToAdd)} has been credited to your wallet. Payment ID: ${razorpay_payment_id}`,
       "success",
     ).catch(() => {});
-
-    // Emit wallet refresh event (server-side — clients poll separately)
-    // Notify via WebSocket or polling handled by client
 
     return NextResponse.json({
       success:       true,

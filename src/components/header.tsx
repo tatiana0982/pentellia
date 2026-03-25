@@ -119,7 +119,7 @@ export function Header({ toggleSidebar }: HeaderProps) {
             <Menu className="h-5 w-5" />
           </button>
           <Link href="/dashboard">
-            <img src="/logo.png" alt="Pentellia" className="h-7 w-auto object-contain" />
+            <img src="/logo.png" alt="Pentellia" className="w-[140px] object-contain" />
           </Link>
         </div>
 

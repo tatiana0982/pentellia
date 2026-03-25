@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pentellia — Pricing Calculator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #07080f;
+      --surface:   #0d0f1c;
+      --card:      #111427;
+      --border:    rgba(139,92,246,0.12);
+      --border-2:  rgba(255,255,255,0.06);
+      --accent:    #8b5cf6;
+      --accent-2:  #c084fc;
+      --accent-3:  #a78bfa;
+      --gold:      #f59e0b;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --muted-2:   #94a3b8;
+      --danger:    #f87171;
+      --success:   #34d399;
+      --deep:      #818cf8;
+      --light:     #38bdf8;
+      --report:    #fb923c;
+      --token-in:  #a78bfa;
+      --token-out: #c084fc;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 20px;
+      background-image:
+        radial-gradient(ellipse 900px 500px at 15% 0%,   rgba(139,92,246,0.18)  0%, transparent 70%),
+        radial-gradient(ellipse 700px 400px at 85% 10%,  rgba(192,132,252,0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 600px 300px at 50% 100%, rgba(99,102,241,0.08)  0%, transparent 70%);
+    }
+
+    /* ── Outer wrapper */
+    .calculator {
+      width: min(1160px, 100%);
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    /* ── Glass card */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(139,92,246,0.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    /* ── Header */
+    .header {
+      padding: 28px 32px 24px;
+      border-bottom: 1px solid var(--border-2);
+      position: relative;
+    }
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(139,92,246,0.12);
+      border: 1px solid rgba(139,92,246,0.25);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-3);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+    .header h1 {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: -0.6px;
+      background: linear-gradient(135deg, #e2e8f0 30%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header p {
+      margin-top: 6px;
+      font-size: 13.5px;
+      color: var(--muted-2);
+      line-height: 1.6;
+    }
+
+    /* ── Controls area */
+    .controls {
+      padding: 24px 32px 28px;
+      display: grid;
+      gap: 18px;
+    }
+
+    /* ── Single slider block */
+    .slider-block {
+      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--border-2);
+      border-radius: 14px;
+      padding: 16px 20px 18px;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .slider-block:hover {
+      border-color: rgba(139,92,246,0.2);
+      background: rgba(139,92,246,0.04);
+    }
+    .slider-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    .slider-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .slider-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .slider-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .slider-desc {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .slider-right {
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .slider-value {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+    .slider-unit {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+    .slider-cost {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-2);
+      margin-top: 2px;
+    }
+
+    /* ── Range input */
+    input[type="range"] {
+      width: 100%;
+      height: 5px;
+      border-radius: 999px;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      border: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2.5px solid var(--bg);
+      box-shadow: 0 0 0 1px rgba(139,92,246,0.4), 0 4px 12px rgba(139,92,246,0.45);
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 0 3px rgba(139,92,246,0.2), 0 4px 16px rgba(139,92,246,0.6);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2.5px solid var(--bg);
+      box-shadow: 0 4px 12px rgba(139,92,246,0.45);
+      cursor: pointer;
+    }
+
+    .slider-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+    .rate-chip {
+      background: rgba(139,92,246,0.1);
+      border: 1px solid rgba(139,92,246,0.2);
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent-3);
+    }
+
+    /* ── Output tokens readonly note */
+    .auto-note {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10.5px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .auto-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.6;
+    }
+
+    /* ── Summary panel */
+    .summary {
+      position: sticky;
+      top: 28px;
+    }
+    .summary-inner {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+    .summary-inner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(160deg, rgba(139,92,246,0.06) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .summary-header {
+      padding: 20px 22px 16px;
+      border-bottom: 1px solid var(--border-2);
+    }
+    .summary-header h2 {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.2px;
+    }
+    .summary-header p {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+    .summary-rows {
+      padding: 16px 22px;
+      display: grid;
+      gap: 10px;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+    }
+    .summary-row-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted-2);
+    }
+    .row-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+    }
+    .summary-row-value {
+      font-weight: 700;
+      color: var(--text);
+    }
+    .divider {
+      height: 1px;
+      background: var(--border-2);
+      margin: 4px 0;
+    }
+
+    /* ── Total box */
+    .total-box {
+      margin: 0 22px 20px;
+      background: linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(192,132,252,0.06) 100%);
+      border: 1px solid rgba(139,92,246,0.25);
+      border-radius: 14px;
+      padding: 18px 20px;
+    }
+    .total-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted-2);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .total-amount {
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #e2e8f0, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+    .total-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 5px;
+    }
+    .min-applied {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--danger);
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.2);
+      padding: 3px 9px;
+      border-radius: 999px;
+    }
+    .min-applied.hidden { display: none; }
+
+    /* ── Min badge */
+    .min-badge {
+      margin: 0 22px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: rgba(139,92,246,0.07);
+      border: 1px solid rgba(139,92,246,0.18);
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--muted-2);
+    }
+    .min-badge-icon {
+      font-size: 14px;
+    }
+    .min-badge strong { color: var(--accent-3); }
+
+    /* ── CTA */
+    .cta-wrap {
+      padding: 0 22px 22px;
+    }
+    .cta {
+      width: 100%;
+      padding: 14px 20px;
+      background: linear-gradient(135deg, #7c3aed, #9333ea);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      letter-spacing: -0.2px;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      box-shadow: 0 4px 24px rgba(124,58,237,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(124,58,237,0.55), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    .cta:active { transform: translateY(0); }
+
+    .cta-note {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Security trust line */
+    .trust-row {
+      margin: 14px 22px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding-bottom: 20px;
+    }
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+    .trust-dot { color: var(--success); font-size: 12px; }
+
+    /* ── Responsive */
+    @media (max-width: 860px) {
+      .calculator {
+        grid-template-columns: 1fr;
+      }
+      .summary { position: static; }
+    }
+    @media (max-width: 560px) {
+      body { padding: 20px 12px; }
+      .header { padding: 22px 20px 18px; }
+      .controls { padding: 18px 20px 22px; }
+    }
+  </style>
+</head>
+<body>
+
+<main class="calculator" role="main" aria-live="polite">
+
+  <!-- ── Left: Controls ─────────────────────────────── -->
+  <div class="card">
+    <div class="header">
+      <div class="header-badge">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="5" cy="5" r="1.5" fill="currentColor"/>
+        </svg>
+        Usage-Based Pricing
+      </div>
+      <h1>Pentellia AI Pricing</h1>
+      <p>Adjust the sliders to match your expected usage. The wallet top-up is calculated in real time — no subscriptions, no waste.</p>
+    </div>
+
+    <div class="controls">
+
+      <!-- Deep Operations -->
+      <div class="slider-block">
+        <div class="slider-top">
+          <div>
+            <div class="slider-label">
+              <span class="slider-dot" style="background:#818cf8;box-shadow:0 0 6px rgba(129,140,248,0.5)"></span>
+              <span class="slider-name">Deep Operations</span>
+            </div>
+            <div class="slider-desc">Full-scope vulnerability scans &amp; intensive agentic tasks</div>
+          </div>
+          <div class="slider-right">
+            <div class="slider-value" id="deepVal">10</div>
+            <div class="slider-unit">operations</div>
+            <div class="slider-cost" id="deepCostInline">₹2,500</div>
+          </div>
+        </div>
+        <input type="range" id="deep" min="0" max="1000" step="1" value="10"
+          style="background: linear-gradient(to right, #818cf8 1%, #1e1b2e 1%)" />
+        <div class="slider-meta">
+          <span class="rate-chip">₹250 / operation</span>
+          <span>max 1,000</span>
+        </div>
+      </div>
+
+      <!-- Light Operations -->
+      <div class="slider-block">
+        <div class="slider-top">
+          <div>
+            <div class="slider-label">
+              <span class="slider-dot" style="background:#38bdf8;box-shadow:0 0 6px rgba(56,189,248,0.5)"></span>
+              <span class="slider-name">Light Operations</span>
+            </div>
+            <div class="slider-desc">Quick checks, single-endpoint probes, alert triage</div>
+          </div>
+          <div class="slider-right">
+            <div class="slider-value" id="lightVal">15</div>
+            <div class="slider-unit">operations</div>
+            <div class="slider-cost" id="lightCostInline">₹2,550</div>
+          </div>
+        </div>
+        <input type="range" id="light" min="0" max="5000" step="5" value="15"
+          style="background: linear-gradient(to right, #38bdf8 0.3%, #1e1b2e 0.3%)" />
+        <div class="slider-meta">
+          <span class="rate-chip">₹170 / operation</span>
+          <span>max 5,000</span>
+        </div>
+      </div>
+
+      <!-- Report Generations -->
+      <div class="slider-block">
+        <div class="slider-top">
+          <div>
+            <div class="slider-label">
+              <span class="slider-dot" style="background:#fb923c;box-shadow:0 0 6px rgba(251,146,60,0.5)"></span>
+              <span class="slider-name">Report Generations</span>
+            </div>
+            <div class="slider-desc">AI-compiled executive summaries &amp; compliance snapshots</div>
+          </div>
+          <div class="slider-right">
+            <div class="slider-value" id="reportVal">10</div>
+            <div class="slider-unit">reports</div>
+            <div class="slider-cost" id="reportCostInline">₹1,000</div>
+          </div>
+        </div>
+        <input type="range" id="report" min="0" max="200" step="1" value="10"
+          style="background: linear-gradient(to right, #fb923c 5%, #1e1b2e 5%)" />
+        <div class="slider-meta">
+          <span class="rate-chip">₹100 / report</span>
+          <span>max 200</span>
+        </div>
+      </div>
+
+      <!-- Input AI Tokens -->
+      <div class="slider-block">
+        <div class="slider-top">
+          <div>
+            <div class="slider-label">
+              <span class="slider-dot" style="background:#a78bfa;box-shadow:0 0 6px rgba(167,139,250,0.5)"></span>
+              <span class="slider-name">Input AI Tokens</span>
+            </div>
+            <div class="slider-desc">LLM prompt tokens powering agentic reasoning &amp; copilot</div>
+          </div>
+          <div class="slider-right">
+            <div class="slider-value" id="inputTokVal">1M</div>
+            <div class="slider-unit">tokens</div>
+            <div class="slider-cost" id="inputTokCostInline">₹180</div>
+          </div>
+        </div>
+        <input type="range" id="inputTok" min="0" max="10000000" step="100000" value="1000000"
+          style="background: linear-gradient(to right, #a78bfa 10%, #1e1b2e 10%)" />
+        <div class="slider-meta">
+          <span class="rate-chip">₹180 / 1M tokens</span>
+          <span>max 10M</span>
+        </div>
+      </div>
+
+      <!-- Output AI Tokens (auto-mirrors input) -->
+      <div class="slider-block" style="opacity:0.75">
+        <div class="slider-top">
+          <div>
+            <div class="slider-label">
+              <span class="slider-dot" style="background:#c084fc;box-shadow:0 0 6px rgba(192,132,252,0.4)"></span>
+              <span class="slider-name">Output AI Tokens</span>
+            </div>
+            <div class="slider-desc">Response generation tokens — auto-matched to input</div>
+          </div>
+          <div class="slider-right">
+            <div class="slider-value" id="outputTokVal">1M</div>
+            <div class="slider-unit">tokens</div>
+            <div class="slider-cost" id="outputTokCostInline">₹250</div>
+          </div>
+        </div>
+        <input type="range" id="outputTok" min="0" max="10000000" step="100000" value="1000000"
+          tabindex="-1" readonly
+          style="background: linear-gradient(to right, #c084fc 10%, #1e1b2e 10%); pointer-events:none; filter:grayscale(0.4)" />
+        <div class="slider-meta">
+          <span class="rate-chip">₹250 / 1M tokens</span>
+          <span>auto-calculated</span>
+        </div>
+        <div class="auto-note">
+          <span class="auto-dot"></span>
+          Output tokens automatically mirror input token count
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Right: Summary ─────────────────────────────── -->
+  <div class="summary">
+    <div class="summary-inner">
+
+      <div class="summary-header">
+        <h2>Estimate Summary</h2>
+        <p>Calculated in real time · Server-verified on payment</p>
+      </div>
+
+      <div class="summary-rows">
+        <div class="summary-row">
+          <span class="summary-row-label">
+            <span class="row-dot" style="background:#818cf8"></span>
+            Deep Operations
+          </span>
+          <span class="summary-row-value" id="deepCost">₹2,500</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-row-label">
+            <span class="row-dot" style="background:#38bdf8"></span>
+            Light Operations
+          </span>
+          <span class="summary-row-value" id="lightCost">₹2,550</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-row-label">
+            <span class="row-dot" style="background:#fb923c"></span>
+            Report Generations
+          </span>
+          <span class="summary-row-value" id="reportCost">₹1,000</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-row-label">
+            <span class="row-dot" style="background:#a78bfa"></span>
+            Input Tokens
+          </span>
+          <span class="summary-row-value" id="inputCost">₹180</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-row-label">
+            <span class="row-dot" style="background:#c084fc"></span>
+            Output Tokens
+          </span>
+          <span class="summary-row-value" id="outputCost">₹250</span>
+        </div>
+        <div class="divider"></div>
+        <div class="summary-row">
+          <span class="summary-row-label" style="color:var(--muted-2);font-weight:600">Subtotal</span>
+          <span class="summary-row-value" id="subtotal">₹6,480</span>
+        </div>
+      </div>
+
+      <div class="min-badge">
+        <span class="min-badge-icon">🔒</span>
+        Minimum recharge: <strong>₹6,500</strong>
+      </div>
+
+      <div class="total-box">
+        <div class="total-label">Wallet Top-Up Amount</div>
+        <div class="total-amount" id="totalAmount">₹6,500</div>
+        <div class="total-sub">Credited instantly on payment confirmation</div>
+        <div class="min-applied hidden" id="minApplied">
+          ⚡ Floor price applied
+        </div>
+      </div>
+
+      <div class="cta-wrap">
+        <button class="cta" id="ctaBtn" type="button" onclick="handleAddToWallet()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="5" width="20" height="14" rx="2"/>
+            <line x1="2" y1="10" x2="22" y2="10"/>
+          </svg>
+          Add to Wallet
+        </button>
+        <p class="cta-note">
+          Funds are consumed as usage accrues. Top up again when balance runs low.
+        </p>
+      </div>
+
+      <div class="trust-row">
+        <span class="trust-item"><span class="trust-dot">✓</span> HMAC verified</span>
+        <span class="trust-item"><span class="trust-dot">✓</span> Razorpay</span>
+        <span class="trust-item"><span class="trust-dot">✓</span> No fixed plans</span>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<script>
+  // ── Pricing config (mirrors server-side rates) ───────────────────
+  const PRICING = {
+    deep:        250,           // INR per operation
+    light:       170,           // INR per operation
+    report:      100,           // INR per report
+    tokenInput:  180 / 1e6,     // INR per token
+    tokenOutput: 250 / 1e6,     // INR per token
+    minimum:     6500,
+  };
+
+  // ── Default slider values that produce exactly ₹6,500 at minimum floor
+  // 10 × 250 = 2500, 15 × 170 = 2550, 10 × 100 = 1000, 1M × 180/1M = 180, 1M × 250/1M = 250 → 6480 → floor to 6500
+  const DEFAULTS = {
+    deep:      10,
+    light:     15,
+    report:    10,
+    inputTok:  1_000_000,
+    outputTok: 1_000_000,
+  };
+
+  // ── Element refs ─────────────────────────────────────────────────
+  const $  = (id) => document.getElementById(id);
+  const fmtINR = (v) => `₹${new Intl.NumberFormat('en-IN').format(Math.round(v))}`;
+  const fmtTok = (v) => {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)}M`;
+    if (v >= 1_000)     return `${(v / 1_000).toFixed(v % 1_000 === 0 ? 0 : 1)}K`;
+    return v.toString();
+  };
+
+  // ── Gradient helper for range tracks ─────────────────────────────
+  function setTrack(el, pct, color) {
+    el.style.background = `linear-gradient(to right, ${color} ${pct}%, #1e1b2e ${pct}%)`;
+  }
+
+  // ── Main update function ─────────────────────────────────────────
+  function update() {
+    const deep      = parseInt($('deep').value);
+    const light     = parseInt($('light').value);
+    const report    = parseInt($('report').value);
+    const inputTok  = parseInt($('inputTok').value);
+    const outputTok = inputTok; // auto-mirror
+
+    // Sync output slider
+    $('outputTok').value = outputTok;
+
+    // Update displayed values
+    $('deepVal').textContent        = new Intl.NumberFormat('en-IN').format(deep);
+    $('lightVal').textContent       = new Intl.NumberFormat('en-IN').format(light);
+    $('reportVal').textContent      = new Intl.NumberFormat('en-IN').format(report);
+    $('inputTokVal').textContent    = fmtTok(inputTok);
+    $('outputTokVal').textContent   = fmtTok(outputTok);
+
+    // Compute costs
+    const deepCost      = deep   * PRICING.deep;
+    const lightCost     = light  * PRICING.light;
+    const reportCost    = report * PRICING.report;
+    const inputCost     = inputTok  * PRICING.tokenInput;
+    const outputCost    = outputTok * PRICING.tokenOutput;
+    const subtotalAmt   = deepCost + lightCost + reportCost + inputCost + outputCost;
+    const total         = Math.max(subtotalAmt, PRICING.minimum);
+    const minApplied    = subtotalAmt < PRICING.minimum;
+
+    // Update inline cost labels
+    $('deepCostInline').textContent     = fmtINR(deepCost);
+    $('lightCostInline').textContent    = fmtINR(lightCost);
+    $('reportCostInline').textContent   = fmtINR(reportCost);
+    $('inputTokCostInline').textContent = fmtINR(inputCost);
+    $('outputTokCostInline').textContent = fmtINR(outputCost);
+
+    // Update summary
+    $('deepCost').textContent    = fmtINR(deepCost);
+    $('lightCost').textContent   = fmtINR(lightCost);
+    $('reportCost').textContent  = fmtINR(reportCost);
+    $('inputCost').textContent   = fmtINR(inputCost);
+    $('outputCost').textContent  = fmtINR(outputCost);
+    $('subtotal').textContent    = fmtINR(subtotalAmt);
+    $('totalAmount').textContent = fmtINR(total);
+
+    // Min-applied indicator
+    const minEl = $('minApplied');
+    if (minApplied) {
+      minEl.classList.remove('hidden');
+    } else {
+      minEl.classList.add('hidden');
+    }
+
+    // Update track gradients
+    setTrack($('deep'),      (deep      / 1000)       * 100, '#818cf8');
+    setTrack($('light'),     (light     / 5000)       * 100, '#38bdf8');
+    setTrack($('report'),    (report    / 200)        * 100, '#fb923c');
+    setTrack($('inputTok'),  (inputTok  / 10_000_000) * 100, '#a78bfa');
+    setTrack($('outputTok'), (outputTok / 10_000_000) * 100, '#c084fc');
+
+    // Store for CTA
+    window._currentTotal = total;
+  }
+
+  // ── Event listeners ──────────────────────────────────────────────
+  ['deep', 'light', 'report', 'inputTok'].forEach(id => {
+    $(id).addEventListener('input', () => {
+      if (id === 'inputTok') {
+        // sync output before update
+        $('outputTok').value = $(id).value;
+      }
+      update();
+    });
+  });
+
+  // ── CTA handler ──────────────────────────────────────────────────
+  function handleAddToWallet() {
+    const total = window._currentTotal || PRICING.minimum;
+    // In the embedded context this posts the amount to the parent app
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'pentellia:topup', amount: total }, '*');
+    } else {
+      // Fallback — navigate to subscription page with amount query param
+      window.location.href = `/subscription?amount=${total}`;
+    }
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────
+  $('deep').value      = DEFAULTS.deep;
+  $('light').value     = DEFAULTS.light;
+  $('report').value    = DEFAULTS.report;
+  $('inputTok').value  = DEFAULTS.inputTok;
+  $('outputTok').value = DEFAULTS.outputTok;
+  update();
+</script>
+</body>
+</html>
