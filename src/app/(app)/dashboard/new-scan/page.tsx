@@ -22,14 +22,18 @@ interface SecurityTool {
 const PINNED_TOOLS = ["webscan", "cloudscan", "networkscan"];
 const MAINTENANCE_TOOLS = ["gvm", "cvesearch"];
 
-// --- Skeleton Loader ---
+// --- Skeleton Component ---
 function ToolSkeleton() {
   return (
-    <div className="flex flex-col p-5 rounded-xl border border-white/5 bg-white/[0.02] animate-pulse space-y-3">
-      <div className="h-9 w-9 rounded-lg bg-white/10" />
-      <div className="h-4 w-2/3 bg-white/10 rounded" />
-      <div className="h-3 w-full bg-white/5 rounded" />
-      <div className="h-3 w-4/5 bg-white/5 rounded" />
+    <div className="p-5 rounded-xl border border-white/10 bg-[#0B0C15]/40 animate-pulse">
+      <div className="flex justify-between mb-4">
+        <div className="h-12 w-12 bg-white/5 rounded-lg"></div>
+        <div className="h-5 w-16 bg-white/5 rounded-full"></div>
+      </div>
+      <div className="h-6 w-3/4 bg-white/5 rounded mb-2"></div>
+      <div className="h-4 w-full bg-white/5 rounded mb-1"></div>
+      <div className="h-4 w-2/3 bg-white/5 rounded"></div>
+      <div className="mt-4 h-4 w-1/3 bg-white/5 rounded"></div>
     </div>
   );
 }
@@ -130,7 +134,7 @@ export default function NewScanPage() {
                   "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
                   selectedCategory === null
                     ? "bg-violet-600/20 text-violet-300 border-violet-500/50"
-                    : "bg-white/5 text-slate-400 border-transparent hover:bg-white/10 hover:text-white",
+                    : "bg-white/5 text-slate-400 border-transparent hover:bg-white/10 hover:text-white"
                 )}
               >
                 All
@@ -145,7 +149,7 @@ export default function NewScanPage() {
                     "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
                     selectedCategory === cat
                       ? "bg-violet-600/20 text-violet-300 border-violet-500/50"
-                      : "bg-white/5 text-slate-400 border-transparent hover:bg-white/10 hover:text-white",
+                      : "bg-white/5 text-slate-400 border-transparent hover:bg-white/10 hover:text-white"
                   )}
                 >
                   {cat}
@@ -181,75 +185,89 @@ export default function NewScanPage() {
                   onClick={() => !isMaintenance && handleToolClick(tool.slug)}
                   className={cn(
                     "group relative flex flex-col p-5 rounded-xl border backdrop-blur-sm transition-all duration-300 overflow-hidden",
+                    // Conditional Styling for Pinned vs Maintenance vs Default items
                     isPinned
                       ? "bg-violet-500/[0.08] border-violet-500/40 hover:bg-violet-500/[0.12] hover:border-violet-400/60 shadow-[0_0_20px_rgba(139,92,246,0.1)] cursor-pointer"
                       : isMaintenance
-                        ? "bg-white/[0.02] border-white/5 opacity-50 cursor-not-allowed"
-                        : "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-white/20 cursor-pointer",
+                      ? "bg-amber-500/[0.08] border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.05)] cursor-not-allowed opacity-90"
+                      : "bg-[#0B0C15]/40 border-white/10 hover:bg-white/[0.07] hover:border-violet-500/30 cursor-pointer"
                   )}
                 >
-                  {/* Pinned glow */}
+                  {/* Decorative Glow for Pinned & Maintenance Items */}
                   {isPinned && (
-                    <div className="absolute inset-0 bg-violet-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                    <div className="absolute top-0 right-0 p-16 bg-violet-500/20 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none transition-opacity group-hover:opacity-100" />
+                  )}
+                  {isMaintenance && (
+                    <div className="absolute top-0 right-0 p-16 bg-amber-500/10 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none transition-opacity" />
                   )}
 
-                  {/* Badges */}
-                  <div className="absolute top-3 right-3 flex gap-1.5">
-                    {isPinned && (
-                      <Badge className="bg-violet-500/20 text-violet-300 border-violet-500/30 text-[9px] px-1.5 py-0.5">
-                        <Star className="h-2.5 w-2.5 mr-1 fill-current" />
-                        Featured
+                  <div className="flex items-start justify-between mb-4 relative z-10">
+                    <div
+                      className={cn(
+                        "flex h-12 w-12 items-center justify-center rounded-lg border transition-colors",
+                        isPinned
+                          ? "bg-violet-500/20 border-violet-500/30 text-violet-200"
+                          : isMaintenance
+                          ? "bg-amber-500/20 border-amber-500/30 text-amber-200"
+                          : "bg-white/5 border-white/5 text-slate-300 group-hover:border-violet-500/20 group-hover:bg-violet-500/10 group-hover:text-violet-300"
+                      )}
+                    >
+                      <Icon className="h-6 w-6" />
+                    </div>
+
+                    {isPinned ? (
+                      <Badge className="bg-violet-500 text-white border-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 shadow-sm flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-current" /> Recommended
                       </Badge>
-                    )}
-                    {isMaintenance && (
-                      <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[9px] px-1.5 py-0.5">
-                        <Wrench className="h-2.5 w-2.5 mr-1" />
-                        Maintenance
+                    ) : isMaintenance ? (
+                      <Badge className="bg-amber-500 text-white border-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 shadow-sm flex items-center gap-1">
+                        <Wrench className="h-3 w-3" /> Maintenance
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="bg-transparent border-white/10 text-slate-500 text-[10px] uppercase tracking-wider group-hover:border-violet-500/20 group-hover:text-violet-400"
+                      >
+                        {tool.category}
                       </Badge>
                     )}
                   </div>
 
-                  {/* Icon */}
+                  <div className="relative z-10 flex-1">
+                    <h3
+                      className={cn(
+                        "font-semibold text-lg mb-1 transition-colors flex items-center gap-2",
+                        isPinned
+                          ? "text-white group-hover:text-violet-100"
+                          : isMaintenance
+                          ? "text-white/80"
+                          : "text-white group-hover:text-violet-200"
+                      )}
+                    >
+                      {tool.name}
+                    </h3>
+                    <p className="text-sm text-slate-400 line-clamp-2 leading-relaxed">
+                      {tool.description}
+                    </p>
+                  </div>
+
                   <div
                     className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-lg mb-3 transition-colors",
+                      "relative z-10 mt-4 flex items-center text-xs font-medium transition-colors",
                       isPinned
-                        ? "bg-violet-500/20 text-violet-400 group-hover:bg-violet-500/30"
-                        : "bg-white/10 text-slate-400 group-hover:text-white",
+                        ? "text-violet-300 group-hover:text-violet-200"
+                        : isMaintenance
+                        ? "text-amber-400/80"
+                        : "text-slate-500 group-hover:text-violet-400"
                     )}
                   >
-                    <Icon className="h-4 w-4" />
-                  </div>
-
-                  {/* Name */}
-                  <p
-                    className={cn(
-                      "font-semibold text-sm mb-1 pr-16 transition-colors",
-                      isPinned
-                        ? "text-violet-200 group-hover:text-white"
-                        : "text-slate-200 group-hover:text-white",
-                    )}
-                  >
-                    {tool.name}
-                  </p>
-
-                  {/* Description */}
-                  <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 flex-1">
-                    {tool.description}
-                  </p>
-
-                  {/* Category + arrow */}
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
-                    <span className="text-[10px] text-slate-600 uppercase tracking-wider font-medium">
-                      {tool.category}
-                    </span>
-                    {!isMaintenance && (
-                      <ArrowRight
-                        className={cn(
-                          "h-3.5 w-3.5 transition-all opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5",
-                          isPinned ? "text-violet-400" : "text-slate-400",
-                        )}
-                      />
+                    {isMaintenance ? (
+                      <span>Currently Unavailable</span>
+                    ) : (
+                      <>
+                        <span>Configure Scan</span>
+                        <ArrowRight className="ml-2 h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                      </>
                     )}
                   </div>
                 </div>
@@ -257,9 +275,10 @@ export default function NewScanPage() {
             })}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-64 text-slate-500">
-            <Sparkles className="h-10 w-10 mb-3 opacity-20" />
-            <p className="text-sm">No tools match your search.</p>
+          <div className="flex flex-col items-center justify-center h-[50vh] text-slate-500">
+            <Search className="h-12 w-12 mb-4 opacity-20" />
+            <p className="text-lg font-medium">No tools found</p>
+            <p className="text-sm">Try adjusting your search terms</p>
           </div>
         )}
       </div>
