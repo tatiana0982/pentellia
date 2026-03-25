@@ -1,4 +1,6 @@
 // src/app/api/subscription/wallet-summary/route.ts
+// Returns wallet balance, totals, scan count, domain count.
+// Used by WalletProvider for new-user detection and balance display.
 import { NextResponse } from "next/server";
 import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
@@ -8,7 +10,7 @@ export async function GET() {
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    // LEFT JOIN so new users (no credits row yet) return zeros instead of 500
+    // Single query — LEFT JOIN so new users (no credits row) return zeros
     const res = await query(
       `SELECT
          COALESCE(uc.balance,       0) AS balance,
@@ -22,6 +24,7 @@ export async function GET() {
     );
 
     const r = res.rows[0] ?? {};
+
     return NextResponse.json({
       success:         true,
       balance:         parseFloat(r.balance        || "0"),
@@ -29,8 +32,14 @@ export async function GET() {
       totalBought:     parseFloat(r.total_bought    || "0"),
       totalScans:      parseInt(r.total_scans       || "0"),
       verifiedDomains: parseInt(r.verified_domains  || "0"),
+    }, {
+      headers: {
+        // Short cache — balances change frequently
+        "Cache-Control": "private, no-store",
+      },
     });
-  } catch {
+  } catch (err: any) {
+    console.error("[WalletSummary]", err);
     return NextResponse.json({ error: "Failed to fetch wallet" }, { status: 500 });
   }
 }

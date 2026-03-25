@@ -8,7 +8,8 @@ import { useWallet } from "@/providers/WalletProvider";
 import { useDomainGate } from "@/context/DomainVerificationContext";
 import {
   Menu, Bell, LogOut, User, KeyRound, X, Check, Info,
-  AlertTriangle, ShieldCheck, ShieldAlert, Wallet, ArrowRight, ChevronDown,
+  AlertTriangle, ShieldCheck, ShieldAlert, Wallet, ArrowRight,
+  ChevronDown, Zap, CreditCard, Download,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -39,11 +40,16 @@ const NOTI: Record<string, { icon: React.ElementType; dotColor: string; bgColor:
 export function Header({ toggleSidebar }: HeaderProps) {
   const { user }    = useAuth();
   const router      = useRouter();
-  const { balance, isLoading: wLoading } = useWallet();
+  const { balance, totalScans, isLoading: wLoading } = useWallet();
   const { hasVerifiedDomain, isLoading: dLoading } = useDomainGate();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount,   setUnreadCount]   = useState(0);
+
+  // Wallet state derivation
+  const isNewUser  = !wLoading && balance === 0 && totalScans === 0;
+  const isEmpty    = !wLoading && balance === 0 && totalScans > 0;
+  const isLow      = !wLoading && balance > 0 && balance < 20;
 
   // Profile completion
   const pct = useMemo(() => {
@@ -52,14 +58,12 @@ export function Header({ toggleSidebar }: HeaderProps) {
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   }, [user, hasVerifiedDomain]);
 
-  // Fetch notifications — uses is_read from API
   const fetchNotifications = useCallback(async () => {
     try {
       const res  = await fetch("/api/dashboard/notifications");
       const data = await res.json();
       if (data.success) {
         setNotifications(data.notifications ?? []);
-        // Use the server-calculated unreadCount
         setUnreadCount(typeof data.unreadCount === "number" ? data.unreadCount : data.notifications.filter((n: Notification) => !n.is_read).length);
       }
     } catch {}
@@ -68,7 +72,7 @@ export function Header({ toggleSidebar }: HeaderProps) {
   useEffect(() => {
     fetchNotifications();
     const id = setInterval(fetchNotifications, 30_000);
-    const onFocus  = () => fetchNotifications();
+    const onFocus   = () => fetchNotifications();
     const onRefresh = () => fetchNotifications();
     window.addEventListener("focus", onFocus);
     window.addEventListener("refresh-notifications", onRefresh);
@@ -102,8 +106,6 @@ export function Header({ toggleSidebar }: HeaderProps) {
   const avatarUrl = user?.avatar    || "/api/users/avatar";
   const initials  = ((firstName?.[0] ?? "") + (lastName?.[0] ?? "")).toUpperCase() || "U";
 
-  const walletStatus = wLoading ? "loading" : balance === 0 ? "empty" : balance < 5 ? "low" : "ok";
-
   return (
     <TooltipProvider delayDuration={250}>
       <header className="fixed left-0 right-0 top-0 z-50 h-16 flex items-center justify-between px-4 lg:px-5 border-b border-slate-800/60 bg-[#09090f]/95 backdrop-blur-xl">
@@ -124,32 +126,59 @@ export function Header({ toggleSidebar }: HeaderProps) {
         {/* Right */}
         <div className="flex items-center gap-1">
 
-          {/* Wallet */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link href="/subscription">
-                <button className={cn(
-                  "relative h-9 w-9 flex items-center justify-center rounded-lg transition-all",
-                  walletStatus === "empty" ? "text-red-400 hover:bg-red-500/10"
-                  : walletStatus === "low"  ? "text-amber-400 hover:bg-amber-500/10"
-                                            : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60",
-                )}>
-                  <Wallet className="h-5 w-5" />
-                  {(walletStatus === "empty" || walletStatus === "low") && (
+          {/* ── Wallet / Upgrade Button ───────────────────────── */}
+          {isNewUser ? (
+            /* NEW USER → Prominent UPGRADE button */
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/subscription">
+                  <button className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 text-white text-xs font-bold shadow-[0_0_15px_rgba(217,70,239,0.35)] transition-all">
+                    <Zap className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Upgrade</span>
+                  </button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="bg-[#0d0e1a] border-slate-800 text-xs py-2 px-3">
+                <p className="font-semibold text-fuchsia-400">Add credits to start scanning</p>
+                <p className="text-slate-500 mt-0.5">You have a ₹10 welcome bonus!</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            /* EXISTING USER → Wallet icon with status */
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/subscription">
+                  <button className={cn(
+                    "relative h-9 px-3 flex items-center gap-1.5 rounded-lg transition-all",
+                    isEmpty ? "text-red-400 hover:bg-red-500/10"
+                    : isLow  ? "text-amber-400 hover:bg-amber-500/10"
+                             : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/60",
+                  )}>
+                    <Wallet className="h-5 w-5" />
+                    {/* Balance chip — shown on larger screens */}
                     <span className={cn(
-                      "absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full",
-                      walletStatus === "empty" ? "bg-red-500 animate-pulse" : "bg-amber-500",
-                    )} />
-                  )}
-                </button>
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="bg-[#0d0e1a] border-slate-800 text-xs py-2 px-3 space-y-0.5">
-              {walletStatus === "empty" ? <><p className="text-red-400 font-semibold">Wallet empty</p><p className="text-slate-500">Top up to continue scanning</p></> :
-               walletStatus === "low"   ? <><p className="text-amber-400 font-semibold">Balance — ₹{balance.toFixed(2)}</p><p className="text-slate-500">Consider topping up</p></> :
-                                          <p className="text-slate-300 font-medium">Wallet active</p>}
-            </TooltipContent>
-          </Tooltip>
+                      "hidden md:inline text-xs font-bold",
+                      isEmpty ? "text-red-400" : isLow ? "text-amber-400" : "text-slate-300"
+                    )}>
+                      {wLoading ? "…" : `₹${balance.toFixed(2)}`}
+                    </span>
+                    {(isEmpty || isLow) && (
+                      <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                    )}
+                  </button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="bg-[#0d0e1a] border-slate-800 text-xs py-2 px-3 space-y-0.5">
+                {isEmpty ? (
+                  <><p className="text-red-400 font-semibold">Wallet empty — scanning paused</p><p className="text-slate-500">Top up to continue</p></>
+                ) : isLow ? (
+                  <><p className="text-amber-400 font-semibold">Balance — ₹{balance.toFixed(2)}</p><p className="text-slate-500">Consider topping up soon</p></>
+                ) : (
+                  <><p className="text-slate-300 font-medium">Wallet — ₹{balance.toFixed(2)}</p><p className="text-slate-500">Click to manage credits</p></>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          )}
 
           {/* Domain shield */}
           {!dLoading && (
@@ -165,8 +194,9 @@ export function Header({ toggleSidebar }: HeaderProps) {
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="bg-[#0d0e1a] border-slate-800 text-xs py-2 px-3">
-                {hasVerifiedDomain ? <p className="text-emerald-400 font-medium">Domain verified</p> :
-                  <><p className="text-amber-400 font-semibold">No verified domain</p><p className="text-slate-400">Required to run scans</p></>}
+                {hasVerifiedDomain
+                  ? <p className="text-emerald-400 font-medium">Domain verified</p>
+                  : <><p className="text-amber-400 font-semibold">No verified domain</p><p className="text-slate-400">Required to run scans</p></>}
               </TooltipContent>
             </Tooltip>
           )}
@@ -185,7 +215,6 @@ export function Header({ toggleSidebar }: HeaderProps) {
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" className="w-[360px] p-0 bg-[#0d0e1a] border-slate-800/70 shadow-2xl shadow-black/70">
-              {/* Header row */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/60">
                 <div className="flex items-center gap-2">
                   <Bell className="h-3.5 w-3.5 text-slate-500" />
@@ -206,7 +235,6 @@ export function Header({ toggleSidebar }: HeaderProps) {
                 </div>
               </div>
 
-              {/* List */}
               <ScrollArea className="max-h-[320px]">
                 {notifications.length === 0 ? (
                   <div className="flex flex-col items-center py-10 px-4 text-center">
@@ -241,7 +269,7 @@ export function Header({ toggleSidebar }: HeaderProps) {
                           </div>
                           {!n.is_read && (
                             <>
-                              <div className="absolute right-4 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-violet-500 group-hover:opacity-0 transition-opacity" />
+                              <div className="absolute right-4 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-violet-500 shadow-[0_0_5px_#8b5cf6] group-hover:opacity-0 transition-opacity" />
                               <button
                                 onClick={(e) => markRead(n.id, e)}
                                 className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 h-6 w-6 rounded-md text-slate-500 hover:text-white hover:bg-white/10 flex items-center justify-center transition-all"
@@ -271,7 +299,7 @@ export function Header({ toggleSidebar }: HeaderProps) {
 
           <div className="h-5 w-px bg-slate-800 mx-1" />
 
-          {/* Profile */}
+          {/* Profile dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-slate-800/50 transition-all group">
@@ -321,6 +349,15 @@ export function Header({ toggleSidebar }: HeaderProps) {
                 <DropdownMenuItem className="cursor-pointer focus:bg-slate-800/60 rounded-lg py-2.5 gap-2.5">
                   <KeyRound className="h-4 w-4 text-slate-500" />
                   <span className="text-sm text-slate-300">API Keys</span>
+                </DropdownMenuItem>
+              </Link>
+              <Link href="/subscription">
+                <DropdownMenuItem className="cursor-pointer focus:bg-slate-800/60 rounded-lg py-2.5 gap-2.5">
+                  <CreditCard className="h-4 w-4 text-slate-500" />
+                  <span className="text-sm text-slate-300">Wallet & Billing</span>
+                  {(isEmpty || isNewUser) && (
+                    <span className="ml-auto text-[10px] font-bold text-fuchsia-400 bg-fuchsia-500/10 px-1.5 py-0.5 rounded-full">Top Up</span>
+                  )}
                 </DropdownMenuItem>
               </Link>
               <DropdownMenuSeparator className="bg-slate-800/60 my-1" />

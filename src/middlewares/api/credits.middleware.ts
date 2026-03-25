@@ -1,4 +1,5 @@
 // src/middlewares/api/credits.middleware.ts
+// Production-grade credit check middleware with consistent error format.
 import { query } from "@/config/db";
 import { ApiError } from "@/utils/ApiError";
 
@@ -10,15 +11,14 @@ interface AuthUser {
 /**
  * requireCredits(cost)
  *
- * Middleware that checks the user has sufficient credit balance.
- * Use INSIDE authenticate() AND requireVerifiedDomain():
+ * Checks the user has >= cost credits BEFORE executing the handler.
+ * Does NOT deduct — deduction must be done atomically in the handler.
  *
+ * Usage:
  *   export const POST = (req) =>
  *     apiHandler(
  *       authenticate(
- *         requireVerifiedDomain(
- *           requireCredits(cost, async (user) => { ... })
- *         )
+ *         requireCredits(2.00, async (user) => { ... })
  *       )
  *     );
  */
@@ -35,7 +35,7 @@ export const requireCredits =
     if (balance < cost) {
       throw new ApiError(
         402,
-        `Insufficient credits. Required: ₹${cost.toFixed(2)}, Available: ₹${balance.toFixed(2)}. Please top up your wallet.`,
+        `Insufficient credits. Required: ₹${cost.toFixed(2)}, Available: ₹${balance.toFixed(2)}. Please top up your wallet at ${process.env.NEXT_PUBLIC_APP_URL}/subscription`,
       );
     }
 
