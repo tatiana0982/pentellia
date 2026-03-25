@@ -2,8 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const PROTECTED_PAGES = ["/dashboard", "/account", "/subscription"];
-const AUTH_PAGES      = ["/login", "/signup"];
-const PUBLIC_API      = [
+const AUTH_PAGES = ["/login", "/signup"];
+const PUBLIC_API = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/send-otp",
@@ -15,8 +15,8 @@ const PUBLIC_API      = [
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
 function rateLimit(ip: string, bucket: string, max: number, windowMs: number): boolean {
-  const key   = `${ip}:${bucket}`;
-  const now   = Date.now();
+  const key = `${ip}:${bucket}`;
+  const now = Date.now();
   const entry = rateLimitMap.get(key);
   if (!entry || now > entry.resetAt) {
     rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
@@ -46,13 +46,12 @@ function securityHeaders(res: NextResponse): NextResponse {
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      // Allow Razorpay checkout AND their CDN subdomains for scripts
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://*.razorpay.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://*.razorpay.com https://apis.google.com https://*.firebaseapp.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
+      "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https:",
-      "connect-src 'self' https://api.razorpay.com https://*.razorpay.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com",
-      "frame-src https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com",
+      "connect-src 'self' https://api.razorpay.com https://*.razorpay.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.googleapis.com https://firestore.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com",
+      "frame-src https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com https://*.firebaseapp.com https://accounts.google.com",
     ].join("; "),
   );
   return res;
@@ -84,7 +83,7 @@ export default function middleware(req: NextRequest) {
   }
 
   const sessionCookie = req.cookies.get("__session")?.value;
-  const hasSession    = Boolean(sessionCookie);
+  const hasSession = Boolean(sessionCookie);
 
   if (pathname.startsWith("/api/")) {
     const isPublic = PUBLIC_API.some((p) => pathname === p || pathname.startsWith(p + "/"));

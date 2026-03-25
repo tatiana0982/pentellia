@@ -74,28 +74,28 @@ const WORDLIST_CATEGORIES = [
       },
     ],
   },
-  {
-    id: "fuzzing",
-    name: "Fuzzing & Payloads",
-    icon: BombIcon,
-    lists: [
-      {
-        name: "XSS Polyglots",
-        url: "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Fuzzing/XSS/XSS-Bypass-Strings-BruteLogic.txt",
-        desc: "Scripts to bypass WAFs and filters.",
-      },
-      {
-        name: "SQL Injection",
-        url: "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Fuzzing/SQLi/Quick-SQLi.txt",
-        desc: "Quick check SQLi payloads.",
-      },
-      {
-        name: "LFI / Path Traversal",
-        url: "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Fuzzing/LFI/LFI-Jhaddix.txt",
-        desc: "Classic ../../../etc/passwd vectors.",
-      },
-    ],
-  },
+  // {
+  //   id: "fuzzing",
+  //   name: "Fuzzing & Payloads",
+  //   icon: BombIcon,
+  //   lists: [
+  //     {
+  //       name: "XSS Polyglots",
+  //       url: "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Fuzzing/XSS/XSS-Bypass-Strings-BruteLogic.txt",
+  //       desc: "Scripts to bypass WAFs and filters.",
+  //     },
+  //     {
+  //       name: "SQL Injection",
+  //       url: "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Fuzzing/SQLi/Quick-SQLi.txt",
+  //       desc: "Quick check SQLi payloads.",
+  //     },
+  //     {
+  //       name: "LFI / Path Traversal",
+  //       url: "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Fuzzing/LFI/LFI-Jhaddix.txt",
+  //       desc: "Classic ../../../etc/passwd vectors.",
+  //     },
+  //   ],
+  // },
   {
     id: "usernames",
     name: "Usernames",

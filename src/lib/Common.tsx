@@ -72,7 +72,7 @@ export function CommonScanReport({
   }, [allFindings]);
 
   // Check if "All" is currently active (all keys present in set)
-  const isAllSelected = useMemo(() => 
+  const isAllSelected = useMemo(() =>
     allSeverities.every((s) => severityFilter.has(s)),
     [severityFilter]
   );
@@ -307,11 +307,11 @@ export function CommonScanReport({
                   <ExpandableFindingCard key={idx} finding={finding} />
                 ))
               ) : (severityFilter.size > 0 && !isAllSelected && !isOnlyLowInfoSelected) ? (
-                 <div className="p-8 text-center border border-dashed border-white/10 rounded-xl bg-white/[0.01]">
-                   <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mx-auto mb-2" />
-                   <h3 className="text-base font-medium text-white">No Issues Found</h3>
-                   <p className="text-slate-500 text-xs mt-1">No vulnerabilities match the current filter.</p>
-                 </div>
+                <div className="p-8 text-center border border-dashed border-white/10 rounded-xl bg-white/[0.01]">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mx-auto mb-2" />
+                  <h3 className="text-base font-medium text-white">No Issues Found</h3>
+                  <p className="text-slate-500 text-xs mt-1">No vulnerabilities match the current filter.</p>
+                </div>
               ) : null}
             </div>
 
@@ -447,27 +447,171 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
         </div>
       </div>
 
-      {expanded && (
-        <div className="p-6 pt-0 grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-top-2">
-          <div className="lg:col-span-2 space-y-6">
-            <div>
-              <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Description</h5>
-              <p className="text-sm text-slate-300 leading-relaxed">{finding.description}</p>
-            </div>
-            {finding.evidence && (
-              <div className="rounded-lg bg-[#05060A] border border-white/10 p-4 font-mono text-xs text-emerald-400/90 overflow-x-auto">
-                <RecursiveEvidence data={finding.evidence} />
+      {expanded && (() => {
+        const nvd = finding.evidence?.additional?.nvd_enrichment;
+        const cveId = finding.evidence?.additional?.cve_id;
+        const refs: Array<{ url: string; source?: string }> = nvd?.references || [];
+
+        // CVSS severity color helper
+        const cvssColor = (sev?: string) => {
+          const s = (sev || "").toLowerCase();
+          if (s === "critical") return "text-red-400 bg-red-500/10 border-red-500/30";
+          if (s === "high") return "text-orange-400 bg-orange-500/10 border-orange-500/30";
+          if (s === "medium") return "text-yellow-400 bg-yellow-500/10 border-yellow-500/30";
+          if (s === "low") return "text-blue-400 bg-blue-500/10 border-blue-500/30";
+          return "text-slate-400 bg-white/5 border-white/10";
+        };
+
+        return (
+          <div className="p-6 pt-0 grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-top-2">
+            {/* Left: Description + NVD + Evidence */}
+            <div className="lg:col-span-2 space-y-6">
+
+              {/* Description */}
+              <div>
+                <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Description</h5>
+                <p className="text-sm text-slate-300 leading-relaxed">{finding.description}</p>
               </div>
-            )}
-          </div>
-          <div className="space-y-6 border-t lg:border-t-0 lg:border-l border-white/5 pt-6 lg:pt-0 lg:pl-6">
-            <div>
-              <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Affected Asset</h5>
-              <div className="text-sm text-white bg-white/5 p-2 rounded border border-white/5 truncate">{finding.affected_asset}</div>
+
+              {/* NVD / CVSS Block — only shown if nvd_enrichment exists */}
+              {nvd && (
+                <div className="rounded-xl bg-[#07040f] border border-indigo-500/20 p-4 space-y-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-2 w-2 rounded-full bg-indigo-400" />
+                    <h5 className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
+                      NVD Vulnerability Intelligence
+                    </h5>
+                    {cveId && (
+                      <span className="ml-auto text-[10px] font-mono font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded">
+                        {cveId}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* CVSS Score row */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* Base Score */}
+                    {nvd.cvss_base_score !== undefined && nvd.cvss_base_score !== null && (
+                      <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/5 border border-white/10">
+                        <span className="text-2xl font-bold text-white">{nvd.cvss_base_score}</span>
+                        <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1">CVSS Base</span>
+                      </div>
+                    )}
+
+                    {/* Severity Badge */}
+                    {nvd.cvss_severity && (
+                      <div className="flex flex-col items-center justify-center p-3 rounded-lg border">
+                        <span className={`text-sm font-bold uppercase px-2 py-1 rounded border ${cvssColor(nvd.cvss_severity)}`}>
+                          {nvd.cvss_severity}
+                        </span>
+                        <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1">Severity</span>
+                      </div>
+                    )}
+
+                    {/* Exploitability Score */}
+                    {nvd.exploitability_score !== undefined && (
+                      <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/5 border border-white/10">
+                        <span className="text-2xl font-bold text-orange-400">{nvd.exploitability_score}</span>
+                        <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1">Exploitability</span>
+                      </div>
+                    )}
+
+                    {/* Impact Score */}
+                    {nvd.impact_score !== undefined && (
+                      <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/5 border border-white/10">
+                        <span className="text-2xl font-bold text-red-400">{nvd.impact_score}</span>
+                        <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1">Impact</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CVSS v3 Vector String */}
+                  {nvd.cvss_v3?.vector_string && (
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">CVSS v3 Vector</span>
+                      <div className="mt-1 font-mono text-[11px] text-indigo-300 bg-indigo-500/5 border border-indigo-500/15 rounded px-3 py-2 break-all">
+                        {nvd.cvss_v3.vector_string}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* References */}
+                  {refs.length > 0 && (
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-2">
+                        References ({refs.length})
+                      </span>
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {refs.map((ref, i) => (
+                          <a
+                            key={i}
+                            href={ref.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-start gap-2 text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors group"
+                          >
+                            <svg className="w-3 h-3 mt-0.5 shrink-0 text-slate-600 group-hover:text-indigo-400 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                              <polyline points="15 3 21 3 21 9" />
+                              <line x1="10" y1="14" x2="21" y2="3" />
+                            </svg>
+                            <span className="break-all leading-snug">{ref.url}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Raw Evidence */}
+              {finding.evidence && (
+                <div>
+                  <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Raw Evidence</h5>
+                  <div className="rounded-lg bg-[#05060A] border border-white/10 p-4 font-mono text-xs text-emerald-400/90 overflow-x-auto">
+                    <RecursiveEvidence data={finding.evidence} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right: Meta + Asset + Recommendation */}
+            <div className="space-y-6 border-t lg:border-t-0 lg:border-l border-white/5 pt-6 lg:pt-0 lg:pl-6">
+              <div>
+                <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Affected Asset</h5>
+                <div className="text-sm text-white bg-white/5 p-2 rounded border border-white/5 break-all">{finding.affected_asset}</div>
+              </div>
+
+              {finding.recommendation && (
+                <div>
+                  <h5 className="text-xs font-bold text-emerald-500 uppercase mb-2">Recommended Action</h5>
+                  <div className="text-sm text-slate-300 bg-emerald-500/5 border border-emerald-500/15 rounded p-3 leading-relaxed">
+                    {finding.recommendation}
+                  </div>
+                </div>
+              )}
+
+              {(finding.owasp_category || finding.sans_category) && (
+                <div>
+                  <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Classification</h5>
+                  <div className="flex flex-wrap gap-1.5">
+                    {finding.owasp_category && (
+                      <span className="text-[10px] font-bold tracking-wider bg-purple-500/10 text-purple-300 border border-purple-500/30 px-2 py-1 rounded-md uppercase">
+                        {finding.owasp_category}
+                      </span>
+                    )}
+                    {finding.sans_category && (
+                      <span className="text-[10px] font-bold tracking-wider bg-purple-500/10 text-purple-300 border border-purple-500/30 px-2 py-1 rounded-md uppercase">
+                        {finding.sans_category.split(":")[0]}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
