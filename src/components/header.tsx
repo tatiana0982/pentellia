@@ -140,7 +140,7 @@ export function Header({ toggleSidebar }: HeaderProps) {
               </TooltipTrigger>
               <TooltipContent side="bottom" className="bg-[#0d0e1a] border-slate-800 text-xs py-2 px-3">
                 <p className="font-semibold text-fuchsia-400">Add credits to start scanning</p>
-                <p className="text-slate-500 mt-0.5">You have a ₹10 welcome bonus!</p>
+                <p className="text-slate-500 mt-0.5">You have ₹ 0 in your Wallet!</p>
               </TooltipContent>
             </Tooltip>
           ) : (
