@@ -14,7 +14,7 @@ export async function GET() {
            SELECT COUNT(*) AS total,
                   COUNT(*) FILTER (WHERE status IN ('running','queued')) AS active,
                   COUNT(*) FILTER (WHERE status='failed' AND created_at > NOW()-INTERVAL '24h') AS failed
-           FROM scans WHERE user_uid=$1
+           FROM scans WHERE user_uid=$1 AND deleted_at IS NULL
          ),
          ac AS (SELECT COUNT(*) AS total FROM assets WHERE user_uid=$1),
          rc AS (
@@ -24,18 +24,43 @@ export async function GET() {
                   COALESCE((s.result->'summary'->>'risk_score')::numeric, 0)    AS risk_score,
                   COALESCE((s.result->'summary'->>'total_findings')::int, 0)    AS finding_count
            FROM scans s LEFT JOIN tools t ON s.tool_id=t.id
-           WHERE s.user_uid=$1 ORDER BY s.created_at DESC LIMIT 7
+           WHERE s.user_uid=$1 AND s.deleted_at IS NULL
+           ORDER BY s.created_at DESC LIMIT 7
          ),
+         -- Fix #14: generate_series fills every day so chart has no gaps.
+         -- Days with no scans appear as 0 instead of being absent entirely.
          tr AS (
-           SELECT TO_CHAR(created_at,'YYYY-MM-DD') AS date, COUNT(*) AS count
-           FROM scans WHERE user_uid=$1 AND created_at>NOW()-INTERVAL '7d'
-           GROUP BY date ORDER BY date
+           SELECT
+             TO_CHAR(d::date, 'YYYY-MM-DD')    AS date,
+             COALESCE(s.cnt, 0)::int            AS count
+           FROM generate_series(
+             (NOW() - INTERVAL '6 days')::date,
+             NOW()::date,
+             '1 day'::interval
+           ) AS d
+           LEFT JOIN (
+             SELECT created_at::date AS day, COUNT(*) AS cnt
+             FROM scans
+             WHERE user_uid=$1 AND created_at > NOW()-INTERVAL '7d'
+               AND deleted_at IS NULL
+             GROUP BY day
+           ) s ON s.day = d::date
+           ORDER BY date
+         ),
+         -- Fix #7: previous week scan total for real week-over-week trend
+         pw AS (
+           SELECT COUNT(*) AS count
+           FROM scans
+           WHERE user_uid=$1
+             AND created_at BETWEEN NOW()-INTERVAL '14d' AND NOW()-INTERVAL '7d'
+             AND deleted_at IS NULL
          )
          SELECT
            (SELECT to_json(sc) FROM sc)    AS counts,
            (SELECT total FROM ac)          AS total_assets,
            (SELECT json_agg(rc) FROM rc)   AS recent_scans,
-           (SELECT json_agg(tr) FROM tr)   AS trend`,
+           (SELECT json_agg(tr) FROM tr)   AS trend,
+           (SELECT count FROM pw)          AS prev_week_scans`,
         [uid],
       ),
 
@@ -68,12 +93,13 @@ export async function GET() {
       ),
     ]);
 
-    const counts  = statsRes.rows[0].counts ?? {};
-    const recent  = statsRes.rows[0].recent_scans ?? [];
-    const trend   = statsRes.rows[0].trend ?? [];
-    const wallet  = walletRes.rows[0] ?? {};
-    const domains = domainsRes.rows[0] ?? {};
-    const user    = userRes.rows[0] ?? {};
+    const counts       = statsRes.rows[0].counts ?? {};
+    const recent       = statsRes.rows[0].recent_scans ?? [];
+    const trend        = statsRes.rows[0].trend ?? [];
+    const prevWeekScans = parseInt(statsRes.rows[0].prev_week_scans ?? "0");
+    const wallet       = walletRes.rows[0] ?? {};
+    const domains      = domainsRes.rows[0] ?? {};
+    const user         = userRes.rows[0] ?? {};
 
     // Aggregate risk from the full result JSON (now returned by CTE)
     let crit = 0, high = 0, med = 0, low = 0;
@@ -88,6 +114,10 @@ export async function GET() {
       }
     }
 
+    const exposureTrend = trend.map((t: any) => ({ date: t.date, scans: parseInt(t.count) }));
+    // thisWeekScans = sum of all 7 days in the filled trend
+    const thisWeekScans = exposureTrend.reduce((sum: number, d: any) => sum + d.scans, 0);
+
     return NextResponse.json({
       success: true,
       kpi: {
@@ -98,8 +128,10 @@ export async function GET() {
         openCritical:   crit,
         openHigh:       high,
       },
+      // Week-over-week scan counts for real trend badges (#7)
+      scanTrend: { thisWeek: thisWeekScans, prevWeek: prevWeekScans },
       charts: {
-        exposureTrend:    trend.map((t: any) => ({ date: t.date, scans: parseInt(t.count) })),
+        exposureTrend,
         riskDistribution: [
           { name: "Critical", value: crit, fill: "#ef4444" },
           { name: "High",     value: high, fill: "#f97316" },

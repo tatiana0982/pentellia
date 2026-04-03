@@ -9,12 +9,17 @@ import { generalNotificationEmail, lowCreditsEmail, creditsExhaustedEmail } from
 /**
  * Create a notification entry in DB and optionally fire a transactional email.
  * Fire-and-forget — never awaited internally.
+ *
+ * @param sendEmail  Set to `true` only for high-priority events (wallet empty,
+ *                   scan failed, domain verified). Defaults to FALSE to prevent
+ *                   email spam — every scan start/complete does NOT need an email.
  */
 export async function createNotification(
   uid: string,
   title: string,
   message: string,
   type: "info" | "success" | "error" | "warning" = "info",
+  sendEmail = false,   // ← opt-in, not opt-out
 ) {
   try {
     // 1. Write to notifications table
@@ -23,7 +28,9 @@ export async function createNotification(
       [uid, title, message, type],
     );
 
-    // 2. Fetch user for email (only if needed)
+    // 2. Only send email when explicitly requested
+    if (!sendEmail) return;
+
     const userRes = await query(
       `SELECT email, first_name FROM users WHERE uid = $1`,
       [uid],
@@ -33,17 +40,21 @@ export async function createNotification(
       const user      = userRes.rows[0];
       const firstName = user.first_name || "there";
 
-      sendEmail(
-        user.email,
-        title,
-        generalNotificationEmail(
-          firstName,
-          title,
-          message,
-          "Open Dashboard",
-          `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
-        ),
-      ).catch((err) => console.error("[Notification Email]", err));
+      import("@/lib/email").then(({ sendEmail: send }) =>
+        import("@/lib/email-templates").then(({ generalNotificationEmail }) =>
+          send(
+            user.email,
+            title,
+            generalNotificationEmail(
+              firstName,
+              title,
+              message,
+              "Open Dashboard",
+              `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+            ),
+          ).catch((err) => console.error("[Notification Email]", err))
+        )
+      ).catch(() => {});
     }
   } catch (err) {
     console.error("[createNotification]", err);
@@ -134,51 +145,9 @@ export async function checkBalanceAndNotify(uid: string): Promise<void> {
   }
 }
 
-/**
- * Atomic credit deduction helper — deducts credits, validates balance,
- * logs transaction, and triggers balance notifications.
- *
- * @returns The new balance after deduction, or throws ApiError if insufficient.
- */
-export async function deductCredits(
-  uid: string,
-  cost: number,
-  description: string,
-  refType: string,
-  refId?: string,
-): Promise<number> {
-  // Atomic deduction — only succeeds if balance >= cost
-  const deducted = await query(
-    `UPDATE user_credits
-     SET balance      = balance - $1,
-         total_spent  = total_spent + $1,
-         updated_at   = NOW()
-     WHERE user_uid = $2 AND balance >= $1
-     RETURNING balance`,
-    [cost, uid],
-  );
 
-  if (!deducted.rows.length) {
-    // Fetch current balance for a useful error message
-    const bal = await query(`SELECT COALESCE(balance,0) AS b FROM user_credits WHERE user_uid=$1`, [uid]);
-    const current = parseFloat(bal.rows[0]?.b ?? "0");
-    throw Object.assign(new Error(
-      `Insufficient credits. Required: ₹${cost.toFixed(2)}, Available: ₹${current.toFixed(2)}. Please top up your wallet.`
-    ), { statusCode: 402 });
-  }
-
-  const balanceAfter = parseFloat(deducted.rows[0].balance);
-
-  // Log transaction (non-blocking)
-  query(
-    `INSERT INTO credit_transactions
-       (user_uid, type, amount, balance_after, description, ref_type, ref_id)
-     VALUES ($1, 'debit', $2, $3, $4, $5, $6)`,
-    [uid, cost, balanceAfter, description, refType, refId ?? null],
-  ).catch(() => {});
-
-  // Check and notify on low/empty balance (non-blocking)
-  checkBalanceAndNotify(uid).catch(() => {});
-
-  return balanceAfter;
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTE: deductCredits is intentionally NOT exported from this file.
+// The single authoritative implementation lives in src/lib/credits.ts.
+// Import from there to avoid billing logic divergence.
+// ─────────────────────────────────────────────────────────────────────────────

@@ -19,11 +19,11 @@ export async function GET(req: NextRequest) {
       query(
         `SELECT s.id, s.target, s.status, s.tool_id, s.created_at, s.completed_at, t.name AS tool_name
          FROM scans s JOIN tools t ON s.tool_id = t.id
-         WHERE s.user_uid = $1
+         WHERE s.user_uid = $1 AND s.deleted_at IS NULL
          ORDER BY s.created_at DESC LIMIT $2 OFFSET $3`,
         [uid, limit, offset],
       ),
-      query(`SELECT COUNT(*) FROM scans WHERE user_uid = $1`, [uid]),
+      query(`SELECT COUNT(*) FROM scans WHERE user_uid = $1 AND deleted_at IS NULL`, [uid]),
     ]);
 
     const totalScans = parseInt(countRes.rows[0].count);

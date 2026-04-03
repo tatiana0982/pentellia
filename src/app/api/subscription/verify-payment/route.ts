@@ -193,6 +193,7 @@ export async function POST(req: NextRequest) {
       "Credits Added ✓",
       `₹${new Intl.NumberFormat("en-IN").format(creditsToAdd)} has been credited to your wallet. Payment ID: ${razorpay_payment_id}`,
       "success",
+      true, // send email — payment confirmation is high-priority
     ).catch(() => {});
 
     return NextResponse.json({

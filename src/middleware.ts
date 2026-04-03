@@ -82,6 +82,16 @@ export default function middleware(req: NextRequest) {
     }
   }
 
+  // ── Session guard (shallow — cookie presence only) ──────────────────
+  // We cannot call adminAuth.verifySessionCookie() here because Firebase
+  // Admin SDK requires Node.js runtime and this middleware runs on the
+  // Next.js Edge runtime. This guard only prevents accidental navigation
+  // to protected pages without a cookie.
+  //
+  // SECURITY: actual identity verification happens inside every API route
+  // via getUid() / authenticate(), which DO call verifySessionCookie().
+  // A forged or revoked cookie will pass this page guard but be rejected
+  // by every data-fetching API call, so no data is ever exposed.
   const sessionCookie = req.cookies.get("__session")?.value;
   const hasSession = Boolean(sessionCookie);
 
@@ -94,7 +104,8 @@ export default function middleware(req: NextRequest) {
       });
     }
     const res = NextResponse.next();
-    res.headers.set("X-Content-Type-Options", "nosniff");
+    // Apply security headers to API routes as well (HSTS, CSP, etc.)
+    securityHeaders(res);
     res.headers.set("Cache-Control", "no-store");
     return res;
   }

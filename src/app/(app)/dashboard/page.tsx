@@ -47,6 +47,8 @@ interface DashboardData {
     openCritical: number;
     openHigh: number;
   };
+  // Real week-over-week scan counts — used to compute trend badges
+  scanTrend: { thisWeek: number; prevWeek: number };
   charts: {
     exposureTrend: { date: string; scans: number }[];
     riskDistribution: { name: string; value: number; fill: string }[];
@@ -81,6 +83,22 @@ export default function DashboardPage() {
 
   if (loading || !data) return <DashboardSkeleton />;
 
+  // ── Real week-over-week scan trend ──────────────────────────────────────
+  // Compares scans in the last 7 days vs the previous 7 days.
+  // Shows "+N%" if up, "-N%" if down, or "No change" if equal.
+  // Never shows a hardcoded number — always computed from live data.
+  const { thisWeek, prevWeek } = data.scanTrend ?? { thisWeek: 0, prevWeek: 0 };
+  const scanDelta = thisWeek - prevWeek;
+  const scanTrendLabel = (() => {
+    if (prevWeek === 0 && thisWeek === 0) return null;           // no data yet
+    if (prevWeek === 0) return `+${thisWeek} this week`;         // first scans ever
+    const pct = Math.round((scanDelta / prevWeek) * 100);
+    if (pct === 0) return "No change";
+    return pct > 0 ? `+${pct}%` : `${pct}%`;
+  })();
+  const scanTrendType: "up" | "down" | "neutral" =
+    scanDelta > 0 ? "up" : scanDelta < 0 ? "down" : "neutral";
+
   return (
     <div className="flex-1 space-y-6 overflow-y-auto p-6 bg-[#02040a] min-h-screen text-slate-200">
       {/* 1. HEADER METRICS */}
@@ -89,22 +107,23 @@ export default function DashboardPage() {
           title="Total Scans"
           metric={data.kpi.totalScans.toString()}
           icon={ScanLine}
-          trend="+12%"
-          trendType="up"
+          trend={scanTrendLabel}
+          trendType={scanTrendType}
         />
         <KpiCard
           title="Active Assets"
           metric={data.kpi.totalAssets.toString()}
           icon={Target}
-          trend="+3"
-          trendType="up"
+          // No fabricated trend — asset history not tracked per-week yet
+          trend={null}
+          trendType="neutral"
         />
         <KpiCard
           title="Critical Risks"
           metric={data.kpi.openCritical.toString()}
           icon={ShieldAlert}
           alert={data.kpi.openCritical > 0}
-          trend="Immediate Action"
+          trend={data.kpi.openCritical > 0 ? "Immediate Action" : "All clear"}
           trendType="neutral"
         />
         <KpiCard
@@ -112,7 +131,7 @@ export default function DashboardPage() {
           metric={data.kpi.openHigh.toString()}
           icon={AlertTriangle}
           alert={data.kpi.openHigh > 0}
-          trend="Needs Review"
+          trend={data.kpi.openHigh > 0 ? "Needs Review" : "All clear"}
           trendType="neutral"
         />
       </div>
@@ -411,10 +430,13 @@ function KpiCard({ title, metric, icon: Icon, trend, trendType, alert }: any) {
                 "flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded mb-1",
                 trendType === "up"
                   ? "text-emerald-400 bg-emerald-500/10"
-                  : "text-slate-400 bg-white/5",
+                  : trendType === "down"
+                    ? "text-red-400 bg-red-500/10"
+                    : "text-slate-400 bg-white/5",
               )}
             >
-              {trendType === "up" && <ArrowUp className="h-2.5 w-2.5 mr-0.5" />}
+              {trendType === "up"   && <ArrowUp className="h-2.5 w-2.5 mr-0.5" />}
+              {trendType === "down" && <ArrowUp className="h-2.5 w-2.5 mr-0.5 rotate-180" />}
               {trend}
             </span>
           )}

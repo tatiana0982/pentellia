@@ -5,12 +5,7 @@ import { getUid } from "@/lib/auth";
 import { query } from "@/config/db";
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
-const rateRes = await query(
-  `SELECT rate_inr FROM pricing_rates WHERE rate_key = 'ai_summary' AND is_active = TRUE LIMIT 1`
-).catch(() => null);
-const AI_COST = rateRes?.rows?.[0]?.rate_inr 
-  ? parseFloat(rateRes.rows[0].rate_inr) 
-  : 100.0; // fallback to new default
+const AI_COST      = 5.0;
 
 export async function POST(req: NextRequest) {
   const uid = await getUid();
@@ -55,26 +50,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Check and deduct credits (atomic) ─────────────────────────────
-  const creditRes = await query(
-    `SELECT balance FROM user_credits WHERE user_uid = $1 FOR UPDATE`,
-    [uid],
-  ).catch(() => null);
-  const balance = parseFloat(creditRes?.rows?.[0]?.balance ?? "0");
-
-  if (balance < AI_COST) {
-    return NextResponse.json(
-      {
-        error: `Insufficient credits. AI summary costs ₹${AI_COST}. Available: ₹${balance.toFixed(2)}. Please top up your wallet.`,
-        code:  "INSUFFICIENT_CREDITS",
-        required: AI_COST,
-        available: balance,
-      },
-      { status: 402 },
-    );
-  }
-
-  // Atomic deduction — will fail if balance changes before commit
+  // ── Atomic credit deduction ───────────────────────────────────────
+  // Single UPDATE with WHERE balance >= cost — no separate SELECT needed.
+  // The old FOR UPDATE pattern had no surrounding BEGIN/COMMIT so the row
+  // lock was released immediately, giving zero race protection. This single
+  // statement is truly atomic at the DB level.
   const deducted = await query(
     `UPDATE user_credits
      SET balance     = balance - $1,
@@ -86,12 +66,35 @@ export async function POST(req: NextRequest) {
   ).catch(() => null);
 
   if (!deducted?.rows.length) {
-    return NextResponse.json({ error: "Credit deduction failed — insufficient balance" }, { status: 402 });
+    // Fetch real balance for a precise error message
+    const balRes  = await query(
+      `SELECT COALESCE(balance, 0) AS b FROM user_credits WHERE user_uid = $1`,
+      [uid],
+    ).catch(() => null);
+    const current = parseFloat(balRes?.rows?.[0]?.b ?? "0");
+    return NextResponse.json(
+      {
+        error:     `Insufficient credits. AI summary costs ₹${AI_COST}. Available: ₹${current.toFixed(2)}.`,
+        code:      "INSUFFICIENT_CREDITS",
+        required:  AI_COST,
+        available: current,
+      },
+      { status: 402 },
+    );
   }
   const balanceAfter = parseFloat(deducted.rows[0].balance);
 
+  // ── Log transaction IMMEDIATELY after deduction ───────────────────
+  // Must happen before the stream starts so the audit record is never
+  // lost even if the stream errors or the client disconnects mid-way.
+  await query(
+    `INSERT INTO credit_transactions
+       (user_uid, type, amount, balance_after, description, ref_type, ref_id, tool_id)
+     VALUES ($1, 'debit', $2, $3, 'AI Executive Summary', 'ai_summary', $4, 'ai')`,
+    [uid, AI_COST, balanceAfter, scanId || "unknown"],
+  ).catch(() => {});
+
   // ── Check balance thresholds and notify ───────────────────────────
-  // Import dynamically to avoid circular deps
   try {
     const { checkBalanceAndNotify } = await import("@/lib/notifications");
     checkBalanceAndNotify(uid).catch(() => {});
@@ -181,13 +184,7 @@ Data: ${JSON.stringify(scanData).slice(0, 12_000)}`;
         ).catch(() => {});
       }
 
-      // ── Log credit debit transaction ───────────────────────────────
-      await query(
-        `INSERT INTO credit_transactions
-           (user_uid, type, amount, balance_after, description, ref_type, ref_id, tool_id)
-         VALUES ($1,'debit',$2,$3,'AI Executive Summary','ai_summary',$4,'ai')`,
-        [uid, AI_COST, balanceAfter, scanId || "unknown"],
-      ).catch(() => {});
+      // Transaction already logged before stream started (audit-safe).
     },
   });
 

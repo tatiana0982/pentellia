@@ -44,7 +44,13 @@ export async function POST(req: NextRequest) {
 
     // Anonymize sensitive tables immediately for GDPR compliance
     await query(`DELETE FROM login_history WHERE user_uid = $1`,        [uid]);
-    await query(`DELETE FROM push_subscriptions WHERE user_uid = $1`,   [uid]);
+
+    // push_subscriptions table is planned but not yet created —
+    // guard so a missing table never blocks account deletion.
+    try {
+      await query(`DELETE FROM push_subscriptions WHERE user_uid = $1`, [uid]);
+    } catch { /* table may not exist yet */ }
+
     await query(`UPDATE scans   SET deleted_at = NOW() WHERE user_uid = $1`, [uid]);
     await query(`UPDATE assets  SET deleted_at = NOW() WHERE user_uid = $1`, [uid]);
     await query(`UPDATE reports SET deleted_at = NOW() WHERE user_uid = $1`, [uid]);

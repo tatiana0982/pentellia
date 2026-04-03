@@ -37,14 +37,21 @@ export async function GET(req: NextRequest) {
     }
 
     // Default — last 20 for header bell
-    const res = await query(
-      `SELECT id, title, message, type,
-              COALESCE(is_read, false) AS is_read, created_at
-       FROM notifications WHERE user_uid = $1
-       ORDER BY created_at DESC LIMIT 20`,
-      [uid],
-    );
-    const unreadCount = res.rows.filter((n) => !n.is_read).length;
+    const [res, unreadRes] = await Promise.all([
+      query(
+        `SELECT id, title, message, type,
+                COALESCE(is_read, false) AS is_read, created_at
+         FROM notifications WHERE user_uid = $1
+         ORDER BY created_at DESC LIMIT 20`,
+        [uid],
+      ),
+      // Fix: count ALL unread rows in the table, not just the fetched 20
+      query(
+        `SELECT COUNT(*) AS cnt FROM notifications WHERE user_uid = $1 AND COALESCE(is_read, false) = FALSE`,
+        [uid],
+      ),
+    ]);
+    const unreadCount = parseInt(unreadRes.rows[0]?.cnt ?? "0");
     return NextResponse.json({ success: true, notifications: res.rows, unreadCount });
   } catch {
     return NextResponse.json({ error: "Failed to fetch notifications" }, { status: 500 });

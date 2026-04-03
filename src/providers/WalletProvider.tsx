@@ -17,7 +17,6 @@ interface WalletState {
   totalScans:  number;
   totalBought: number;
   isLoading:   boolean;
-  lastFetched: number | null;
 }
 
 interface WalletContextType extends WalletState {
@@ -35,7 +34,6 @@ const WalletContext = createContext<WalletContextType>({
   totalScans:  0,
   totalBought: 0,
   isLoading:   true,
-  lastFetched: null,
   isNewUser:   false,
   isEmpty:     false,
   isLow:       false,
@@ -44,8 +42,8 @@ const WalletContext = createContext<WalletContextType>({
 
 export const useWallet = () => useContext(WalletContext);
 
-const CACHE_TTL    = 60_000; // 60 seconds
-const LOW_THRESHOLD = 20;    // ₹20
+const CACHE_TTL     = 60_000; // 60 seconds
+const LOW_THRESHOLD = 20;     // ₹20
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<WalletState>({
@@ -53,14 +51,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     totalScans:  0,
     totalBought: 0,
     isLoading:   true,
-    lastFetched: null,
   });
 
-  const fetchingRef = useRef(false);
+  // Fix #5: Store lastFetched in a ref, NOT in state.
+  // Keeping it in state caused useCallback to recreate fetchWallet on every
+  // fetch completion, which in turn caused the event-listener useEffect to
+  // re-run on every render — continuously removing and re-adding the listener
+  // and risking an infinite re-render loop.
+  const lastFetchedRef = useRef<number | null>(null);
+  const fetchingRef    = useRef(false);
 
   const fetchWallet = useCallback(async (force = false) => {
     if (fetchingRef.current) return;
-    if (!force && state.lastFetched && Date.now() - state.lastFetched < CACHE_TTL) return;
+    if (!force && lastFetchedRef.current && Date.now() - lastFetchedRef.current < CACHE_TTL) return;
 
     fetchingRef.current = true;
 
@@ -69,12 +72,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
 
       if (data.success) {
+        lastFetchedRef.current = Date.now();
         setState({
           balance:     data.balance     ?? 0,
           totalScans:  data.totalScans  ?? 0,
           totalBought: data.totalBought ?? 0,
           isLoading:   false,
-          lastFetched: Date.now(),
         });
       }
     } catch {
@@ -82,19 +85,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     } finally {
       fetchingRef.current = false;
     }
-  }, [state.lastFetched]);
+  // No deps — fetchWallet is now a stable reference for the lifetime of
+  // the provider. lastFetchedRef is a ref so mutations don't trigger recreation.
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchWallet(true); }, []);
+  useEffect(() => { fetchWallet(true); }, [fetchWallet]);
 
-  // Listen for payment success / wallet refresh events
+  // Fix #16: Only listen to wallet-refresh here.
+  // refresh-notifications is a notification-panel concern, not a wallet concern.
+  // Mixing them caused extra unnecessary wallet API calls.
   useEffect(() => {
     const onRefresh = () => fetchWallet(true);
     window.addEventListener("wallet-refresh", onRefresh);
-    window.addEventListener("refresh-notifications", onRefresh);
-    return () => {
-      window.removeEventListener("wallet-refresh", onRefresh);
-      window.removeEventListener("refresh-notifications", onRefresh);
-    };
+    return () => window.removeEventListener("wallet-refresh", onRefresh);
   }, [fetchWallet]);
 
   // Derived state

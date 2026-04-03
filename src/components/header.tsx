@@ -235,7 +235,7 @@ export function Header({ toggleSidebar }: HeaderProps) {
                 </div>
               </div>
 
-              <ScrollArea className="max-h-[320px]">
+              <ScrollArea className="h-[320px] overflow-hidden">
                 {notifications.length === 0 ? (
                   <div className="flex flex-col items-center py-10 px-4 text-center">
                     <div className="h-10 w-10 rounded-xl bg-slate-800/60 flex items-center justify-center mb-3">

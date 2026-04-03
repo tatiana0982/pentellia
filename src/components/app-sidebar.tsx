@@ -125,9 +125,9 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
               ) : (
                 /* ── EXISTING USER: Show wallet health widget ── */
                 <Link href="/subscription">
-                  <div className="rounded-xl border border-white/8 bg-gradient-to-b from-white/[0.04] to-transparent p-3 hover:border-white/15 transition-colors cursor-pointer space-y-2.5 group">
+                  <div className="rounded-xl bg-[#0e1018] p-3 hover:bg-[#111420] transition-colors cursor-pointer space-y-2.5 group">
                     <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2 text-xs text-slate-400">
+                      <span className="flex items-center gap-2 text-xs text-slate-500">
                         <Wallet className="h-3.5 w-3.5" /> Wallet
                       </span>
                       <span className={cn("text-[11px] font-semibold", statusLabel.color)}>
@@ -145,16 +145,16 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
                       )}
                     </div>
 
-                    {/* Segmented bar */}
-                    <div className="flex items-center gap-0.5 h-1.5 w-full rounded-full overflow-hidden bg-white/8">
-                      {Array.from({ length: 20 }).map((_, i) => (
-                        <div key={i}
-                          className="flex-1 h-full rounded-[1px] transition-all duration-700"
-                          style={{
-                            background: (i / 20) * 100 < walletPct ? ringColor : "rgba(255,255,255,0.06)",
-                          }}
-                        />
-                      ))}
+                    {/* Slim gradient progress bar */}
+                    <div className="h-[3px] w-full rounded-full bg-slate-800/80 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: `${walletPct}%`,
+                          background: `linear-gradient(90deg, ${ringColor}cc, ${ringColor})`,
+                          boxShadow: `0 0 6px ${ringColor}60`,
+                        }}
+                      />
                     </div>
 
                     <div className="flex items-center justify-between text-[10px]">
@@ -162,7 +162,7 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
                       {(isEmpty || isLow) ? (
                         <span className="text-fuchsia-400 font-semibold group-hover:underline">Top up →</span>
                       ) : (
-                        <span className="text-slate-500">{walletPct}% capacity</span>
+                        <span className="text-slate-600">{walletPct}% capacity</span>
                       )}
                     </div>
                   </div>

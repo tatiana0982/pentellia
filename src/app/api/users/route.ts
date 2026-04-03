@@ -94,6 +94,14 @@ export async function PUT(req: NextRequest) {
     if (key === "avatar" && typeof value === "string") {
       const b64 = (value as string).replace(/^data:image\/\w+;base64,/, "");
       if (!b64) continue;
+      // Guard: ~400 KB decoded (~533 KB base64). Rejects oversized uploads
+      // that would bloat the DB or cause OOM on the server.
+      if (b64.length > 533_000) {
+        return NextResponse.json(
+          { error: "Avatar image must be under 400 KB" },
+          { status: 413 },
+        );
+      }
       setClauses.push(`${col} = $${idx}`);
       values.push(Buffer.from(b64, "base64"));
     } else {
