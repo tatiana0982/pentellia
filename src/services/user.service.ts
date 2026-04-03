@@ -42,30 +42,16 @@ export class UserService {
       const res = await query(upsertText, values);
       const row = res.rows[0];
 
-      // Only fire welcome notification + signup bonus on brand-new users
+      // Fire welcome notification for brand-new users only
       if (row.is_new_user) {
-        // Welcome notification (fires sendEmail internally)
         await createNotification(
           user.uid,
-          "Welcome to Pentellia! 🚀",
-          "Thanks for joining. Ready to secure your infrastructure? Start your first scan from the dashboard.",
+          "Welcome to Pentellia!",
+          "Your account is ready. Verify your domain and add wallet credits to start scanning.",
           "success",
         );
-
-        // ₹10 signup bonus
-        await query(
-          `INSERT INTO user_credits (user_uid, balance, total_bought, total_spent)
-           VALUES ($1, 10, 10, 0)
-           ON CONFLICT (user_uid) DO NOTHING`,
-          [user.uid],
-        );
-
-        await query(
-          `INSERT INTO credit_transactions
-             (user_uid, type, amount, balance_after, description, ref_type, ref_id)
-           VALUES ($1, 'credit', 10, 10, 'Signup bonus ₹10', 'signup_bonus', $1)`,
-          [user.uid],
-        );
+        // No signup bonus — users must purchase credits before scanning.
+        // Wallet row is created automatically on first top-up via razorpay verify-payment.
       }
 
       return row;

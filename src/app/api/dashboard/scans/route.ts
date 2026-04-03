@@ -43,11 +43,46 @@ export async function POST(req: NextRequest) {
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const body          = await req.json();
+    const body = await req.json();
     const { tool, target, params } = body;
 
     if (!tool || !target) {
       return NextResponse.json({ error: "Missing tool or target" }, { status: 400 });
+    }
+
+    // ── Gate 1: verified domain required ────────────────────────────────
+    // Users must prove they own at least one domain before running any scan.
+    const domainRes = await query(
+      `SELECT 1 FROM domains WHERE user_uid = $1 AND is_verified = TRUE LIMIT 1`,
+      [uid],
+    );
+    if ((domainRes.rowCount ?? 0) === 0) {
+      return NextResponse.json(
+        {
+          error:  "Domain verification required. Verify at least one domain before running scans.",
+          code:   "DOMAIN_REQUIRED",
+          action: "/account/domains",
+        },
+        { status: 403 },
+      );
+    }
+
+    // ── Gate 2: positive wallet balance required ─────────────────────────
+    // Users must have loaded credits before any scan can execute.
+    const walletRes = await query(
+      `SELECT COALESCE(balance, 0) AS balance FROM user_credits WHERE user_uid = $1`,
+      [uid],
+    );
+    const balance = parseFloat(walletRes.rows[0]?.balance ?? "0");
+    if (balance <= 0) {
+      return NextResponse.json(
+        {
+          error:  "Insufficient credits. Add wallet balance to run scans.",
+          code:   "INSUFFICIENT_CREDITS",
+          action: "/subscription",
+        },
+        { status: 402 },
+      );
     }
 
     const toolsBase = process.env.TOOLS_BASE_URL;
