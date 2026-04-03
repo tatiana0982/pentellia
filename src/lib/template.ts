@@ -5,7 +5,7 @@ export function getPurpleReportHtml(data: any) {
   const started_at = result.meta?.started_at || new Date().toISOString();
   const completed_at = data.completed_at || result.completed_at || result.meta?.completed_at || new Date().toISOString();
   const scanId = String(data.id || data.scan_id || result.id || result.scan_id || "");
-  
+
   // Extract core modules with safe fallbacks
   const ai_summary = data.ai_summary || result.ai_summary || "";
   const meta = result.meta || {};
@@ -26,7 +26,7 @@ export function getPurpleReportHtml(data: any) {
 
   /* ================= CONFIG & HELPERS ================= */
   const logoUrl = "https://pentellia.vercel.app/logo.png";
-  
+
   // Strict Pagination Bounds
   const PAGE_HEIGHT = 1122; // A4 at 96 DPI
   const PAGE_PADDING = 260; // Huge safety buffer to prevent footer overlap
@@ -38,17 +38,17 @@ export function getPurpleReportHtml(data: any) {
     if (s === 'high') return { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-400' };
     if (s === 'medium') return { bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', text: 'text-yellow-400' };
     if (s === 'low') return { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400' };
-    return { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-300' }; 
+    return { bg: 'bg-purple-500/10', border: 'border-purple-500/30', text: 'text-purple-300' };
   }
 
   function escapeHtml(unsafe: string) {
     if (!unsafe) return "";
     return String(unsafe)
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   function truncateText(text: string, maxLength: number = 800) {
@@ -88,39 +88,39 @@ export function getPurpleReportHtml(data: any) {
   }
 
   /* ================= PRE-PROCESSING ================= */
-  
+
   // 1. AI Summary Pagination
   const aiBlocks = ai_summary.split(/\n\n|---/).filter((b: string) => b.trim() !== "");
   const aiPages = paginate(aiBlocks, (block: string) => {
     const lines = block.split("\n").length;
-    return (block.length * 0.35) + (lines * 24) + 40; 
+    return (block.length * 0.35) + (lines * 24) + 40;
   });
 
   // 2. Findings Pagination (Highly accurate estimation)
   function estimateFindingHeight(f: any) {
     let h = 260; // Base height for title, tags, padding, borders
-    
+
     // Clamp text to prevent massive overflows
     f.description = truncateText(f.description, 800);
     f.impact = truncateText(f.impact, 400);
     f.recommendation = truncateText(f.recommendation, 400);
 
     const textLength = (f.description?.length || 0) + (f.impact?.length || 0) + (f.recommendation?.length || 0);
-    h += Math.ceil(textLength / 80) * 20; 
-    
-    if (f.evidence?.additional?.nvd_enrichment) h += 90; 
-    
+    h += Math.ceil(textLength / 80) * 20;
+
+    if (f.evidence?.additional?.nvd_enrichment) h += 90;
+
     const hosts = f.evidence?.additional?.affected_hosts || [];
     if (hosts.length > 0) {
-      h += 60 + (Math.ceil(Math.min(hosts.length, 8) / 2) * 36); 
+      h += 60 + (Math.ceil(Math.min(hosts.length, 8) / 2) * 36);
     }
-    
-    return h + 40; 
+
+    return h + 40;
   }
-  
+
   // Sort findings by severity
   const severityRank: any = { critical: 5, high: 4, medium: 3, low: 2, info: 1, unknown: 0 };
-  const sortedFindings = [...findings].sort((a, b) => 
+  const sortedFindings = [...findings].sort((a, b) =>
     (severityRank[(b.severity || 'info').toLowerCase()] || 0) - (severityRank[(a.severity || 'info').toLowerCase()] || 0)
   );
 
@@ -426,16 +426,22 @@ canvas { max-height: 100%; max-width: 100%; }
         </tr>
       </thead>
       <tbody class="divide-y divide-purple-500/10 text-sm">
-        ${Object.entries(owasp.categories).map(([catName, catData]: any) => `
-          <tr class="${catData.safe ? 'bg-transparent' : 'bg-red-950/20'}">
+      ${Object.entries(owasp.categories)
+      .sort(([a], [b]) => {
+        // Extract number from "A01:2021-..." and sort numerically
+        const numA = parseInt((a.match(/A(\d+)/) || [, '99'])[1]);
+        const numB = parseInt((b.match(/A(\d+)/) || [, '99'])[1]);
+        return numA - numB;
+      })
+      .map(([catName, catData]: any) => `          <tr class="${catData.safe ? 'bg-transparent' : 'bg-red-950/20'}">
              <td class="py-4 px-6 font-medium ${catData.safe ? 'text-slate-200' : 'text-red-300'}">
                 ${escapeHtml(catName)}
              </td>
              <td class="py-4 px-6 text-right">
                 ${catData.safe
-                  ? `<span class="text-xs font-bold uppercase tracking-widest text-emerald-500 flex items-center justify-end gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg> Pass</span>`
-                  : `<span class="badge bg-red-500/10 text-red-400 border border-red-500/30 whitespace-nowrap">${catData.count} Violations</span>`
-                }
+          ? `<span class="text-xs font-bold uppercase tracking-widest text-emerald-500 flex items-center justify-end gap-1.5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg> Pass</span>`
+          : `<span class="badge bg-red-500/10 text-red-400 border border-red-500/30 whitespace-nowrap">${catData.count} Violations</span>`
+        }
              </td>
           </tr>
         `).join('')}
@@ -471,10 +477,10 @@ canvas { max-height: 100%; max-width: 100%; }
       <table class="w-full text-left border-collapse">
         <tbody class="divide-y divide-purple-500/10 text-[11px]">
           ${sansCol1.map(([catName, catData]: any) => {
-            const parts = catName.split(':');
-            const cweId = parts[0];
-            const cweDesc = parts.slice(1).join(':').trim();
-            return `
+          const parts = catName.split(':');
+          const cweId = parts[0];
+          const cweDesc = parts.slice(1).join(':').trim();
+          return `
             <tr class="${catData.safe ? 'bg-transparent' : 'bg-red-950/20'}">
                <td class="py-3 px-4">
                   <div class="font-bold font-mono ${catData.safe ? 'text-purple-400' : 'text-red-400'} mb-1">${escapeHtml(cweId)}</div>
@@ -482,9 +488,9 @@ canvas { max-height: 100%; max-width: 100%; }
                </td>
                <td class="py-3 px-4 text-right align-middle">
                   ${catData.safe
-                    ? `<span class="text-[9px] font-bold uppercase tracking-widest text-emerald-500/50">Pass</span>`
-                    : `<span class="text-[9px] font-bold uppercase text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/30 whitespace-nowrap">${catData.count} Found</span>`
-                  }
+              ? `<span class="text-[9px] font-bold uppercase tracking-widest text-emerald-500/50">Pass</span>`
+              : `<span class="text-[9px] font-bold uppercase text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/30 whitespace-nowrap">${catData.count} Found</span>`
+            }
                </td>
             </tr>
           `}).join('')}
@@ -496,10 +502,10 @@ canvas { max-height: 100%; max-width: 100%; }
       <table class="w-full text-left border-collapse">
         <tbody class="divide-y divide-purple-500/10 text-[11px]">
           ${sansCol2.map(([catName, catData]: any) => {
-            const parts = catName.split(':');
-            const cweId = parts[0];
-            const cweDesc = parts.slice(1).join(':').trim();
-            return `
+              const parts = catName.split(':');
+              const cweId = parts[0];
+              const cweDesc = parts.slice(1).join(':').trim();
+              return `
             <tr class="${catData.safe ? 'bg-transparent' : 'bg-red-950/20'}">
                <td class="py-3 px-4">
                   <div class="font-bold font-mono ${catData.safe ? 'text-purple-400' : 'text-red-400'} mb-1">${escapeHtml(cweId)}</div>
@@ -507,9 +513,9 @@ canvas { max-height: 100%; max-width: 100%; }
                </td>
                <td class="py-3 px-4 text-right align-middle">
                   ${catData.safe
-                    ? `<span class="text-[9px] font-bold uppercase tracking-widest text-emerald-500/50">Pass</span>`
-                    : `<span class="text-[9px] font-bold uppercase text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/30 whitespace-nowrap">${catData.count} Found</span>`
-                  }
+                  ? `<span class="text-[9px] font-bold uppercase tracking-widest text-emerald-500/50">Pass</span>`
+                  : `<span class="text-[9px] font-bold uppercase text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/30 whitespace-nowrap">${catData.count} Found</span>`
+                }
                </td>
             </tr>
           `}).join('')}
@@ -557,12 +563,12 @@ ${findingPages.length > 0 ? findingPages.map((page, i) => `
 
   <div class="space-y-6">
   ${page.map((f: any) => {
-    const sev = getSeverityColor(f.severity);
-    const nvd = f.evidence?.additional?.nvd_enrichment;
-    const cveId = f.evidence?.additional?.cve_id;
-    const hosts = f.evidence?.additional?.affected_hosts || [];
-    
-    return `
+                  const sev = getSeverityColor(f.severity);
+                  const nvd = f.evidence?.additional?.nvd_enrichment;
+                  const cveId = f.evidence?.additional?.cve_id;
+                  const hosts = f.evidence?.additional?.affected_hosts || [];
+
+                  return `
     <div class="report-card p-0 overflow-hidden flex flex-col border border-purple-500/20">
       <div class="bg-purple-900/20 border-b border-purple-500/20 px-6 py-4 flex justify-between items-start">
         <h4 class="font-bold text-base text-white w-5/6 leading-snug">

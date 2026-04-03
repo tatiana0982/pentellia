@@ -5,7 +5,12 @@ import { getUid } from "@/lib/auth";
 import { query } from "@/config/db";
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
-const AI_COST      = 5.0;
+const rateRes = await query(
+  `SELECT rate_inr FROM pricing_rates WHERE rate_key = 'ai_summary' AND is_active = TRUE LIMIT 1`
+).catch(() => null);
+const AI_COST = rateRes?.rows?.[0]?.rate_inr 
+  ? parseFloat(rateRes.rows[0].rate_inr) 
+  : 100.0; // fallback to new default
 
 export async function POST(req: NextRequest) {
   const uid = await getUid();
