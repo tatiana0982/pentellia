@@ -2,8 +2,10 @@
 // ⚠ NO edge runtime — uses Node.js crypto via @/lib/auth
 //
 // Billing: token-based pricing, all rates from pricing_rates DB.
-//   Cost = (prompt_tokens / 1_000_000) * token_input_rate
-//         + (completion_tokens / 1_000_000) * token_output_rate
+//   DB stores rate_inr as per-token price:
+//     token_input  = 0.000180  →  ₹0.000180 per token  =  ₹180 per 1M tokens
+//     token_output = 0.000250  →  ₹0.000250 per token  =  ₹250 per 1M tokens
+//   So: cost = input_tokens × input_rate  +  output_tokens × output_rate
 //
 // CRITICAL RULE: Deduction and transaction log happen BEFORE the stream starts.
 // Reasoning: code inside ReadableStream.start() that runs after controller.close()
@@ -104,9 +106,9 @@ Data: ${JSON.stringify(scanData).slice(0, 12_000)}`;
 
   const estimatedInputTokens  = estimateTokens(prompt);
   const estimatedOutputTokens = OUTPUT_TOKEN_ESTIMATE;
+  // rate_inr is per-token already (0.000180 = ₹180/1M) — multiply directly, do NOT divide by 1M
   const estimatedCost = Math.round(
-    ((estimatedInputTokens / 1_000_000) * inputRate
-    + (estimatedOutputTokens / 1_000_000) * outputRate) * 10_000,
+    (estimatedInputTokens * inputRate + estimatedOutputTokens * outputRate) * 10_000,
   ) / 10_000;
 
   // ── Balance check against estimate ────────────────────────────────
@@ -259,9 +261,9 @@ Data: ${JSON.stringify(scanData).slice(0, 12_000)}`;
         if (!usageCaptured) {
           outputTokens = Math.ceil(accumulated.length / 3.5);
         }
+        // rate_inr is per-token already — multiply directly, do NOT divide by 1M
         const actualCost = Math.round(
-          ((promptTokens / 1_000_000) * inputRate
-          + (outputTokens / 1_000_000) * outputRate) * 10_000,
+          (promptTokens * inputRate + outputTokens * outputRate) * 10_000,
         ) / 10_000;
 
         const diff = Math.round((estimatedCost - actualCost) * 10_000) / 10_000;
