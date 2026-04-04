@@ -1,11 +1,31 @@
 // src/app/api/ai/summarize/route.ts
 // ⚠ NO edge runtime — uses Node.js crypto via @/lib/auth
+//
+// Pricing: token-based, all rates from pricing_rates DB table.
+//   Cost = (prompt_tokens / 1_000_000) * token_input_rate
+//         + (completion_tokens / 1_000_000) * token_output_rate
+//
+// Flow:
+//   1. Estimate input tokens from prompt length (chars / 3.5 ≈ conservative)
+//   2. Check balance covers minimum estimate
+//   3. Stream with stream_options.include_usage = true
+//   4. Parse final usage chunk → exact prompt_tokens + completion_tokens
+//   5. Deduct exact amount atomically after stream completes
+//   6. Log single transaction: "AI Summary: Npk in + Npk out tokens"
 import { NextRequest, NextResponse } from "next/server";
 import { getUid } from "@/lib/auth";
 import { query } from "@/config/db";
-import { getRate } from "@/lib/credits";
+import { getRate, getBalance } from "@/lib/credits";
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
+
+// Token estimation: 1 token ≈ 3.5 characters (conservative — avoids under-charging)
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 3.5);
+}
+
+// Minimum INR balance required before we even attempt — covers a generous estimate
+const MINIMUM_BALANCE_INR = 5;
 
 export async function POST(req: NextRequest) {
   const uid = await getUid();
@@ -50,72 +70,40 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Fetch AI summary cost from DB (no hardcoding) ──────────────────
-  // pricing_rates.ai_summary is the authoritative price.
-  let AI_COST: number;
+  // ── Fetch token rates from DB ──────────────────────────────────────
+  let inputRate: number;
+  let outputRate: number;
   try {
-    AI_COST = await getRate("ai_summary");
+    [inputRate, outputRate] = await Promise.all([
+      getRate("token_input"),
+      getRate("token_output"),
+    ]);
   } catch (err) {
-    console.error("[AI Summarize] Could not fetch ai_summary rate:", err);
+    console.error("[AI Summarize] Could not fetch token rates:", err);
     return NextResponse.json({ error: "Pricing service unavailable" }, { status: 503 });
   }
 
-  // ── Atomic credit deduction ────────────────────────────────────────
-  // Single UPDATE WHERE balance >= cost — race-condition safe.
-  const deducted = await query(
-    `UPDATE user_credits
-     SET balance     = balance - $1,
-         total_spent = total_spent + $1,
-         updated_at  = NOW()
-     WHERE user_uid = $2 AND balance >= $1
-     RETURNING balance`,
-    [AI_COST, uid],
-  ).catch(() => null);
-
-  if (!deducted?.rows.length) {
-    const balRes  = await query(
-      `SELECT COALESCE(balance, 0) AS b FROM user_credits WHERE user_uid = $1`,
-      [uid],
-    ).catch(() => null);
-    const current = parseFloat(balRes?.rows?.[0]?.b ?? "0");
+  // ── Balance check against conservative estimate ────────────────────
+  // We don't know the exact cost until stream completes, so check minimum.
+  const balance = await getBalance(uid);
+  if (balance < MINIMUM_BALANCE_INR) {
     return NextResponse.json(
       {
-        error:     `Insufficient credits. AI summary costs ₹${AI_COST}. Available: ₹${current.toFixed(2)}.`,
+        error:     `Insufficient credits. Minimum ₹${MINIMUM_BALANCE_INR} required for AI summary. Available: ₹${balance.toFixed(2)}.`,
         code:      "INSUFFICIENT_CREDITS",
-        required:  AI_COST,
-        available: current,
+        available: balance,
       },
       { status: 402 },
     );
   }
-  const balanceAfter = parseFloat(deducted.rows[0].balance);
 
-  // ── Log transaction immediately (before stream starts) ────────────
-  // Logged here so the audit record is never lost if the stream errors.
-  await query(
-    `INSERT INTO credit_transactions
-       (user_uid, type, amount, balance_after, description, ref_type, ref_id, tool_id)
-     VALUES ($1, 'debit', $2, $3, 'AI Executive Summary', 'ai_summary', $4, 'ai')`,
-    [uid, AI_COST, balanceAfter, scanId || "unknown"],
-  ).catch(() => {});
-
-  // Balance alert
-  try {
-    const { checkBalanceAndNotify } = await import("@/lib/notifications");
-    checkBalanceAndNotify(uid).catch(() => {});
-  } catch {}
-
-  // ── Fetch DeepSeek API key ────────────────────────────────────────
+  // ── DeepSeek API key ──────────────────────────────────────────────
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
-    // Refund — config error is not the user's fault
-    await query(
-      `UPDATE user_credits SET balance = balance + $1, total_spent = total_spent - $1 WHERE user_uid = $2`,
-      [AI_COST, uid],
-    ).catch(() => {});
     return NextResponse.json({ error: "AI service not configured" }, { status: 503 });
   }
 
+  // ── Build prompt ──────────────────────────────────────────────────
   const prompt = `You are a Senior Security Analyst presenting to a Corporate Board.
 Summarize this ${toolName} scan for both technical staff and non-technical executives.
 
@@ -128,27 +116,30 @@ Structure:
 
 Data: ${JSON.stringify(scanData).slice(0, 12_000)}`;
 
+  const estimatedInputTokens = estimateTokens(prompt);
+
   const dsRes = await fetch(DEEPSEEK_URL, {
     method:  "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body:    JSON.stringify({
-      model:       "deepseek-chat",
-      messages:    [{ role: "user", content: prompt }],
-      stream:      true,
-      temperature: 0.3,
+      model:          "deepseek-chat",
+      messages:       [{ role: "user", content: prompt }],
+      stream:         true,
+      temperature:    0.3,
+      stream_options: { include_usage: true }, // DeepSeek sends usage in final chunk
     }),
   });
 
   if (!dsRes.ok) {
-    // Refund — DeepSeek API error
-    await query(
-      `UPDATE user_credits SET balance = balance + $1, total_spent = total_spent - $1 WHERE user_uid = $2`,
-      [AI_COST, uid],
-    ).catch(() => {});
     return NextResponse.json({ error: "AI service error" }, { status: 502 });
   }
 
-  let accumulated = "";
+  // ── Streaming with usage capture ─────────────────────────────────
+  let accumulated   = "";
+  let promptTokens  = estimatedInputTokens; // fallback to estimate if API doesn't return usage
+  let outputTokens  = 0;
+  let usageCaptured = false;
+
   const stream = new ReadableStream({
     async start(controller) {
       const reader  = dsRes.body!.getReader();
@@ -159,22 +150,83 @@ Data: ${JSON.stringify(scanData).slice(0, 12_000)}`;
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
+
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
+
         for (const line of lines) {
           const cleaned = line.replace(/^data: /, "").trim();
           if (!cleaned || cleaned === "[DONE]") continue;
+
           try {
             const json    = JSON.parse(cleaned);
             const content = json.choices?.[0]?.delta?.content || "";
-            if (content) { accumulated += content; controller.enqueue(encoder.encode(content)); }
+            if (content) {
+              accumulated += content;
+              controller.enqueue(encoder.encode(content));
+            }
+
+            // Capture usage from final chunk (stream_options.include_usage)
+            if (json.usage && !usageCaptured) {
+              promptTokens  = json.usage.prompt_tokens     || estimatedInputTokens;
+              outputTokens  = json.usage.completion_tokens || Math.ceil(accumulated.length / 3.5);
+              usageCaptured = true;
+            }
           } catch { /* incomplete chunk */ }
         }
       }
       controller.close();
 
-      // Persist summary to DB (cache for free reuse)
+      // If usage not in stream (API fallback), estimate from actual output
+      if (!usageCaptured) {
+        outputTokens = Math.ceil(accumulated.length / 3.5);
+      }
+
+      // ── Deduct exact token-based cost ─────────────────────────────
+      const exactCost = (promptTokens / 1_000_000) * inputRate
+                      + (outputTokens / 1_000_000) * outputRate;
+      // Round to 4 decimal places to avoid floating point noise in DB
+      const roundedCost = Math.round(exactCost * 10_000) / 10_000;
+
+      if (roundedCost > 0) {
+        const deducted = await query(
+          `UPDATE user_credits
+           SET balance     = balance - $1,
+               total_spent = total_spent + $1,
+               updated_at  = NOW()
+           WHERE user_uid = $2 AND balance >= $1
+           RETURNING balance`,
+          [roundedCost, uid],
+        ).catch(() => null);
+
+        const balanceAfter = deducted?.rows?.[0]
+          ? parseFloat(deducted.rows[0].balance)
+          : balance - roundedCost;
+
+        // Log transaction with token breakdown
+        await query(
+          `INSERT INTO credit_transactions
+             (user_uid, type, amount, balance_after, description, ref_type, ref_id, tool_id)
+           VALUES ($1, 'debit', $2, $3, $4, 'ai_summary', $5, 'ai')`,
+          [
+            uid,
+            roundedCost,
+            balanceAfter,
+            `AI Summary: ${promptTokens.toLocaleString()} input + ${outputTokens.toLocaleString()} output tokens`,
+            scanId || "unknown",
+          ],
+        ).catch(() => {});
+
+        // Low-balance alert
+        if (balanceAfter < 500) {
+          import("@/lib/notifications").then(({ checkBalanceAndNotify }) =>
+            checkBalanceAndNotify(uid).catch(() => {}),
+          ).catch(() => {});
+        }
+      }
+
+      // ── Persist summary to DB (cache for free reuse) ──────────────
       if (accumulated && scanId) {
         const toolId = (await query(
           `SELECT tool_id FROM scans WHERE id = $1`,

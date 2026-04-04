@@ -1,8 +1,9 @@
 // src/app/api/dashboard/reports/route.ts
+// Reports metadata listing + manual PDF save (storage only, no billing here).
+// Billing for report generation happens in /api/pdf/route.ts at generation time.
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
-import { getRate, deductCredits, isReportAlreadyCharged } from "@/lib/credits";
 
 // ─── GET — list reports (metadata only, no blob) ──────────────────────
 export async function GET(req: NextRequest) {
@@ -31,8 +32,8 @@ export async function GET(req: NextRequest) {
 
     const total = parseInt(countRes.rows[0].count);
     return NextResponse.json({
-      success: true,
-      reports: rows.rows,
+      success:    true,
+      reports:    rows.rows,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch {
@@ -40,21 +41,22 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ─── POST — save generated PDF ───────────────────────────────────────
+// ─── POST — save generated PDF blob (called internally after generation) ─
+// NOTE: Billing is handled by /api/pdf/route.ts before this is called.
+// This endpoint is purely storage — no credit deduction here.
 export async function POST(req: NextRequest) {
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const formData = await req.formData();
-    const file   = formData.get("pdf")    as File   | null;
-    const scanId = formData.get("scanId") as string | null;
+    const file     = formData.get("pdf")    as File   | null;
+    const scanId   = formData.get("scanId") as string | null;
 
     if (!file || !scanId) {
       return NextResponse.json({ error: "Missing pdf or scanId" }, { status: 400 });
     }
 
-    // Validate the scan belongs to this user
     const scanCheck = await query(
       `SELECT id FROM scans WHERE id = $1 AND user_uid = $2 LIMIT 1`,
       [scanId, uid],
@@ -65,42 +67,9 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // ── Billing: deduct report generation cost ──────────────────────────
-    // Idempotency guard: one charge per scan_id per report type.
-    const alreadyCharged = await isReportAlreadyCharged(scanId);
-    if (!alreadyCharged) {
-      let reportRate: number;
-      try {
-        reportRate = await getRate("report");
-      } catch {
-        return NextResponse.json(
-          { error: "Pricing service unavailable. Cannot generate report." },
-          { status: 503 },
-        );
-      }
-
-      const result = await deductCredits(
-        uid,
-        reportRate,
-        `Report generation for scan ${scanId}`,
-        "report",
-        scanId,
-      );
-
-      if (!result.success) {
-        return NextResponse.json(
-          {
-            error:  `Insufficient credits. Report generation costs ₹${reportRate}. ${result.error}`,
-            code:   "INSUFFICIENT_CREDITS",
-            action: "/subscription",
-          },
-          { status: 402 },
-        );
-      }
-    }
-
     await query(
-      `INSERT INTO reports (user_uid, scan_id, pdf_blob) VALUES ($1, $2, $3)`,
+      `INSERT INTO reports (user_uid, scan_id, pdf_blob)
+       VALUES ($1, $2, $3)`,
       [uid, scanId, buffer],
     );
 
