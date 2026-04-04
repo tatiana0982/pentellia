@@ -1,32 +1,109 @@
 // src/lib/credits.ts
-// Centralised credit management. All deductions go through here.
-// Low-balance and zero-balance alerts are fired here automatically.
+// ── SINGLE SOURCE OF TRUTH FOR BILLING ────────────────────────────────
+//
+// ALL prices come from the `pricing_rates` table in PostgreSQL.
+// There are NO hardcoded prices anywhere in this file.
+// The pricing_rates table contains:
+//   deep_op      ₹250  per deep scan operation
+//   light_op     ₹170  per light scan operation
+//   report       ₹100  per report generation
+//   ai_summary   ₹100  per AI executive summary
+//   token_input  ₹180  per 1M input tokens
+//   token_output ₹250  per 1M output tokens
+//
+// Tool categorisation (deep vs light) is driven by the tool's `category`
+// column in the `tools` table — NOT a hardcoded slug list.
+//
+// DEEP categories  → charges deep_op rate
+// LIGHT categories → charges light_op rate
 
 import { query } from "@/config/db";
 
-// ── Cost map — from plans_prices project file ─────────────────
-const DEEP_TOOLS  = new Set(["webscan","web-scanner","cloudscan","cloud-security","exploit","sniper","sqlmap","xss"]);
-const LIGHT_TOOLS = new Set(["portscan","networkscan","network-scanner","discovery","asset-discovery","subdomain"]);
+// ── Tool category → rate_key mapping ─────────────────────────────────
+// Based on the tools table `category` column values.
+// Any category not listed here defaults to light_op.
+const DEEP_CATEGORIES = new Set([
+  "web",
+  "vulnerability",
+  "exploit",
+  "injection",
+  "composite",  // Web/Cloud security suites — multi-tool, high intensity
+  "cloud",
+]);
 
-export const SCAN_COSTS = {
-  normal:     0.5,
-  light:      1.0,
-  deep:       2.0,
-  ai_summary: 5.0,
-} as const;
+const LIGHT_CATEGORIES = new Set([
+  "network",
+  "reconnaissance",
+  "auth",
+  "cms",
+  "intelligence",
+]);
 
-export function getScanCost(toolId: string): number {
-  const t = toolId.toLowerCase();
-  if (DEEP_TOOLS.has(t))  return SCAN_COSTS.deep;
-  if (LIGHT_TOOLS.has(t)) return SCAN_COSTS.light;
-  return SCAN_COSTS.normal;
+export type RateKey =
+  | "deep_op"
+  | "light_op"
+  | "report"
+  | "ai_summary"
+  | "token_input"
+  | "token_output";
+
+// ── Fetch a single rate from DB ───────────────────────────────────────
+// Throws if the rate key is not found and no fallback provided.
+export async function getRate(rateKey: RateKey): Promise<number> {
+  const res = await query(
+    `SELECT rate_inr::float AS rate
+     FROM pricing_rates
+     WHERE rate_key = $1 AND is_active = TRUE
+     LIMIT 1`,
+    [rateKey],
+  );
+  if (!res.rows.length) {
+    throw new Error(`[Credits] Rate key "${rateKey}" not found in pricing_rates table`);
+  }
+  return parseFloat(res.rows[0].rate);
 }
 
-// Low-balance alert thresholds
-const LOW_BALANCE_THRESHOLD = 25; // Send alert when balance drops below ₹25
+// ── Fetch all active rates at once (for bulk use) ─────────────────────
+export async function getAllRates(): Promise<Record<RateKey, number>> {
+  const res = await query(
+    `SELECT rate_key, rate_inr::float AS rate_inr
+     FROM pricing_rates WHERE is_active = TRUE`,
+  );
+  const map: Partial<Record<RateKey, number>> = {};
+  for (const row of res.rows) {
+    map[row.rate_key as RateKey] = parseFloat(row.rate_inr);
+  }
+  return map as Record<RateKey, number>;
+}
 
-// ── Wallet init ───────────────────────────────────────────────
+// ── Determine the rate_key for a given tool ───────────────────────────
+// Looks up the tool's category in the tools table.
+// Falls back to "light_op" if the tool or category is unknown.
+export async function getRateKeyForTool(toolId: string): Promise<RateKey> {
+  const res = await query(
+    `SELECT category FROM tools WHERE id = $1 LIMIT 1`,
+    [toolId],
+  );
+  if (!res.rows.length) {
+    console.warn(`[Credits] Tool "${toolId}" not found in tools table — defaulting to light_op`);
+    return "light_op";
+  }
+  const category = (res.rows[0].category as string).toLowerCase().trim();
+  if (DEEP_CATEGORIES.has(category))  return "deep_op";
+  if (LIGHT_CATEGORIES.has(category)) return "light_op";
+  // Unknown category — log and default to light
+  console.warn(`[Credits] Unknown category "${category}" for tool "${toolId}" — defaulting to light_op`);
+  return "light_op";
+}
 
+// ── Get the INR cost for a scan tool (DB lookup, no hardcoding) ────────
+export async function getScanCostFromDB(toolId: string): Promise<{ rateKey: RateKey; amount: number }> {
+  const rateKey = await getRateKeyForTool(toolId);
+  const amount  = await getRate(rateKey);
+  return { rateKey, amount };
+}
+
+// ── Wallet initialisation ─────────────────────────────────────────────
 export async function getOrCreateWallet(uid: string) {
   const res = await query(
     `INSERT INTO user_credits (user_uid, balance, total_bought, total_spent)
@@ -46,8 +123,9 @@ export async function getBalance(uid: string): Promise<number> {
   return res.rows.length > 0 ? parseFloat(res.rows[0].balance) : 0;
 }
 
-// ── Atomic credit deduction ───────────────────────────────────
-
+// ── Atomic credit deduction ───────────────────────────────────────────
+// Uses a single UPDATE WHERE balance >= amount — truly atomic, no race condition.
+// Logs to credit_transactions immediately before returning.
 export async function deductCredits(
   uid:         string,
   amount:      number,
@@ -58,31 +136,31 @@ export async function deductCredits(
 ): Promise<{ success: boolean; balanceAfter?: number; error?: string }> {
   try {
     const result = await query(
-      `WITH locked AS (
-         SELECT balance FROM user_credits WHERE user_uid = $1 FOR UPDATE
-       ),
-       updated AS (
-         UPDATE user_credits
-         SET balance     = balance - $2,
-             total_spent = total_spent + $2,
-             updated_at  = NOW()
-         WHERE user_uid = $1 AND balance >= $2
-         RETURNING balance
-       )
-       SELECT
-         (SELECT balance FROM locked)  AS old_balance,
-         (SELECT balance FROM updated) AS new_balance`,
-      [uid, amount],
+      `UPDATE user_credits
+       SET balance     = balance - $1,
+           total_spent = total_spent + $1,
+           updated_at  = NOW()
+       WHERE user_uid = $2 AND balance >= $1
+       RETURNING balance`,
+      [amount, uid],
     );
 
-    const row = result.rows[0];
-    if (row.new_balance === null) {
-      return { success: false, error: "Insufficient credits" };
+    if (!result.rows.length) {
+      // Fetch actual balance for a meaningful error message
+      const balRes = await query(
+        `SELECT COALESCE(balance, 0) AS b FROM user_credits WHERE user_uid = $1`,
+        [uid],
+      );
+      const current = parseFloat(balRes.rows[0]?.b ?? "0");
+      return {
+        success: false,
+        error:   `Insufficient credits. Required: ₹${amount.toFixed(2)}, Available: ₹${current.toFixed(2)}.`,
+      };
     }
 
-    const balanceAfter = parseFloat(row.new_balance);
+    const balanceAfter = parseFloat(result.rows[0].balance);
 
-    // Append to credit ledger
+    // Append to immutable credit ledger
     await query(
       `INSERT INTO credit_transactions
          (user_uid, type, amount, balance_after, description, ref_type, ref_id, tool_id)
@@ -90,32 +168,11 @@ export async function deductCredits(
       [uid, amount, balanceAfter, description, refType, refId, toolId ?? null],
     );
 
-    // Fire low-balance or exhausted email asynchronously
-    if (balanceAfter === 0 || balanceAfter < LOW_BALANCE_THRESHOLD) {
-      // Lazy import to avoid circular dependency at module load time
-      import("@/lib/email").then(({ sendEmail }) =>
-        import("@/lib/email-templates").then(({ lowCreditsEmail, creditsExhaustedEmail }) =>
-          query(`SELECT email, first_name FROM users WHERE uid = $1`, [uid]).then((r) => {
-            const userEmail = r.rows[0]?.email;
-            const firstName = r.rows[0]?.first_name || "there";
-            if (!userEmail) return;
-
-            if (balanceAfter === 0) {
-              sendEmail(
-                userEmail,
-                "Wallet Balance Exhausted \u2014 Scanning Paused",
-                creditsExhaustedEmail(firstName),
-              ).catch(console.error);
-            } else {
-              sendEmail(
-                userEmail,
-                "Low Wallet Balance \u2014 Pentellia",
-                lowCreditsEmail(firstName, balanceAfter, 25),
-              ).catch(console.error);
-            }
-          }),
-        ),
-      ).catch(console.error);
+    // Fire low-balance alert asynchronously — never blocks the response
+    if (balanceAfter < 500) {
+      import("@/lib/notifications").then(({ checkBalanceAndNotify }) =>
+        checkBalanceAndNotify(uid).catch(() => {}),
+      ).catch(() => {});
     }
 
     return { success: true, balanceAfter };
@@ -125,13 +182,35 @@ export async function deductCredits(
   }
 }
 
-// ── Credit addition ───────────────────────────────────────────
+// ── Check if a scan has already been charged ──────────────────────────
+// Prevents double-deduction when the completion handler is called more than once.
+export async function isScanAlreadyCharged(scanId: string): Promise<boolean> {
+  const res = await query(
+    `SELECT 1 FROM credit_transactions
+     WHERE ref_id = $1 AND ref_type = 'scan'
+     LIMIT 1`,
+    [scanId],
+  );
+  return res.rows.length > 0;
+}
 
+// ── Check if a report has already been charged ────────────────────────
+export async function isReportAlreadyCharged(scanId: string): Promise<boolean> {
+  const res = await query(
+    `SELECT 1 FROM credit_transactions
+     WHERE ref_id = $1 AND ref_type = 'report'
+     LIMIT 1`,
+    [scanId],
+  );
+  return res.rows.length > 0;
+}
+
+// ── Credit addition (used by payment routes) ──────────────────────────
 export async function addCredits(
-  uid:          string,
-  amount:       number,
-  description:  string,
-  paymentId:    string,
+  uid:         string,
+  amount:      number,
+  description: string,
+  paymentId:   string,
 ): Promise<number> {
   await query(
     `INSERT INTO user_credits (user_uid, balance, total_bought, total_spent)
@@ -143,7 +222,7 @@ export async function addCredits(
     [uid, amount],
   );
 
-  const wallet = await getOrCreateWallet(uid);
+  const wallet       = await getOrCreateWallet(uid);
   const balanceAfter = parseFloat(wallet.balance);
 
   await query(

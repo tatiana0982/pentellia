@@ -4,10 +4,15 @@ import { query } from "@/config/db";
 import { adminAuth } from "@/config/firebaseAdmin";
 import { cookies } from "next/headers";
 import { createNotification } from "@/lib/notifications";
+import {
+  getScanCostFromDB,
+  deductCredits,
+  isScanAlreadyCharged,
+} from "@/lib/credits";
 
 async function getUid() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("__session")?.value;
+  const cookieStore    = await cookies();
+  const sessionCookie  = cookieStore.get("__session")?.value;
   if (!sessionCookie) return null;
   try {
     const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
@@ -19,7 +24,7 @@ async function getUid() {
 
 async function safeFetch(url: string, opts?: RequestInit) {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(20_000), ...opts });
+    const res  = await fetch(url, { signal: AbortSignal.timeout(20_000), ...opts });
     let json: any = null;
     try { json = await res.json(); } catch { json = null; }
     return { ok: res.ok, status: res.status, json };
@@ -28,7 +33,44 @@ async function safeFetch(url: string, opts?: RequestInit) {
   }
 }
 
-// ── POST: CMS confirmation ──────────────────────────────────────────────
+// ── Charge for a completed scan (idempotency-safe) ────────────────────
+// Always called AFTER the scan result is persisted to DB.
+// Skips silently if the scan was already charged (handles polling duplicates).
+async function chargeForScan(uid: string, scanId: string, toolId: string, target: string) {
+  try {
+    // Idempotency guard — polling calls this path multiple times
+    const alreadyCharged = await isScanAlreadyCharged(scanId);
+    if (alreadyCharged) return;
+
+    // Fetch the correct rate from DB based on tool category
+    const { rateKey, amount } = await getScanCostFromDB(toolId);
+
+    const result = await deductCredits(
+      uid,
+      amount,
+      `Scan: ${toolId} → ${target}`,
+      "scan",
+      scanId,
+      toolId,
+    );
+
+    if (!result.success) {
+      // Log the failure — the scan already completed so we cannot roll it back,
+      // but we must record the deduction attempt for reconciliation.
+      console.error(
+        `[Billing] Failed to charge scan ${scanId} (${rateKey} ₹${amount}): ${result.error}`,
+      );
+    } else {
+      console.log(
+        `[Billing] Scan ${scanId} charged: ${rateKey} ₹${amount}. Balance after: ₹${result.balanceAfter}`,
+      );
+    }
+  } catch (err) {
+    console.error(`[Billing] chargeForScan error for scan ${scanId}:`, err);
+  }
+}
+
+// ── POST: CMS interactive confirmation ───────────────────────────────
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -51,19 +93,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { ok, json, status } = await safeFetch(
       `${process.env.TOOLS_BASE_URL}/confirm-cms/${external_job_id}`,
       {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": process.env.TOOLS_API_KEY || "" },
-        body: JSON.stringify({ confirm }),
+        body:    JSON.stringify({ confirm }),
       },
     );
     if (!ok) return NextResponse.json({ error: "Python server error" }, { status: status || 502 });
     return NextResponse.json({ success: true, data: json });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
-// ── GET: Sync scan status ───────────────────────────────────────────────
+// ── GET: Poll scan status + deduct on completion ──────────────────────
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -81,8 +123,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     let scan = dbRes.rows[0];
 
-    // Already finished — return DB data immediately, no Flask call needed
+    // Already finished — ensure it was charged, then return
     if (["completed", "failed", "cancelled"].includes(scan.status)) {
+      if (scan.status === "completed") {
+        // Non-blocking — fire and forget, idempotency guard inside
+        chargeForScan(uid, scan.id, scan.tool_id, scan.target).catch(() => {});
+      }
       return NextResponse.json({ success: true, scan });
     }
 
@@ -90,18 +136,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const apiKey    = process.env.TOOLS_API_KEY || "";
     const jobId     = scan.external_job_id;
 
-    // Fetch status from Flask
+    // Fetch current status from Flask
     const statusResult = await safeFetch(`${toolsBase}/status/${jobId}`, {
       headers: { "X-API-Key": apiKey },
     });
 
-    // Flask unreachable
+    // Flask unreachable — return current DB state
     if (statusResult.status === 0) {
       console.error(`[Scan] Flask unreachable: ${statusResult.error}`);
       return NextResponse.json({ success: true, scan, confirmations: [] });
     }
 
-    // Job missing on Flask — mark failed
+    // Job missing on Flask — mark failed (no charge for failed scans)
     if (statusResult.status === 404) {
       const updateRes = await query(
         `UPDATE scans SET status='failed', result=$1, completed_at=NOW() WHERE id=$2 RETURNING *`,
@@ -112,7 +158,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ success: true, scan });
     }
 
-    // Flask returned non-ok but not 404
     if (!statusResult.ok) {
       return NextResponse.json({ success: true, scan, confirmations: [] });
     }
@@ -131,7 +176,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     }
 
-    // Still running / failed
+    // Still running
     if (newStatus !== "completed") {
       if (newStatus && newStatus !== scan.status) {
         await query(`UPDATE scans SET status=$1 WHERE id=$2`, [newStatus, id]);
@@ -143,7 +188,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ success: true, scan, pythonStatus: statusData, confirmations });
     }
 
-    // Completed — fetch results
+    // ── SCAN COMPLETED ──────────────────────────────────────────────
     const isDiscovery = scan.tool_id === "discovery" || scan.tool_name === "Asset Discovery";
     const resultUrl   = isDiscovery
       ? `${toolsBase}/results/${jobId}`
@@ -152,18 +197,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const resultResult = await safeFetch(resultUrl, { headers: { "X-API-Key": apiKey } });
     const resultData   = resultResult.json ?? { error: "Failed to fetch results" };
 
-    const newStatusVal = resultData.error ? "failed" : "completed";
+    const finalStatus = resultData.error ? "failed" : "completed";
     const updateRes = await query(
       `UPDATE scans SET status=$1, result=$2, completed_at=NOW() WHERE id=$3 RETURNING *`,
-      [newStatusVal, JSON.stringify(resultData), id],
+      [finalStatus, JSON.stringify(resultData), id],
     );
     scan = { ...scan, ...updateRes.rows[0] };
 
-    const notifTitle = newStatusVal === "completed" ? "Scan Completed" : "Scan Failed";
-    const notifMsg   = newStatusVal === "completed"
+    // ── BILLING: deduct scan cost from wallet ───────────────────────
+    // Only charge for successfully completed scans, not failed ones.
+    if (finalStatus === "completed") {
+      chargeForScan(uid, scan.id, scan.tool_id, scan.target).catch((err) =>
+        console.error("[Billing] chargeForScan failed:", err),
+      );
+    }
+
+    const notifTitle = finalStatus === "completed" ? "Scan Completed" : "Scan Failed";
+    const notifMsg   = finalStatus === "completed"
       ? `Scan finished for ${scan.target}. Click to view.`
       : `Scan for ${scan.target} failed.`;
-    createNotification(uid, notifTitle, notifMsg, newStatusVal === "completed" ? "success" : "error").catch(() => {});
+    createNotification(uid, notifTitle, notifMsg, finalStatus === "completed" ? "success" : "error").catch(() => {});
 
     return NextResponse.json({ success: true, scan });
   } catch (err: any) {
@@ -175,7 +228,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// ── DELETE ──────────────────────────────────────────────────────────────
+// ── DELETE ────────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

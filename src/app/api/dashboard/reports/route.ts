@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
+import { getRate, deductCredits, isReportAlreadyCharged } from "@/lib/credits";
 
 // ─── GET — list reports (metadata only, no blob) ──────────────────────
 export async function GET(req: NextRequest) {
@@ -63,6 +64,40 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // ── Billing: deduct report generation cost ──────────────────────────
+    // Idempotency guard: one charge per scan_id per report type.
+    const alreadyCharged = await isReportAlreadyCharged(scanId);
+    if (!alreadyCharged) {
+      let reportRate: number;
+      try {
+        reportRate = await getRate("report");
+      } catch {
+        return NextResponse.json(
+          { error: "Pricing service unavailable. Cannot generate report." },
+          { status: 503 },
+        );
+      }
+
+      const result = await deductCredits(
+        uid,
+        reportRate,
+        `Report generation for scan ${scanId}`,
+        "report",
+        scanId,
+      );
+
+      if (!result.success) {
+        return NextResponse.json(
+          {
+            error:  `Insufficient credits. Report generation costs ₹${reportRate}. ${result.error}`,
+            code:   "INSUFFICIENT_CREDITS",
+            action: "/subscription",
+          },
+          { status: 402 },
+        );
+      }
+    }
 
     await query(
       `INSERT INTO reports (user_uid, scan_id, pdf_blob) VALUES ($1, $2, $3)`,

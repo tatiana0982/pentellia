@@ -1,11 +1,11 @@
 // src/app/api/ai/summarize/route.ts
-// ⚠ NO edge runtime — uses @/lib/auth which requires Node.js crypto
+// ⚠ NO edge runtime — uses Node.js crypto via @/lib/auth
 import { NextRequest, NextResponse } from "next/server";
 import { getUid } from "@/lib/auth";
 import { query } from "@/config/db";
+import { getRate } from "@/lib/credits";
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
-const AI_COST      = 5.0;
 
 export async function POST(req: NextRequest) {
   const uid = await getUid();
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Scan not found" }, { status: 404 });
     }
 
-    // ── Return cached summary (no credit deduction) ────────────────
+    // ── Return cached summary — no charge ─────────────────────────
     const cached = await query(
       `SELECT content FROM ai_summaries WHERE scan_id = $1 LIMIT 1`,
       [scanId],
@@ -50,11 +50,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Atomic credit deduction ───────────────────────────────────────
-  // Single UPDATE with WHERE balance >= cost — no separate SELECT needed.
-  // The old FOR UPDATE pattern had no surrounding BEGIN/COMMIT so the row
-  // lock was released immediately, giving zero race protection. This single
-  // statement is truly atomic at the DB level.
+  // ── Fetch AI summary cost from DB (no hardcoding) ──────────────────
+  // pricing_rates.ai_summary is the authoritative price.
+  let AI_COST: number;
+  try {
+    AI_COST = await getRate("ai_summary");
+  } catch (err) {
+    console.error("[AI Summarize] Could not fetch ai_summary rate:", err);
+    return NextResponse.json({ error: "Pricing service unavailable" }, { status: 503 });
+  }
+
+  // ── Atomic credit deduction ────────────────────────────────────────
+  // Single UPDATE WHERE balance >= cost — race-condition safe.
   const deducted = await query(
     `UPDATE user_credits
      SET balance     = balance - $1,
@@ -66,7 +73,6 @@ export async function POST(req: NextRequest) {
   ).catch(() => null);
 
   if (!deducted?.rows.length) {
-    // Fetch real balance for a precise error message
     const balRes  = await query(
       `SELECT COALESCE(balance, 0) AS b FROM user_credits WHERE user_uid = $1`,
       [uid],
@@ -84,9 +90,8 @@ export async function POST(req: NextRequest) {
   }
   const balanceAfter = parseFloat(deducted.rows[0].balance);
 
-  // ── Log transaction IMMEDIATELY after deduction ───────────────────
-  // Must happen before the stream starts so the audit record is never
-  // lost even if the stream errors or the client disconnects mid-way.
+  // ── Log transaction immediately (before stream starts) ────────────
+  // Logged here so the audit record is never lost if the stream errors.
   await query(
     `INSERT INTO credit_transactions
        (user_uid, type, amount, balance_after, description, ref_type, ref_id, tool_id)
@@ -94,16 +99,16 @@ export async function POST(req: NextRequest) {
     [uid, AI_COST, balanceAfter, scanId || "unknown"],
   ).catch(() => {});
 
-  // ── Check balance thresholds and notify ───────────────────────────
+  // Balance alert
   try {
     const { checkBalanceAndNotify } = await import("@/lib/notifications");
     checkBalanceAndNotify(uid).catch(() => {});
   } catch {}
 
-  // ── Call DeepSeek API ─────────────────────────────────────────────
+  // ── Fetch DeepSeek API key ────────────────────────────────────────
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
-    // Refund on config error
+    // Refund — config error is not the user's fault
     await query(
       `UPDATE user_credits SET balance = balance + $1, total_spent = total_spent - $1 WHERE user_uid = $2`,
       [AI_COST, uid],
@@ -126,7 +131,7 @@ Data: ${JSON.stringify(scanData).slice(0, 12_000)}`;
   const dsRes = await fetch(DEEPSEEK_URL, {
     method:  "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
+    body:    JSON.stringify({
       model:       "deepseek-chat",
       messages:    [{ role: "user", content: prompt }],
       stream:      true,
@@ -135,7 +140,7 @@ Data: ${JSON.stringify(scanData).slice(0, 12_000)}`;
   });
 
   if (!dsRes.ok) {
-    // Refund on API error
+    // Refund — DeepSeek API error
     await query(
       `UPDATE user_credits SET balance = balance + $1, total_spent = total_spent - $1 WHERE user_uid = $2`,
       [AI_COST, uid],
@@ -169,7 +174,7 @@ Data: ${JSON.stringify(scanData).slice(0, 12_000)}`;
       }
       controller.close();
 
-      // ── Persist summary to DB ──────────────────────────────────────
+      // Persist summary to DB (cache for free reuse)
       if (accumulated && scanId) {
         const toolId = (await query(
           `SELECT tool_id FROM scans WHERE id = $1`,
@@ -178,13 +183,11 @@ Data: ${JSON.stringify(scanData).slice(0, 12_000)}`;
 
         await query(
           `INSERT INTO ai_summaries (scan_id, user_uid, tool_id, content)
-           VALUES ($1,$2,$3,$4)
+           VALUES ($1, $2, $3, $4)
            ON CONFLICT (scan_id) DO UPDATE SET content = $4, updated_at = NOW()`,
           [scanId, uid, toolId, accumulated],
         ).catch(() => {});
       }
-
-      // Transaction already logged before stream started (audit-safe).
     },
   });
 
