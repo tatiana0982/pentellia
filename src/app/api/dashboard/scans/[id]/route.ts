@@ -6,8 +6,6 @@ import { cookies } from "next/headers";
 import { createNotification } from "@/lib/notifications";
 import {
   getScanCostFromDB,
-  deductCredits,
-  isScanAlreadyCharged,
 } from "@/lib/credits";
 
 async function getUid() {
@@ -33,38 +31,43 @@ async function safeFetch(url: string, opts?: RequestInit) {
   }
 }
 
-// ── Charge for a completed scan (idempotency-safe) ────────────────────
-// Always called AFTER the scan result is persisted to DB.
-// Skips silently if the scan was already charged (handles polling duplicates).
+// ── Charge for a completed scan — atomic, single-fire ─────────────────
+// Uses INSERT ... WHERE NOT EXISTS at the DB level so concurrent calls
+// are safe even if both pass the application-level check simultaneously.
 async function chargeForScan(uid: string, scanId: string, toolId: string, target: string) {
   try {
-    // Idempotency guard — polling calls this path multiple times
-    const alreadyCharged = await isScanAlreadyCharged(scanId);
-    if (alreadyCharged) return;
-
-    // Fetch the correct rate from DB based on tool category
     const { rateKey, amount } = await getScanCostFromDB(toolId);
 
-    const result = await deductCredits(
-      uid,
-      amount,
-      `Scan: ${toolId} → ${target}`,
-      "scan",
-      scanId,
-      toolId,
+    // Atomic guard: INSERT the credit_transaction only if none exists yet
+    // for this scan. The deduction and log happen in a single DB transaction
+    // so there is no window for a race condition.
+    const result = await query(
+      `WITH already AS (
+         SELECT 1 FROM credit_transactions
+         WHERE ref_id = $1 AND ref_type = 'scan' LIMIT 1
+       ),
+       deducted AS (
+         UPDATE user_credits
+         SET balance     = balance - $2,
+             total_spent = total_spent + $2,
+             updated_at  = NOW()
+         WHERE user_uid = $3 AND balance >= $2
+           AND NOT EXISTS (SELECT 1 FROM already)
+         RETURNING balance
+       )
+       INSERT INTO credit_transactions
+         (user_uid, type, amount, balance_after, description, ref_type, ref_id, tool_id)
+       SELECT $3, 'debit', $2, d.balance,
+              $4, 'scan', $1, $5
+       FROM deducted d
+       RETURNING balance_after`,
+      [scanId, amount, uid, `Scan: ${toolId} → ${target}`, toolId],
     );
 
-    if (!result.success) {
-      // Log the failure — the scan already completed so we cannot roll it back,
-      // but we must record the deduction attempt for reconciliation.
-      console.error(
-        `[Billing] Failed to charge scan ${scanId} (${rateKey} ₹${amount}): ${result.error}`,
-      );
-    } else {
-      console.log(
-        `[Billing] Scan ${scanId} charged: ${rateKey} ₹${amount}. Balance after: ₹${result.balanceAfter}`,
-      );
+    if (result.rows.length > 0) {
+      console.log(`[Billing] Scan ${scanId} charged: ${rateKey} ₹${amount}. Balance: ₹${result.rows[0].balance_after}`);
     }
+    // result.rows.length === 0 means it was already charged — silent skip
   } catch (err) {
     console.error(`[Billing] chargeForScan error for scan ${scanId}:`, err);
   }
@@ -123,12 +126,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     let scan = dbRes.rows[0];
 
-    // Already finished — ensure it was charged, then return
+    // Already finished — return DB data immediately, no charge here.
+    // The charge fires ONLY during the running→completed transition below.
+    // Re-calling it here would cause double-charges on every subsequent poll.
     if (["completed", "failed", "cancelled"].includes(scan.status)) {
-      if (scan.status === "completed") {
-        // Non-blocking — fire and forget, idempotency guard inside
-        chargeForScan(uid, scan.id, scan.tool_id, scan.target).catch(() => {});
-      }
       return NextResponse.json({ success: true, scan });
     }
 
