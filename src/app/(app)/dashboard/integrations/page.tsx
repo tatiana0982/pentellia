@@ -7,6 +7,8 @@ import {
   ExternalLink,
   Plus,
   LayoutGrid,
+  Construction,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // --- Integration Data ---
 type Category =
@@ -188,6 +191,7 @@ const integrations: Integration[] = [
 export default function IntegrationsPage() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
+  const router = useRouter();
 
   // Filter Logic
   const filteredIntegrations = integrations.filter((item) => {
@@ -212,20 +216,42 @@ export default function IntegrationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/subscription">
-            <Button
-              variant="outline"
-              className="border-white/10 bg-white/5 text-slate-300 hover:text-white"
-            >
-              <ExternalLink className="mr-2 h-4 w-4" /> Documentation
-            </Button>
-          </Link>
-          <Link href="/subscription">
-            <Button className="bg-violet-600 hover:bg-violet-500 text-white">
-              <Plus className="mr-2 h-4 w-4" /> Request Integration
-            </Button>
-          </Link>
+          <Button
+            variant="outline"
+            className="border-white/10 bg-white/5 text-slate-300 hover:text-white"
+            onClick={() => router.push("/dashboard/support")}
+          >
+            <ExternalLink className="mr-2 h-4 w-4" /> Documentation
+          </Button>
+          <Button
+            className="bg-violet-600 hover:bg-violet-500 text-white"
+            onClick={() => router.push("/dashboard/support")}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Request Integration
+          </Button>
         </div>
+      </div>
+
+      {/* ── Coming Soon Banner ── */}
+      <div className="flex items-start gap-4 p-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.06]">
+        <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+          <Construction className="h-5 w-5 text-amber-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-300 mb-0.5">Integrations are under active development</p>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            These integrations are not yet live. Browse available connections below and contact support to request priority access to a specific integration.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0 border-amber-500/30 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200"
+          onClick={() => router.push("/dashboard/support")}
+        >
+          <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
+          Contact Support
+        </Button>
       </div>
 
       {/* --- Controls Toolbar --- */}
@@ -326,6 +352,7 @@ export default function IntegrationsPage() {
 function IntegrationCard({ item }: { item: Integration }) {
   const isConnected = item.status === "connected";
   const isPremium = item.status === "premium";
+  const router = useRouter();
 
   return (
     <div className="group relative flex flex-col justify-between p-6 rounded-2xl border border-white/10 bg-[#0B0C15] hover:border-violet-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-violet-900/10 overflow-hidden">
@@ -392,20 +419,17 @@ function IntegrationCard({ item }: { item: Integration }) {
             Enterprise
           </Badge>
         ) : (
-          <span className="text-xs text-slate-500 font-medium">Available</span>
+          <span className="text-xs text-slate-500 font-medium">Coming Soon</span>
         )}
 
         <Button
-          variant={isConnected ? "outline" : "secondary"}
+          variant="secondary"
           size="sm"
-          className={cn(
-            "h-8 text-xs font-medium transition-all min-w-[80px]",
-            isConnected
-              ? "border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
-              : "bg-white text-black hover:bg-slate-200"
-          )}
+          className="h-8 text-xs font-medium transition-all min-w-[80px] bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/10"
+          onClick={() => router.push("/dashboard/support")}
+          title="Contact support to request this integration"
         >
-          {isConnected ? "Configure" : "Connect"}
+          Request
         </Button>
       </div>
     </div>

@@ -45,6 +45,10 @@ export function Header({ toggleSidebar }: HeaderProps) {
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount,   setUnreadCount]   = useState(0);
+  // Prevents Radix DropdownMenu from rendering server-side, which causes
+  // mismatched auto-generated IDs between SSR and hydration.
+  const [mounted,       setMounted]       = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Wallet state derivation
   const isNewUser  = !wLoading && balance === 0 && totalScans === 0;
@@ -201,8 +205,8 @@ export function Header({ toggleSidebar }: HeaderProps) {
             </Tooltip>
           )}
 
-          {/* Notifications */}
-          <DropdownMenu>
+          {/* Notifications — mounted guard prevents Radix hydration ID mismatch */}
+          {mounted && <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="relative h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 transition-all">
                 <Bell className="h-5 w-5" />
@@ -295,12 +299,12 @@ export function Header({ toggleSidebar }: HeaderProps) {
                 </div>
               )}
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu>}
 
           <div className="h-5 w-px bg-slate-800 mx-1" />
 
-          {/* Profile dropdown */}
-          <DropdownMenu>
+          {/* Profile dropdown — mounted guard prevents Radix hydration ID mismatch */}
+          {mounted && <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-slate-800/50 transition-all group">
                 <div className="relative flex items-center justify-center h-8 w-8">
@@ -366,7 +370,7 @@ export function Header({ toggleSidebar }: HeaderProps) {
                 <span className="text-sm">Sign out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu>}
         </div>
       </header>
     </TooltipProvider>

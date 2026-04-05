@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 import { DomainVerificationProvider } from "@/context/DomainVerificationContext";
 import { useDomainGate } from "@/context/DomainVerificationContext";
 import { WalletProvider } from "@/providers/WalletProvider";
+import { DomainVerificationModal } from "@/components/domain-verification-modal";
 import { ShieldAlert, ArrowRight, X } from "lucide-react";
 
 function UnverifiedBanner() {
@@ -96,6 +97,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         >
           {children}
         </InnerLayout>
+        {/* Global domain verification modal — opened by requireVerifiedDomain() / openModal() */}
+        <DomainVerificationModal />
       </DomainVerificationProvider>
     </WalletProvider>
   );

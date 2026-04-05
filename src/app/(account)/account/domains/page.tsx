@@ -335,12 +335,15 @@ export default function DomainsPage() {
         body: JSON.stringify({ name: trimmed }),
       });
       const data = await res.json();
-      if (data.success || data.message) {
-        toast.success("Domain added");
+      if (res.ok && data.success) {
+        toast.success("Domain added — choose a verification method to unlock scanning.");
         setNewName("");
         await fetchDomains(true);
+      } else if (res.status === 409) {
+        // Domain already verified by another account
+        toast.error(data.error ?? "This domain is already claimed by another account.");
       } else {
-        toast.error(data.error ?? "Failed to add domain");
+        toast.error(data.error ?? data.message ?? "Failed to add domain");
       }
     } catch { toast.error("Network error"); }
     finally  { setAdding(false); }
@@ -357,12 +360,14 @@ export default function DomainsPage() {
     try {
       const res  = await fetch(`/api/domains/${id}/verify`, { method: "POST" });
       const data = await res.json();
-      if (data.success || data.message?.includes("verified")) {
-        toast.success("Domain verified successfully!");
+      if (res.ok && (data.success || data.message?.includes("verified"))) {
+        toast.success("Domain verified! All scanning tools are now unlocked.");
         window.dispatchEvent(new Event("refresh-notifications"));
         await fetchDomains(true);
+      } else if (res.status === 409) {
+        toast.error(data.error ?? "This domain was claimed by another account before verification completed.");
       } else {
-        toast.error(data.error ?? "Verification failed — TXT record not found yet");
+        toast.error(data.error ?? data.message ?? "Verification failed — check your DNS / file / meta tag and try again.");
       }
     } catch { toast.error("Network error"); }
     finally  { setVerifying(null); }

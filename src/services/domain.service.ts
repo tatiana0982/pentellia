@@ -36,6 +36,15 @@ export class DomainService {
     const domain = await this.domainRepo.findByUserAndDomainId(userId, domainId);
     if (!domain) throw new ApiError(404, "Domain not found");
 
+    // Before verifying, confirm no other account has verified this domain in the meantime
+    const otherOwner = await this.domainRepo.findVerifiedDomainByName(domain.name, userId);
+    if (otherOwner) {
+      throw new ApiError(
+        409,
+        "This domain has already been verified by another account and cannot be claimed. Contact support if you believe this is incorrect.",
+      );
+    }
+
     const token = domain.verificationToken;
     const name  = domain.name;
 
@@ -96,8 +105,18 @@ export class DomainService {
   async createDomain(name: string, userId: string): Promise<Domain> {
     const domain = this.normalizeDomain(name);
 
+    // Check if this user already added the domain
     const existing = await this.domainRepo.findByUserAndDomainName(userId, domain);
-    if (existing) throw new ApiError(400, "Domain already exists for this user");
+    if (existing) throw new ApiError(400, "You have already added this domain to your account.");
+
+    // Check if another account has already VERIFIED this domain
+    const otherOwner = await this.domainRepo.findVerifiedDomainByName(domain, userId);
+    if (otherOwner) {
+      throw new ApiError(
+        409,
+        "This domain is already verified by another account. A domain can only be active under one account at a time. If you believe this is an error, contact support.",
+      );
+    }
 
     return this.domainRepo.create({
       name:              domain,

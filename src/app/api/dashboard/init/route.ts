@@ -101,17 +101,41 @@ export async function GET() {
     const domains      = domainsRes.rows[0] ?? {};
     const user         = userRes.rows[0] ?? {};
 
-    // Aggregate risk from the full result JSON (now returned by CTE)
-    let crit = 0, high = 0, med = 0, low = 0;
+    // ── Deduplicated findings calculation ─────────────────────────────────
+    // Rule: for each unique target, only count findings from the MOST RECENT
+    // completed scan per tool-category (composite scans count as one category).
+    // This prevents double-counting when the same target is scanned multiple
+    // times — the dashboard should show the CURRENT risk state, not cumulative.
+    //
+    // Example: target xyz.com scanned twice (both webscan) → only latest counts.
+    // Example: xyz.com webscan (20 findings) + 1.2.3.4 cloud scan (10 findings)
+    //          → total = 30, not 50.
+    const seenTargetTool = new Map<string, { crit: number; high: number; med: number; low: number }>();
+
+    // recent is already ordered by created_at DESC — first occurrence wins
     for (const s of recent) {
-      // result is returned as parsed JSON by pg (jsonb column)
+      if (s.status !== "completed") continue;
       const sm = s.result?.summary;
-      if (sm) {
-        crit += Number(sm.critical) || 0;
-        high += Number(sm.high)     || 0;
-        med  += Number(sm.medium)   || 0;
-        low  += Number(sm.low)      || 0;
-      }
+      if (!sm) continue;
+
+      // Key = target + tool_id to deduplicate same-tool re-scans on same target
+      const key = `${(s.target || "").toLowerCase()}::${(s.tool_id || "unknown")}`;
+      if (seenTargetTool.has(key)) continue; // already have a newer scan for this target+tool
+
+      seenTargetTool.set(key, {
+        crit: Number(sm.critical) || 0,
+        high: Number(sm.high)     || 0,
+        med:  Number(sm.medium)   || 0,
+        low:  Number(sm.low)      || 0,
+      });
+    }
+
+    let crit = 0, high = 0, med = 0, low = 0;
+    for (const v of seenTargetTool.values()) {
+      crit += v.crit;
+      high += v.high;
+      med  += v.med;
+      low  += v.low;
     }
 
     const exposureTrend = trend.map((t: any) => ({ date: t.date, scans: parseInt(t.count) }));

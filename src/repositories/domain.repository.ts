@@ -56,6 +56,16 @@ export class DomainRepository {
     return res.rows.length ? mapRow(res.rows[0]) : null;
   }
 
+  // Check if ANY other account (different user) has already verified this domain.
+  // Returns the owning user's UID if found, null otherwise.
+  async findVerifiedDomainByName(domainName: string, excludeUserId: string): Promise<string | null> {
+    const res = await query(
+      `SELECT user_uid FROM domains WHERE name = $1 AND is_verified = TRUE AND user_uid != $2 LIMIT 1`,
+      [domainName, excludeUserId],
+    );
+    return res.rows.length ? res.rows[0].user_uid : null;
+  }
+
   async markVerified(domainId: string): Promise<void> {
     await query(
       `UPDATE domains SET is_verified = TRUE, verified_at = NOW(), updated_at = NOW() WHERE id = $1`,

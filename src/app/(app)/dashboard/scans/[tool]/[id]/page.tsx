@@ -23,7 +23,7 @@ import toast from "react-hot-toast";
 
 import { CommonScanReport } from "@/lib/Common";
 import { AssetDiscoveryReport } from "@/lib/AssetDiscoveryReport";
-import { triggerNotificationRefresh } from "@/lib/events";
+import { triggerNotificationRefresh, triggerWalletRefresh, triggerFullRefresh } from "@/lib/events";
 
 // ─────────────────────────────────────────────────────────────────────
 // Types
@@ -432,7 +432,7 @@ export default function ScanReportPage() {
 
         if (["completed", "failed", "cancelled"].includes(scanData.status)) {
           setPolling(false);
-          if (scanData.status === "completed") triggerNotificationRefresh();
+          if (scanData.status === "completed") triggerFullRefresh(); // wallet charged + notification created
         }
       } catch (err) {
         console.error("[Polling]", err);
@@ -504,6 +504,8 @@ export default function ScanReportPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ scanId, toolId: scan.tool_name, content: full }),
         }).catch(console.error);
+        // Wallet was debited before stream started — refresh balance display now
+        triggerWalletRefresh();
       }
     } catch (err: any) {
       toast.error(err.message ?? "Generation failed.");
@@ -575,12 +577,19 @@ export default function ScanReportPage() {
     const tid = toast.loading("Finalizing PDF...", { style: { background: "#0B0C15", color: "#fff" } });
     try {
       const res = await fetch("/api/pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...scan, ai_summary: aiSummary }) });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Export failed");
+      }
       const blob = await res.blob(), url = window.URL.createObjectURL(blob), a = document.createElement("a");
       a.href = url; a.download = `Pentellia_Report_${scan.id.slice(0, 8)}.pdf`;
       document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
       toast.success("Report exported", { id: tid });
-    } catch { toast.error("Export failed", { id: tid }); }
+      // ₹100 was charged after successful PDF generation — refresh wallet balance
+      triggerWalletRefresh();
+    } catch (err: any) {
+      toast.error(err.message || "Export failed", { id: tid });
+    }
   };
 
   const handleCmsAction = async (confirm: boolean) => {
