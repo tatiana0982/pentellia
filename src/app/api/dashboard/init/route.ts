@@ -110,7 +110,7 @@ export async function GET() {
     // Example: target xyz.com scanned twice (both webscan) → only latest counts.
     // Example: xyz.com webscan (20 findings) + 1.2.3.4 cloud scan (10 findings)
     //          → total = 30, not 50.
-    const seenTargetTool = new Map<string, { crit: number; high: number; med: number; low: number }>();
+    const seenTargetTool = new Map<string, { crit: number; high: number; med: number; low: number; info: number }>();
 
     // recent is already ordered by created_at DESC — first occurrence wins
     for (const s of recent) {
@@ -123,19 +123,21 @@ export async function GET() {
       if (seenTargetTool.has(key)) continue; // already have a newer scan for this target+tool
 
       seenTargetTool.set(key, {
-        crit: Number(sm.critical) || 0,
-        high: Number(sm.high)     || 0,
-        med:  Number(sm.medium)   || 0,
-        low:  Number(sm.low)      || 0,
+        crit: Number(sm.critical)     || 0,
+        high: Number(sm.high)         || 0,
+        med:  Number(sm.medium)       || 0,
+        low:  Number(sm.low)          || 0,
+        info: Number(sm.info)         || 0,
       });
     }
 
-    let crit = 0, high = 0, med = 0, low = 0;
+    let crit = 0, high = 0, med = 0, low = 0, info = 0;
     for (const v of seenTargetTool.values()) {
       crit += v.crit;
       high += v.high;
       med  += v.med;
       low  += v.low;
+      info += v.info;
     }
 
     const exposureTrend = trend.map((t: any) => ({ date: t.date, scans: parseInt(t.count) }));
@@ -157,10 +159,11 @@ export async function GET() {
       charts: {
         exposureTrend,
         riskDistribution: [
-          { name: "Critical", value: crit, fill: "#ef4444" },
-          { name: "High",     value: high, fill: "#f97316" },
-          { name: "Medium",   value: med,  fill: "#eab308" },
-          { name: "Low",      value: low,  fill: "#3b82f6" },
+          { name: "Critical",      value: crit, fill: "#ef4444" },
+          { name: "High",          value: high, fill: "#f97316" },
+          { name: "Medium",        value: med,  fill: "#eab308" },
+          { name: "Low",           value: low,  fill: "#3b82f6" },
+          { name: "Informational", value: info, fill: "#475569" },
         ],
       },
       recentScans: recent.map((s: any) => ({

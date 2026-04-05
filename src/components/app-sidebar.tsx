@@ -60,12 +60,13 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
           <Link
             href="/dashboard/new-scan"
             className={cn(
-              "group inline-flex items-center justify-center w-full rounded-md border-0 bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all hover:from-violet-500 hover:to-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
+              "group flex items-center justify-center w-full rounded-md bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all hover:from-violet-500 hover:to-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
               isSidebarOpen ? "h-10 px-4" : "h-10 w-10 p-0",
             )}
           >
-            <Plus className={cn("h-5 w-5 transition-transform group-hover:rotate-90", isSidebarOpen && "mr-2")} />
-            {isSidebarOpen && <span className="font-semibold">New Scan</span>}
+            {/* pointer-events-none on children so every click — on icon, text, or gaps — reaches the <a> */}
+            <Plus className={cn("pointer-events-none h-5 w-5 transition-transform group-hover:rotate-90", isSidebarOpen && "mr-2")} />
+            {isSidebarOpen && <span className="pointer-events-none font-semibold">New Scan</span>}
           </Link>
         </div>
 

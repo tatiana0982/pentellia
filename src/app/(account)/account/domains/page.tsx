@@ -77,15 +77,31 @@ function DomainCard({
   onVerify: (id: string) => void;
   verifying:string | null;
 }) {
-  const [expanded, setExpanded] = useState(!domain.isVerified);
-  const [method,   setMethod]   = useState<Method>("txt");
+  const [expanded,    setExpanded]    = useState(!domain.isVerified);
+  const [method,      setMethod]      = useState<Method>("txt");
+  const [cooldown,    setCooldown]    = useState(0);
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
   const isVerifying = verifying === domain.id;
+
+  // Tick down cooldown counter each second
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  const handleVerifyClick = () => {
+    if (cooldown > 0 || isVerifying) return;
+    setLastChecked(new Date());
+    setCooldown(10); // 10-second retry guard
+    onVerify(domain.id);
+  };
 
   const METHODS: { id: Method; label: string; icon: React.ElementType; desc: string }[] = [
     { id: "txt",  label: "DNS TXT",    icon: Terminal, desc: "Add a TXT record to your DNS. Works with every registrar." },
     { id: "meta", label: "HTML Meta",  icon: Code2,    desc: "Add a <meta> tag to your homepage <head>." },
-    { id: "file", label: "File Upload",icon: FileText, desc: "Host a plain-text file at your domain root." },
+    { id: "file", label: "File Upload",icon: FileText, desc: "Host a plain-text file at /.well-known/pentellia-verification.txt" },
   ];
 
   return (
@@ -148,13 +164,15 @@ function DomainCard({
         <div className="flex items-center gap-2 shrink-0">
           {!domain.isVerified && (
             <button
-              onClick={() => onVerify(domain.id)}
-              disabled={isVerifying}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-violet-300 bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 transition-all disabled:opacity-50"
+              onClick={handleVerifyClick}
+              disabled={isVerifying || cooldown > 0}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-violet-300 bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isVerifying
                 ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying…</>
-                : <><RefreshCw className="h-3.5 w-3.5" /> Re-verify</>}
+                : cooldown > 0
+                  ? <><Clock className="h-3.5 w-3.5" /> {cooldown}s</>
+                  : <><RefreshCw className="h-3.5 w-3.5" /> Re-verify</>}
             </button>
           )}
           <button
@@ -252,15 +270,25 @@ function DomainCard({
             </div>
           )}
 
-          {/* Verify button */}
+          {/* Last checked timestamp */}
+          {lastChecked && (
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+              <RefreshCw className="h-3 w-3" />
+              Last checked: {lastChecked.toLocaleTimeString()}
+            </div>
+          )}
+
+          {/* Verify button — 10-second cooldown after each attempt */}
           <button
-            onClick={() => onVerify(domain.id)}
-            disabled={isVerifying}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-semibold shadow-[0_4px_20px_rgba(124,58,237,0.3)] transition-all active:scale-[0.99] disabled:opacity-50"
+            onClick={handleVerifyClick}
+            disabled={isVerifying || cooldown > 0}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-semibold shadow-[0_4px_20px_rgba(124,58,237,0.3)] transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isVerifying
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Checking DNS records…</>
-              : <><ShieldCheck className="h-4 w-4" /> Verify Domain Ownership</>}
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Checking…</>
+              : cooldown > 0
+                ? <><Clock className="h-4 w-4" /> Retry in {cooldown}s</>
+                : <><ShieldCheck className="h-4 w-4" /> Verify Domain Ownership</>}
           </button>
         </div>
       )}

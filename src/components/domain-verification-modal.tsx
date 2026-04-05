@@ -279,10 +279,12 @@ export function DomainVerificationModal() {
   const token = activeDomain?.verificationToken ?? "";
   const domainName = activeDomain?.name ?? "";
   const vHost = activeDomain?.verificationHost ?? `_pentellia.${domainName}`;
-  const metaTag = `<meta name="pentellia-site-verification" content="${token}" />`;
-  const fileName = `pentellia-${token}.txt`;
-  const fileContent = `pentellia-site-verification: ${token}`;
-  const fileUrl = `https://${domainName}/${fileName}`;
+  // ── These MUST match exactly what domain.service.ts verifies against ──
+  // Meta: service checks name="pentellia-verification" content="${token}"
+  const metaTag = `<meta name="pentellia-verification" content="${token}" />`;
+  // File: service fetches /.well-known/pentellia-verification.txt and checks text === token || text.includes(token)
+  const fileUrl     = `https://${domainName}/.well-known/pentellia-verification.txt`;
+  const fileContent = token; // file content must be exactly the token
 
   // ── Instructions per method ────────────────────────────────
   const renderInstructions = () => {
@@ -370,22 +372,18 @@ export function DomainVerificationModal() {
     // file
     return (
       <div className="space-y-5">
-        <Step n={1} title="Create a plain-text file with this exact name and content">
+        <Step n={1} title="Create a plain-text file with this exact content">
           <div className="space-y-2">
             <div className="space-y-1">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider">Filename</p>
-              <CodeBlock code={fileName} />
-            </div>
-            <div className="space-y-1">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider">File Content (exact)</p>
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider">File Content (exact — just the token, nothing else)</p>
               <CodeBlock code={fileContent} />
             </div>
           </div>
         </Step>
 
-        <Step n={2} title="Upload to your domain root">
+        <Step n={2} title="Upload to the .well-known path on your domain root">
           <p className="text-xs text-slate-400 leading-relaxed">
-            The file must be accessible at:
+            The file must be accessible at exactly this URL:
           </p>
           <div className="flex items-center gap-2 mt-1">
             <div className="flex-1 min-w-0">
@@ -400,11 +398,17 @@ export function DomainVerificationModal() {
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </div>
+          <div className="flex items-start gap-2 mt-2 p-3 rounded-lg bg-violet-500/5 border border-violet-500/15">
+            <Info className="h-3.5 w-3.5 text-violet-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Create the <code className="text-violet-400">.well-known</code> directory at your site root if it doesn't exist, then place the file inside it named <code className="text-violet-400">pentellia-verification.txt</code>.
+            </p>
+          </div>
         </Step>
 
         <Step n={3} title="Ensure no auth or redirect blocks the file">
           <p className="text-xs text-slate-400">
-            The file must return HTTP 200 with the exact content — no HTML wrapper.
+            The file must return HTTP 200 with the exact token as its content — no HTML wrapper, no extra text.
           </p>
         </Step>
 
