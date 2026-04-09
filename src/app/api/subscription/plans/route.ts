@@ -15,13 +15,23 @@ export async function GET() {
     if (uid) {
       const sub = await getActiveSubscription(uid);
       if (sub) {
+        const summary = await getUsageSummary(uid);
+        usageSummary  = summary;
+
+        const daysLeft = Math.max(
+          0,
+          Math.ceil(
+            (new Date(sub.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+          ),
+        );
+
         currentSubscription = {
           planId:    sub.plan_id,
           planName:  sub.plan.name,
           status:    sub.status,
           expiresAt: sub.expires_at,
+          daysLeft,              // ← was missing, caused "undefined days remaining"
         };
-        usageSummary = await getUsageSummary(uid);
       }
     }
 

@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import "./globals.css";
-
-import { Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+// ── Use system font stack instead of Google Fonts ─────────────────────
+// Avoids network warnings in dev and eliminates external dependency.
+// The app already uses Tailwind's font-sans which maps to this stack.
+const fontClass = "font-sans";
 
 export const metadata: Metadata = {
   title: "Pentellia",
@@ -23,8 +24,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className="dark">
       <body
         className={cn(
-          "min-h-screen bg-background font-sans antialiased",
-          inter.variable
+          "min-h-screen bg-background antialiased",
+          fontClass,
         )}
       >
         <AuthProvider>

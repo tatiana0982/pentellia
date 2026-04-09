@@ -38,8 +38,13 @@ export async function POST(req: NextRequest) {
       timezone:  req.headers.get("x-vercel-ip-timezone")|| undefined,
     };
 
-    // 4. Sync user to DB
-    await userService.syncUser(userData, locationData);
+    // 4. Sync user to DB — if DB is unreachable still allow login (session still created)
+    try {
+      await userService.syncUser(userData, locationData);
+    } catch (dbErr: any) {
+      // Log DB error but DO NOT block login — Firebase auth succeeded
+      console.error("[Login] DB syncUser failed (non-fatal):", dbErr?.message);
+    }
 
     // 5. Log history — non-blocking, never fails login
     userService.logLoginHistory(userData.uid, locationData).catch(() => {});
@@ -53,14 +58,15 @@ export async function POST(req: NextRequest) {
     cookieStore.set("__session", sessionCookie, {
       maxAge:   SESSION_TTL,
       httpOnly: true,
-      secure:   isProd,            // always true in production
-      sameSite: isProd ? "strict" : "lax", // strict in prod — CSRF protection
+      secure:   isProd,
+      sameSite: isProd ? "strict" : "lax",
       path:     "/",
     });
 
     return NextResponse.json({ success: true });
-  } catch {
-    // Generic response — never leak Firebase error details
+  } catch (err: any) {
+    // Log actual error to Vercel logs for debugging
+    console.error("[Login] Failed:", err?.code, err?.message);
     return NextResponse.json({ error: "Authentication failed" }, { status: 401 });
   }
 }

@@ -4,10 +4,10 @@ import { createNotification } from "@/lib/notifications";
 import { CreateUserInput } from "@/models/user.model";
 
 interface LocationData {
-  ip: string;
-  country?: string;
-  city?: string;
-  timezone?: string;
+  ip:         string;
+  country?:   string;
+  city?:      string;
+  timezone?:  string;
   userAgent?: string;
 }
 
@@ -46,47 +46,32 @@ export class UserService {
       if (row.is_new_user) {
         await createNotification(
           user.uid,
-          "Welcome to Pentellia!",
-          "Your account is ready. Verify your domain and add wallet credits to start scanning.",
+          "Welcome to Pentellia! 🎉",
+          "Your account is ready. Subscribe to a plan to start scanning.",
           "success",
+          true,
         );
-        // No signup bonus — users must purchase credits before scanning.
-        // Wallet row is created automatically on first top-up via razorpay verify-payment.
       }
-
-      return row;
-    } catch (error: any) {
-      // Legacy: relink existing email to new UID (Google re-auth edge case)
-      if (error.code === "23505" && error.constraint === "users_email_key") {
-        const updateText = `
-          UPDATE users
-          SET uid        = $1,
-              first_name = $3,
-              last_name  = $4,
-              avatar     = $5,
-              country    = $6,
-              timezone   = $7,
-              updated_at = NOW()
-          WHERE email = $2
-          RETURNING *
-        `;
-        const res = await query(updateText, values);
-        return res.rows[0];
-      }
-      throw error;
+    } catch (err: any) {
+      console.error("[UserService.syncUser]", err?.message);
+      throw err;
     }
   }
 
-  async logLoginHistory(uid: string, loc: LocationData) {
-    const location =
-      loc.city && loc.country
-        ? `${loc.city}, ${loc.country}`
-        : loc.country || "Unknown";
-
-    await query(
-      `INSERT INTO login_history (user_uid, ip_address, location, user_agent)
-       VALUES ($1, $2, $3, $4)`,
-      [uid, loc.ip, location, loc.userAgent || null],
-    ).catch(() => {}); // Non-blocking, never throw
+  async logLoginHistory(uid: string, loc: LocationData): Promise<void> {
+    try {
+      await query(
+        `INSERT INTO login_history (user_uid, ip_address, user_agent, location, login_at)
+         VALUES ($1, $2, $3, $4, NOW())`,
+        [
+          uid,
+          loc.ip,
+          loc.userAgent || null,
+          loc.city && loc.country ? `${loc.city}, ${loc.country}` : loc.country || null,
+        ],
+      );
+    } catch (err: any) {
+      console.error("[UserService.logLoginHistory]", err?.message);
+    }
   }
 }
