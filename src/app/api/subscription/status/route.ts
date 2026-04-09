@@ -1,7 +1,8 @@
 // src/app/api/subscription/status/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
+import { getActiveSubscription, getUsageSummary } from "@/lib/subscription";
+import { query } from "@/config/db";
 
 export async function GET(req: NextRequest) {
   const uid = await getUid();
@@ -13,41 +14,44 @@ export async function GET(req: NextRequest) {
   const offset = (page - 1) * limit;
 
   try {
-    const [walletRes, txRes, countRes] = await Promise.all([
+    const [sub, summary, txRes, countRes] = await Promise.all([
+      getActiveSubscription(uid),
+      getUsageSummary(uid),
+      // Keep showing payment history from razorpay_orders
       query(
-        `SELECT
-           COALESCE(balance,      0) AS balance,
-           COALESCE(total_spent,  0) AS total_spent,
-           COALESCE(total_bought, 0) AS total_bought
-         FROM user_credits WHERE user_uid = $1`,
-        [uid],
-      ),
-      query(
-        `SELECT id, type, amount, balance_after, description, ref_type, ref_id, created_at
-         FROM credit_transactions
-         WHERE user_uid = $1
-         ORDER BY created_at DESC
+        `SELECT razorpay_order_id, razorpay_payment_id, amount_inr,
+                plan_id, status, paid_at, created_at
+         FROM razorpay_orders
+         WHERE user_uid = $1 AND status = 'paid'
+         ORDER BY paid_at DESC
          LIMIT $2 OFFSET $3`,
         [uid, limit, offset],
       ),
       query(
-        `SELECT COUNT(*) FROM credit_transactions WHERE user_uid = $1`,
+        `SELECT COUNT(*) FROM razorpay_orders
+         WHERE user_uid = $1 AND status = 'paid'`,
         [uid],
       ),
     ]);
 
-    const wallet = walletRes.rows[0] ?? {};
-    const total  = parseInt(countRes.rows[0].count);
+    const total = parseInt(countRes.rows[0].count);
 
     return NextResponse.json({
       success:      true,
-      balance:      parseFloat(wallet.balance      || "0"),
-      totalSpent:   parseFloat(wallet.total_spent   || "0"),
-      totalBought:  parseFloat(wallet.total_bought  || "0"),
-      transactions: txRes.rows,
-      pagination:   { page, limit, total, totalPages: Math.ceil(total / limit) },
+      subscription: sub ? {
+        planId:    sub.plan_id,
+        planName:  sub.plan.name,
+        status:    sub.status,
+        startedAt: sub.started_at,
+        expiresAt: sub.expires_at,
+      } : null,
+      usage:          summary?.usage      ?? null,
+      daysLeft:       summary?.daysLeft   ?? 0,
+      paymentHistory: txRes.rows,
+      pagination:     { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-  } catch {
+  } catch (err: any) {
+    console.error("[SubStatus]", err?.message);
     return NextResponse.json({ error: "Failed to fetch status" }, { status: 500 });
   }
 }

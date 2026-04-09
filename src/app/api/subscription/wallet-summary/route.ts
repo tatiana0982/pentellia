@@ -1,45 +1,47 @@
 // src/app/api/subscription/wallet-summary/route.ts
-// Returns wallet balance, totals, scan count, domain count.
-// Used by WalletProvider for new-user detection and balance display.
+// Renamed conceptually — now returns subscription + usage summary.
+// Kept at same URL so WalletProvider / header don't break.
+
 import { NextResponse } from "next/server";
-import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
+import { getActiveSubscription, getUsageSummary } from "@/lib/subscription";
+import { query } from "@/config/db";
 
 export async function GET() {
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    // Single query — LEFT JOIN so new users (no credits row) return zeros
-    const res = await query(
-      `SELECT
-         COALESCE(uc.balance,       0) AS balance,
-         COALESCE(uc.total_spent,   0) AS total_spent,
-         COALESCE(uc.total_bought,  0) AS total_bought,
-         (SELECT COUNT(*) FROM scans   WHERE user_uid = $1)                        AS total_scans,
-         (SELECT COUNT(*) FROM domains WHERE user_uid = $1 AND is_verified = TRUE) AS verified_domains
-       FROM (VALUES ($1::text)) AS u(uid)
-       LEFT JOIN user_credits uc ON uc.user_uid = u.uid`,
-      [uid],
-    );
+    const [sub, summary, scanCountRes] = await Promise.all([
+      getActiveSubscription(uid),
+      getUsageSummary(uid),
+      query(`SELECT COUNT(*) FROM scans WHERE user_uid = $1`, [uid]),
+    ]);
 
-    const r = res.rows[0] ?? {};
+    const totalScans = parseInt(scanCountRes.rows[0].count ?? "0");
 
     return NextResponse.json({
-      success:         true,
-      balance:         parseFloat(r.balance        || "0"),
-      totalSpent:      parseFloat(r.total_spent     || "0"),
-      totalBought:     parseFloat(r.total_bought    || "0"),
-      totalScans:      parseInt(r.total_scans       || "0"),
-      verifiedDomains: parseInt(r.verified_domains  || "0"),
+      success:      true,
+      // Legacy fields kept so existing frontend code doesn't break
+      balance:      0,
+      totalSpent:   0,
+      totalBought:  0,
+      totalScans,
+      verifiedDomains: 0, // Domain system removed
+      // New fields
+      subscription: sub ? {
+        planId:    sub.plan_id,
+        planName:  sub.plan.name,
+        status:    sub.status,
+        expiresAt: sub.expires_at,
+        daysLeft:  summary?.daysLeft ?? 0,
+      } : null,
+      usage: summary?.usage ?? null,
     }, {
-      headers: {
-        // Short cache — balances change frequently
-        "Cache-Control": "private, no-store",
-      },
+      headers: { "Cache-Control": "private, no-store" },
     });
   } catch (err: any) {
-    console.error("[WalletSummary]", err);
-    return NextResponse.json({ error: "Failed to fetch wallet" }, { status: 500 });
+    console.error("[WalletSummary]", err?.message);
+    return NextResponse.json({ error: "Failed to fetch summary" }, { status: 500 });
   }
 }

@@ -1,36 +1,27 @@
 // src/app/api/subscription/verify-payment/route.ts
-// Hardened payment verification for dynamic top-ups.
-// Amount is ALWAYS read from the DB (razorpay_orders), never from the client.
+// Verifies Razorpay HMAC signature and activates the user's subscription.
+// Does NOT credit a wallet — activates user_subscriptions + resets usage_tracking.
 
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
+import { activateSubscription } from "@/lib/subscription";
 import { createNotification } from "@/lib/notifications";
 
-const MAX_DAILY_TOPUP = 100_000;
-const isDev = process.env.NODE_ENV !== "production";
-
-/**
- * Razorpay HMAC-SHA256 signature verification.
- * Constant-time comparison with length pre-check to prevent RangeError crash.
- */
-function verifyRazorpaySignature(
+function verifySignature(
   orderId:   string,
   paymentId: string,
   signature: string,
   secret:    string,
 ): boolean {
   try {
-    const payload  = `${orderId}|${paymentId}`;
     const expected = crypto
       .createHmac("sha256", secret)
-      .update(payload)
+      .update(`${orderId}|${paymentId}`)
       .digest("hex");
 
-    // CRITICAL: length check BEFORE timingSafeEqual — avoids RangeError
     if (expected.length !== signature.length) return false;
-
     return crypto.timingSafeEqual(
       Buffer.from(expected,  "hex"),
       Buffer.from(signature, "hex"),
@@ -41,30 +32,19 @@ function verifyRazorpaySignature(
 }
 
 export async function POST(req: NextRequest) {
-  const uid = await getUid(true); // checkRevoked=true for payment operations
+  const uid = await getUid(true);
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: any;
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid request" }, { status: 400 }); }
 
-  const {
-    razorpay_order_id,
-    razorpay_payment_id,
-    razorpay_signature,
-    last4,
-  } = body;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
 
-  // Input validation
-  if (
-    !razorpay_order_id   || typeof razorpay_order_id   !== "string" ||
-    !razorpay_payment_id || typeof razorpay_payment_id !== "string" ||
-    !razorpay_signature  || typeof razorpay_signature  !== "string"
-  ) {
-    return NextResponse.json({ error: "Missing or invalid payment fields" }, { status: 400 });
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    return NextResponse.json({ error: "Missing payment fields" }, { status: 400 });
   }
 
-  // Sanitize — Razorpay IDs are alphanumeric + underscore only
   const idPattern = /^[a-zA-Z0-9_]+$/;
   if (!idPattern.test(razorpay_order_id) || !idPattern.test(razorpay_payment_id)) {
     return NextResponse.json({ error: "Invalid payment ID format" }, { status: 400 });
@@ -76,21 +56,14 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 1. Verify HMAC signature ─────────────────────────────────────
-  const sigOk = verifyRazorpaySignature(
-    razorpay_order_id,
-    razorpay_payment_id,
-    razorpay_signature,
-    secret,
-  );
-
-  if (!sigOk) {
-    if (isDev) console.warn(`[Razorpay] Signature mismatch for order=${razorpay_order_id}`);
+  if (!verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature, secret)) {
+    console.warn(`[Razorpay] Signature mismatch for order=${razorpay_order_id}`);
     return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
   }
 
-  // ── 2. Fetch order from DB (NEVER trust client-supplied amount) ──
+  // ── 2. Fetch order from DB ────────────────────────────────────────
   const orderRes = await query(
-    `SELECT amount_inr, credits_inr, status, calculator_config
+    `SELECT plan_id, amount_inr, status
      FROM razorpay_orders
      WHERE razorpay_order_id = $1 AND user_uid = $2
      LIMIT 1`,
@@ -103,110 +76,51 @@ export async function POST(req: NextRequest) {
 
   const order = orderRes.rows[0];
 
-  // ── 3. Idempotency guard ──────────────────────────────────────────
+  // ── 3. Idempotency — already processed ───────────────────────────
   if (order.status === "paid") {
     return NextResponse.json({ success: true, message: "Already processed" });
   }
 
-  const creditsToAdd = parseFloat(order.credits_inr);
-  const amountFromDB = parseFloat(order.amount_inr);
-
-  // Integrity check
-  if (Math.abs(creditsToAdd - amountFromDB) > 0.01) {
-    return NextResponse.json(
-      { error: "Order amount mismatch — contact support" },
-      { status: 400 },
-    );
+  if (!order.plan_id) {
+    return NextResponse.json({ error: "Order missing plan_id" }, { status: 400 });
   }
-
-  // ── 4. Daily top-up limit ─────────────────────────────────────────
-  const dailyRes = await query(
-    `SELECT COALESCE(SUM(amount_inr), 0) AS daily_total
-     FROM razorpay_orders
-     WHERE user_uid = $1 AND status = 'paid'
-       AND paid_at > NOW() - INTERVAL '24 hours'`,
-    [uid],
-  );
-  const dailyTotal = parseFloat(String(dailyRes.rows[0]?.daily_total || "0"));
-  if (dailyTotal + creditsToAdd > MAX_DAILY_TOPUP) {
-    return NextResponse.json(
-      { error: `Daily limit of ₹${MAX_DAILY_TOPUP} reached. Try again tomorrow.` },
-      { status: 429 },
-    );
-  }
-
-  // ── 5. Atomic DB transaction ──────────────────────────────────────
-  await query("BEGIN");
-  let transactionId: string | null = null;
 
   try {
-    const safe4 =
-      typeof last4 === "string" && /^\d{4}$/.test(last4) ? last4 : null;
-
-    // Mark order as paid
+    // ── 4. Mark order paid ────────────────────────────────────────
     await query(
       `UPDATE razorpay_orders
        SET status              = 'paid',
            razorpay_payment_id = $1,
-           paid_at             = NOW(),
-           last_4_digits       = $3
-       WHERE razorpay_order_id = $2 AND user_uid = $4`,
-      [razorpay_payment_id, razorpay_order_id, safe4, uid],
+           paid_at             = NOW()
+       WHERE razorpay_order_id = $2 AND user_uid = $3`,
+      [razorpay_payment_id, razorpay_order_id, uid],
     );
 
-    // Credit wallet — upsert (new users don't have a row yet)
-    const creditRes = await query(
-      `INSERT INTO user_credits (user_uid, balance, total_bought, total_spent)
-       VALUES ($1, $2, $2, 0)
-       ON CONFLICT (user_uid) DO UPDATE SET
-         balance      = user_credits.balance      + $2,
-         total_bought = user_credits.total_bought  + $2,
-         updated_at   = NOW()
-       RETURNING balance`,
-      [uid, creditsToAdd],
+    // ── 5. Activate subscription ──────────────────────────────────
+    await activateSubscription(
+      uid,
+      order.plan_id,
+      razorpay_order_id,
+      razorpay_payment_id,
     );
 
-    const balanceAfter = parseFloat(String(creditRes.rows[0].balance));
-
-    // Log credit transaction
-    const txRes = await query(
-      `INSERT INTO credit_transactions
-         (user_uid, type, amount, balance_after, description, ref_type, ref_id)
-       VALUES ($1, 'credit', $2, $3, $4, 'razorpay', $5)
-       RETURNING id, created_at`,
-      [
-        uid,
-        creditsToAdd,
-        balanceAfter,
-        `Wallet top-up ₹${new Intl.NumberFormat("en-IN").format(creditsToAdd)} via Razorpay`,
-        razorpay_payment_id,
-      ],
-    );
-
-    transactionId = txRes.rows[0]?.id;
-
-    await query("COMMIT");
-
-    // ── Post-payment async actions ───────────────────────────────────
+    // ── 6. Notify user ────────────────────────────────────────────
     createNotification(
       uid,
-      "Credits Added ✓",
-      `₹${new Intl.NumberFormat("en-IN").format(creditsToAdd)} has been credited to your wallet. Payment ID: ${razorpay_payment_id}`,
+      "Subscription Activated ✓",
+      `Your plan is now active. Payment ID: ${razorpay_payment_id}`,
       "success",
-      true, // send email — payment confirmation is high-priority
+      true,
     ).catch(() => {});
 
     return NextResponse.json({
-      success:       true,
-      amountAdded:   creditsToAdd,
-      balanceAfter,
-      transactionId,
-      paymentId:     razorpay_payment_id,
+      success:   true,
+      planId:    order.plan_id,
+      paymentId: razorpay_payment_id,
     });
 
   } catch (err: any) {
-    await query("ROLLBACK");
-    if (isDev) console.error(`[Razorpay] DB transaction failed: ${err.message}`);
-    return NextResponse.json({ error: "Failed to credit wallet" }, { status: 500 });
+    console.error("[VerifyPayment] Failed:", err?.message);
+    return NextResponse.json({ error: "Failed to activate subscription" }, { status: 500 });
   }
 }

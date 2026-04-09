@@ -7,59 +7,56 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { getIcon } from "@/lib/icon-map";
-import { useDomainGate } from "@/context/DomainVerificationContext";
 import toast from "react-hot-toast";
 
 // --- Types ---
 interface SecurityTool {
-  id: string;
-  name: string;
+  id:          string;
+  name:        string;
   description: string;
-  category: string;
-  slug: string;
+  category:    string;
+  slug:        string;
 }
 
-const PINNED_TOOLS = ["webscan", "cloudscan", "networkscan"];
+const PINNED_TOOLS      = ["webscan", "cloudscan", "networkscan"];
 const MAINTENANCE_TOOLS = ["gvm", "cvesearch"];
 
-// --- Skeleton Component ---
+// --- Skeleton ---
 function ToolSkeleton() {
   return (
     <div className="p-5 rounded-xl border border-white/10 bg-[#0B0C15]/40 animate-pulse">
       <div className="flex justify-between mb-4">
-        <div className="h-12 w-12 bg-white/5 rounded-lg"></div>
-        <div className="h-5 w-16 bg-white/5 rounded-full"></div>
+        <div className="h-12 w-12 bg-white/5 rounded-lg" />
+        <div className="h-5 w-16 bg-white/5 rounded-full" />
       </div>
-      <div className="h-6 w-3/4 bg-white/5 rounded mb-2"></div>
-      <div className="h-4 w-full bg-white/5 rounded mb-1"></div>
-      <div className="h-4 w-2/3 bg-white/5 rounded"></div>
-      <div className="mt-4 h-4 w-1/3 bg-white/5 rounded"></div>
+      <div className="h-6 w-3/4 bg-white/5 rounded mb-2" />
+      <div className="h-4 w-full bg-white/5 rounded mb-1" />
+      <div className="h-4 w-2/3 bg-white/5 rounded" />
+      <div className="mt-4 h-4 w-1/3 bg-white/5 rounded" />
     </div>
   );
 }
 
 export default function NewScanPage() {
   const router = useRouter();
-  const { requireVerifiedDomain } = useDomainGate();
 
-  const [tools, setTools] = useState<SecurityTool[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [tools, setTools]                   = useState<SecurityTool[]>([]);
+  const [isLoading, setIsLoading]           = useState(true);
+  const [searchQuery, setSearchQuery]       = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // --- Fetch Tools ---
   useEffect(() => {
     const fetchTools = async () => {
       try {
-        const res = await fetch("/api/tools");
+        const res  = await fetch("/api/tools");
         const data = await res.json();
         if (data.success) {
           setTools(data.tools);
         } else {
           toast.error("Failed to load tools");
         }
-      } catch (error) {
-        console.error("Error fetching tools:", error);
+      } catch {
         toast.error("Network error loading tools");
       } finally {
         setIsLoading(false);
@@ -68,47 +65,40 @@ export default function NewScanPage() {
     fetchTools();
   }, []);
 
-  // --- Filtering & Sorting ---
+  // --- Filter & Sort ---
   const filteredTools = tools
-    .filter((tool) => {
+    .filter(tool => {
       const matchesSearch =
         tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tool.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory
-        ? tool.category === selectedCategory
-        : true;
+      const matchesCategory = selectedCategory ? tool.category === selectedCategory : true;
       return matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
       const aPinned = PINNED_TOOLS.includes(a.slug) || PINNED_TOOLS.includes(a.id);
       const bPinned = PINNED_TOOLS.includes(b.slug) || PINNED_TOOLS.includes(b.id);
-      const aMaint = MAINTENANCE_TOOLS.includes(a.slug) || MAINTENANCE_TOOLS.includes(a.id);
-      const bMaint = MAINTENANCE_TOOLS.includes(b.slug) || MAINTENANCE_TOOLS.includes(b.id);
+      const aMaint  = MAINTENANCE_TOOLS.includes(a.slug) || MAINTENANCE_TOOLS.includes(a.id);
+      const bMaint  = MAINTENANCE_TOOLS.includes(b.slug) || MAINTENANCE_TOOLS.includes(b.id);
       if (aPinned && !bPinned) return -1;
       if (!aPinned && bPinned) return 1;
-      if (aMaint && !bMaint) return 1;
-      if (!aMaint && bMaint) return -1;
+      if (aMaint  && !bMaint)  return 1;
+      if (!aMaint && bMaint)   return -1;
       return 0;
     });
 
-  const categories = Array.from(new Set(tools.map((t) => t.category)));
+  const categories = Array.from(new Set(tools.map(t => t.category)));
 
-  // ── Domain-gated tool click ──────────────────────────────────
-  // requireVerifiedDomain() returns true if allowed, false + opens
-  // the verification modal automatically if not verified.
+  // ── Tool click — no domain gate, subscription is enforced server-side ──
   const handleToolClick = (slug: string) => {
-    if (!requireVerifiedDomain()) return;
     router.push(`/dashboard/new-scan/${slug}`);
   };
 
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] space-y-6 font-sans text-slate-200">
-      {/* --- Header --- */}
+      {/* Header */}
       <div className="flex-none space-y-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold tracking-tight text-white">
-            New Scan
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white">New Scan</h1>
           <p className="text-sm text-slate-400">
             Select a tool to configure and launch a new security assessment.
           </p>
@@ -122,7 +112,7 @@ export default function NewScanPage() {
               placeholder="Find a scanner..."
               className="pl-9 bg-[#0B0C15]/50 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-violet-500"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
 
@@ -134,22 +124,20 @@ export default function NewScanPage() {
                   "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
                   selectedCategory === null
                     ? "bg-violet-600/20 text-violet-300 border-violet-500/50"
-                    : "bg-white/5 text-slate-400 border-transparent hover:bg-white/10 hover:text-white"
+                    : "bg-white/5 text-slate-400 border-transparent hover:bg-white/10 hover:text-white",
                 )}
               >
                 All
               </button>
-              {categories.map((cat) => (
+              {categories.map(cat => (
                 <button
                   key={cat}
-                  onClick={() =>
-                    setSelectedCategory(cat === selectedCategory ? null : cat)
-                  }
+                  onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
                   className={cn(
                     "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
                     selectedCategory === cat
                       ? "bg-violet-600/20 text-violet-300 border-violet-500/50"
-                      : "bg-white/5 text-slate-400 border-transparent hover:bg-white/10 hover:text-white"
+                      : "bg-white/5 text-slate-400 border-transparent hover:bg-white/10 hover:text-white",
                   )}
                 >
                   {cat}
@@ -160,24 +148,18 @@ export default function NewScanPage() {
         </div>
       </div>
 
-      {/* --- Tools Grid --- */}
-      <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+      {/* Tools Grid */}
+      <div className="flex-1 overflow-y-auto pr-2">
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-10">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <ToolSkeleton key={i} />
-            ))}
+            {Array.from({ length: 8 }).map((_, i) => <ToolSkeleton key={i} />)}
           </div>
         ) : filteredTools.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-10">
-            {filteredTools.map((tool) => {
-              const Icon = getIcon(tool.id);
-              const isPinned =
-                PINNED_TOOLS.includes(tool.slug) ||
-                PINNED_TOOLS.includes(tool.id);
-              const isMaintenance =
-                MAINTENANCE_TOOLS.includes(tool.slug) ||
-                MAINTENANCE_TOOLS.includes(tool.id);
+            {filteredTools.map(tool => {
+              const Icon        = getIcon(tool.id);
+              const isPinned    = PINNED_TOOLS.includes(tool.slug) || PINNED_TOOLS.includes(tool.id);
+              const isMaintenance = MAINTENANCE_TOOLS.includes(tool.slug) || MAINTENANCE_TOOLS.includes(tool.id);
 
               return (
                 <div
@@ -185,65 +167,48 @@ export default function NewScanPage() {
                   onClick={() => !isMaintenance && handleToolClick(tool.slug)}
                   className={cn(
                     "group relative flex flex-col p-5 rounded-xl border backdrop-blur-sm transition-all duration-300 overflow-hidden",
-                    // Conditional Styling for Pinned vs Maintenance vs Default items
                     isPinned
                       ? "bg-violet-500/[0.08] border-violet-500/40 hover:bg-violet-500/[0.12] hover:border-violet-400/60 shadow-[0_0_20px_rgba(139,92,246,0.1)] cursor-pointer"
                       : isMaintenance
                       ? "bg-amber-500/[0.08] border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.05)] cursor-not-allowed opacity-90"
-                      : "bg-[#0B0C15]/40 border-white/10 hover:bg-white/[0.07] hover:border-violet-500/30 cursor-pointer"
+                      : "bg-[#0B0C15]/40 border-white/10 hover:bg-white/[0.07] hover:border-violet-500/30 cursor-pointer",
                   )}
                 >
-                  {/* Decorative Glow for Pinned & Maintenance Items */}
-                  {isPinned && (
-                    <div className="absolute top-0 right-0 p-16 bg-violet-500/20 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none transition-opacity group-hover:opacity-100" />
-                  )}
-                  {isMaintenance && (
-                    <div className="absolute top-0 right-0 p-16 bg-amber-500/10 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none transition-opacity" />
-                  )}
+                  {isPinned    && <div className="absolute top-0 right-0 p-16 bg-violet-500/20 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none" />}
+                  {isMaintenance && <div className="absolute top-0 right-0 p-16 bg-amber-500/10  blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none" />}
 
                   <div className="flex items-start justify-between mb-4 relative z-10">
-                    <div
-                      className={cn(
-                        "flex h-12 w-12 items-center justify-center rounded-lg border transition-colors",
-                        isPinned
-                          ? "bg-violet-500/20 border-violet-500/30 text-violet-200"
-                          : isMaintenance
-                          ? "bg-amber-500/20 border-amber-500/30 text-amber-200"
-                          : "bg-white/5 border-white/5 text-slate-300 group-hover:border-violet-500/20 group-hover:bg-violet-500/10 group-hover:text-violet-300"
-                      )}
-                    >
+                    <div className={cn(
+                      "flex h-12 w-12 items-center justify-center rounded-lg border transition-colors",
+                      isPinned
+                        ? "bg-violet-500/20 border-violet-500/30 text-violet-200"
+                        : isMaintenance
+                        ? "bg-amber-500/20 border-amber-500/30 text-amber-200"
+                        : "bg-white/5 border-white/5 text-slate-300 group-hover:border-violet-500/20 group-hover:bg-violet-500/10 group-hover:text-violet-300",
+                    )}>
                       <Icon className="h-6 w-6" />
                     </div>
 
                     {isPinned ? (
-                      <Badge className="bg-violet-500 text-white border-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 shadow-sm flex items-center gap-1">
+                      <Badge className="bg-violet-500 text-white border-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 flex items-center gap-1">
                         <Star className="h-3 w-3 fill-current" /> Recommended
                       </Badge>
                     ) : isMaintenance ? (
-                      <Badge className="bg-amber-500 text-white border-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 shadow-sm flex items-center gap-1">
+                      <Badge className="bg-amber-500 text-white border-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 flex items-center gap-1">
                         <Wrench className="h-3 w-3" /> Maintenance
                       </Badge>
                     ) : (
-                      <Badge
-                        variant="outline"
-                        className="bg-transparent border-white/10 text-slate-500 text-[10px] uppercase tracking-wider group-hover:border-violet-500/20 group-hover:text-violet-400"
-                      >
+                      <Badge variant="outline" className="bg-transparent border-white/10 text-slate-500 text-[10px] uppercase tracking-wider group-hover:border-violet-500/20 group-hover:text-violet-400">
                         {tool.category}
                       </Badge>
                     )}
                   </div>
 
                   <div className="relative z-10 flex-1">
-                    <h3
-                      className={cn(
-                        "font-semibold text-lg mb-1 transition-colors flex items-center gap-2",
-                        isPinned
-                          ? "text-white group-hover:text-violet-100"
-                          : isMaintenance
-                          ? "text-white/80"
-                          : "text-white group-hover:text-violet-200"
-                      )}
-                    >
+                    <h3 className={cn(
+                      "font-semibold text-lg mb-1 transition-colors",
+                      isPinned ? "text-white group-hover:text-violet-100" : isMaintenance ? "text-white/80" : "text-white group-hover:text-violet-200",
+                    )}>
                       {tool.name}
                     </h3>
                     <p className="text-sm text-slate-400 line-clamp-2 leading-relaxed">
@@ -251,16 +216,10 @@ export default function NewScanPage() {
                     </p>
                   </div>
 
-                  <div
-                    className={cn(
-                      "relative z-10 mt-4 flex items-center text-xs font-medium transition-colors",
-                      isPinned
-                        ? "text-violet-300 group-hover:text-violet-200"
-                        : isMaintenance
-                        ? "text-amber-400/80"
-                        : "text-slate-500 group-hover:text-violet-400"
-                    )}
-                  >
+                  <div className={cn(
+                    "relative z-10 mt-4 flex items-center text-xs font-medium transition-colors",
+                    isPinned ? "text-violet-300 group-hover:text-violet-200" : isMaintenance ? "text-amber-400/80" : "text-slate-500 group-hover:text-violet-400",
+                  )}>
                     {isMaintenance ? (
                       <span>Currently Unavailable</span>
                     ) : (

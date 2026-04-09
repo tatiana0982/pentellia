@@ -69,7 +69,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res  = await fetch("/api/dashboard/init");
+        const res  = await fetch("/api/subscription/wallet-summary");
         const json = await res.json();
         if (json.success) setData(json);
       } catch (error) {

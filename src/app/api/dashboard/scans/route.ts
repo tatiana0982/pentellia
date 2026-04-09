@@ -1,8 +1,27 @@
 // src/app/api/dashboard/scans/route.ts
+// Phase 3: Domain gate REMOVED. Credit gate REMOVED.
+// New gate: requireActivePlan() — checks subscription + monthly + daily limits.
+
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
 import { createNotification } from "@/lib/notifications";
+import { checkUsageLimit, incrementUsage } from "@/lib/subscription";
+
+// ── Determine scan type from tool category ────────────────────────────
+const DEEP_CATEGORIES = new Set([
+  "web", "vulnerability", "exploit", "injection", "composite", "cloud",
+]);
+
+async function getScanType(toolId: string): Promise<"deep" | "light"> {
+  const res = await query(
+    `SELECT category FROM tools WHERE id = $1 LIMIT 1`,
+    [toolId],
+  );
+  if (!res.rows.length) return "light";
+  const cat = (res.rows[0].category as string).toLowerCase().trim();
+  return DEEP_CATEGORIES.has(cat) ? "deep" : "light";
+}
 
 // ── GET — list scans ──────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -17,22 +36,27 @@ export async function GET(req: NextRequest) {
   try {
     const [scansRes, countRes] = await Promise.all([
       query(
-        `SELECT s.id, s.target, s.status, s.tool_id, s.created_at, s.completed_at, t.name AS tool_name
+        `SELECT s.id, s.target, s.status, s.tool_id, s.created_at, s.completed_at,
+                t.name AS tool_name
          FROM scans s JOIN tools t ON s.tool_id = t.id
          WHERE s.user_uid = $1 AND s.deleted_at IS NULL
          ORDER BY s.created_at DESC LIMIT $2 OFFSET $3`,
         [uid, limit, offset],
       ),
-      query(`SELECT COUNT(*) FROM scans WHERE user_uid = $1 AND deleted_at IS NULL`, [uid]),
+      query(
+        `SELECT COUNT(*) FROM scans WHERE user_uid = $1 AND deleted_at IS NULL`,
+        [uid],
+      ),
     ]);
 
     const totalScans = parseInt(countRes.rows[0].count);
     return NextResponse.json({
       success: true,
-      scans: scansRes.rows,
+      scans:   scansRes.rows,
       pagination: { page, limit, totalScans, totalPages: Math.ceil(totalScans / limit) },
     });
   } catch (err: any) {
+    console.error("[Scans GET]", err?.message);
     return NextResponse.json({ error: "Failed to fetch scans" }, { status: 500 });
   }
 }
@@ -50,89 +74,86 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing tool or target" }, { status: 400 });
     }
 
-    // ── Gate 1: verified domain required ────────────────────────────────
-    // Users must prove they own at least one domain before running any scan.
-    const domainRes = await query(
-      `SELECT 1 FROM domains WHERE user_uid = $1 AND is_verified = TRUE LIMIT 1`,
-      [uid],
-    );
-    if ((domainRes.rowCount ?? 0) === 0) {
+    // ── Gate: Check subscription + usage limits ──────────────────────
+    const scanType = await getScanType(tool);
+    const usageStatus = await checkUsageLimit(uid, scanType);
+
+    if (!usageStatus.allowed) {
+      const httpStatus = usageStatus.code === "NO_SUBSCRIPTION" || usageStatus.code === "PLAN_EXPIRED"
+        ? 402
+        : 429;
+
       return NextResponse.json(
         {
-          error:  "Domain verification required. Verify at least one domain before running scans.",
-          code:   "DOMAIN_REQUIRED",
-          action: "/account/domains",
+          error:        usageStatus.reason,
+          code:         usageStatus.code,
+          monthlyUsed:  usageStatus.monthlyUsed,
+          monthlyLimit: usageStatus.monthlyLimit,
+          dailyUsed:    usageStatus.dailyUsed,
+          dailyLimit:   usageStatus.dailyLimit,
+          action:       "/subscription",
         },
-        { status: 403 },
+        { status: httpStatus },
       );
     }
 
-    // ── Gate 2: positive wallet balance required ─────────────────────────
-    // Users must have loaded credits before any scan can execute.
-    const walletRes = await query(
-      `SELECT COALESCE(balance, 0) AS balance FROM user_credits WHERE user_uid = $1`,
-      [uid],
-    );
-    const balance = parseFloat(walletRes.rows[0]?.balance ?? "0");
-    if (balance <= 0) {
-      return NextResponse.json(
-        {
-          error:  "Insufficient credits. Add wallet balance to run scans.",
-          code:   "INSUFFICIENT_CREDITS",
-          action: "/subscription",
-        },
-        { status: 402 },
-      );
-    }
+    // ── Forward to Flask scan engine ─────────────────────────────────
+    const isDiscovery = params?.discovery === true;
+    const toolsBaseUrl = process.env.TOOLS_BASE_URL;
+    const endpoint = isDiscovery
+      ? `${toolsBaseUrl}/discovery`
+      : `${toolsBaseUrl}/scan`;
 
-    const toolsBase = process.env.TOOLS_BASE_URL;
-    if (!toolsBase) {
-      return NextResponse.json({ error: "Scan service not configured" }, { status: 503 });
-    }
+    const payload = isDiscovery ? { target, params } : { tool, target, params };
+    console.log(`[API] Forwarding to: ${endpoint}`);
 
-    const isDiscovery = tool === "discovery" || tool === "asset-discovery";
-    const endpoint    = isDiscovery ? `${toolsBase}/discovery` : `${toolsBase}/scan`;
-    const payload     = isDiscovery
-      ? { target, params }
-      : { tool, target, params };
-
-    // Call the external Flask API
-    const toolsRes  = await fetch(endpoint, {
+    const toolsRes = await fetch(endpoint, {
       method:  "POST",
-      headers: { "Content-Type": "application/json", "X-API-Key": process.env.TOOLS_API_KEY || "" },
-      body:    JSON.stringify(payload),
-      signal:  AbortSignal.timeout(30_000),
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key":    process.env.TOOLS_API_KEY || "",
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30_000),
     });
 
     const toolsData = await toolsRes.json();
+    console.log(`[API] Python Response Code: ${toolsRes.status}`);
 
     if (!toolsRes.ok) {
-      return NextResponse.json(
-        { error: toolsData.error || "Scan service error" },
-        { status: toolsRes.status },
-      );
+      throw new Error(toolsData.error || "External API Failed");
     }
 
-    // Save scan to DB
+    // ── Insert scan record ───────────────────────────────────────────
     const dbRes = await query(
       `INSERT INTO scans (user_uid, tool_id, target, params, external_job_id, status)
        VALUES ($1, $2, $3, $4, $5, 'queued')
        RETURNING id`,
-      [uid, tool, target, JSON.stringify(params || {}), toolsData.job_id],
+      [uid, tool, target, JSON.stringify(params), toolsData.job_id],
     );
 
     const scanId = dbRes.rows[0].id;
 
-    createNotification(uid, "Scan Started", `Scanning ${target} using ${tool}`, "info").catch(() => {});
+    // ── Increment usage counter (after successful queue) ─────────────
+    await incrementUsage(uid, scanType);
 
-    return NextResponse.json({ success: true, scanId, jobId: toolsData.job_id });
-
-  } catch (err: any) {
-    // Don't expose internal errors in production
-    const isDev = process.env.NODE_ENV !== "production";
-    return NextResponse.json(
-      { error: isDev ? err.message : "Scan service unavailable" },
-      { status: 502 },
+    await createNotification(
+      uid,
+      "Scan Started",
+      `Scanning initiated for target: ${target} using ${tool}`,
+      "info",
     );
+
+    console.log(`[API] ✅ Scan queued. ID: ${scanId}`);
+
+    return NextResponse.json({
+      success: true,
+      scanId,
+      jobId: toolsData.job_id,
+    });
+
+  } catch (error: any) {
+    console.error("[API] Start Scan Failed:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
