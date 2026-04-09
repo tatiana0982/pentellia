@@ -1,6 +1,5 @@
-// lib/events.ts
+// src/lib/events.ts
 // Central event bus for cross-component state refresh.
-// All components should use these helpers instead of dispatching raw events.
 
 /** Triggers the notification bell to re-fetch unread count + recent items */
 export const triggerNotificationRefresh = () => {
@@ -10,12 +9,8 @@ export const triggerNotificationRefresh = () => {
 };
 
 /**
- * Triggers the WalletProvider to re-fetch balance from the server.
- * Call this after any operation that changes the wallet:
- *   - Scan completed
- *   - AI summary generated
- *   - Report generated
- *   - Top-up payment verified
+ * Triggers the WalletProvider to re-fetch subscription status.
+ * Call this after subscription activation or plan changes.
  */
 export const triggerWalletRefresh = () => {
   if (typeof window !== "undefined") {
@@ -24,10 +19,10 @@ export const triggerWalletRefresh = () => {
 };
 
 /**
- * Triggers both wallet and notification refresh together.
- * Use after scan completion which produces both a balance change and a notification.
+ * Triggers both subscription and notification refresh together.
+ * Use after scan completion which produces a notification.
  */
 export const triggerFullRefresh = () => {
-  triggerWalletRefresh();
   triggerNotificationRefresh();
+  triggerWalletRefresh();
 };
