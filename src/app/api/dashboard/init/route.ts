@@ -48,7 +48,7 @@ export async function GET() {
              GROUP BY DATE_TRUNC('week', created_at)
            ) w) AS exposure_trend
          FROM sc`,
-        [uid, uid, uid],
+        [uid],
       ),
       query(
         `SELECT COUNT(*) AS unread FROM notifications
