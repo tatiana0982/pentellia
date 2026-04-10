@@ -1,6 +1,5 @@
 // src/app/api/dashboard/scans/[id]/route.ts
 // Phase 3: Credit billing REMOVED. Scan completion just updates status.
-// Usage tracking is incremented at scan START (in scans/route.ts POST).
 
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
@@ -38,7 +37,6 @@ export async function GET(
 
   const { id } = await params;
 
-  // ── Load scan from DB ─────────────────────────────────────────────
   const scanRes = await query(
     `SELECT s.*, t.name AS tool_name, t.category
      FROM scans s
@@ -54,14 +52,12 @@ export async function GET(
 
   let scan = scanRes.rows[0];
 
-  // ── If already completed/failed/cancelled — return from DB ────────
   if (["completed", "failed", "cancelled"].includes(scan.status)) {
     return NextResponse.json({ success: true, scan });
   }
 
-  // ── Sync with Flask ───────────────────────────────────────────────
-  const toolsBaseUrl = process.env.TOOLS_BASE_URL;
-  const apiKey       = process.env.TOOLS_API_KEY || "";
+  const toolsBaseUrl  = process.env.TOOLS_BASE_URL;
+  const apiKey        = process.env.TOOLS_API_KEY || "";
   const externalJobId = scan.external_job_id;
 
   if (!externalJobId || !toolsBaseUrl) {
@@ -72,16 +68,15 @@ export async function GET(
     headers: { "X-API-Key": apiKey },
   });
 
-  // Zombie job — Flask has no record of it
   if (statusRes.status === 404) {
-    console.warn(`[API] Job ${externalJobId} missing. Marking FAILED.`);
+    console.error(`[Scans/id] Job ${externalJobId} missing on engine. Marking failed.`);
     const updateRes = await query(
       `UPDATE scans SET status = 'failed', result = $1, completed_at = NOW()
        WHERE id = $2 RETURNING *`,
-      [JSON.stringify({ error: "Job lost on external server" }), id],
+      [JSON.stringify({ error: "Job lost on scan engine" }), id],
     );
     scan = { ...scan, ...updateRes.rows[0] };
-    await createNotification(uid, "Scan Failed", `The scan for ${scan.target} was lost or interrupted.`, "error");
+    await createNotification(uid, "Scan Failed", `Scan for ${scan.target} was lost.`, "error");
     return NextResponse.json({ success: true, scan });
   }
 
@@ -92,20 +87,16 @@ export async function GET(
   const statusData = statusRes.json;
   const newStatus  = statusData?.status;
 
-  // Fetch confirmations if still running
   let confirmations: any[] = [];
   if (!["completed", "failed", "cancelled"].includes(newStatus)) {
     try {
       const confRes = await safeFetch(`${toolsBaseUrl}/confirmations/${externalJobId}`, {
         headers: { "X-API-Key": apiKey },
       });
-      if (confRes.ok) {
-        confirmations = confRes.json?.confirmations ?? confRes.json ?? [];
-      }
-    } catch { /* ignore */ }
+      if (confRes.ok) confirmations = confRes.json?.confirmations ?? confRes.json ?? [];
+    } catch { /* non-critical */ }
   }
 
-  // ── Not completed yet ─────────────────────────────────────────────
   if (newStatus !== "completed") {
     if (newStatus !== scan.status) {
       if (newStatus === "failed") {
@@ -117,69 +108,51 @@ export async function GET(
     return NextResponse.json({ success: true, scan, pythonStatus: statusData, confirmations });
   }
 
-  // ── Completed — fetch and store results ───────────────────────────
   if (newStatus === "completed" && scan.status !== "completed") {
-    console.log(`[API] Job completed. Fetching results for ${id}`);
-
     const resultRes = await safeFetch(`${toolsBaseUrl}/result/${externalJobId}`, {
       headers: { "X-API-Key": apiKey },
     });
-
-    const result = resultRes.ok && resultRes.json ? resultRes.json : { error: "Could not fetch results" };
-
+    const result  = resultRes.ok && resultRes.json ? resultRes.json : { error: "Could not fetch results" };
     const updated = await query(
       `UPDATE scans SET status = 'completed', result = $1, completed_at = NOW()
        WHERE id = $2 RETURNING *`,
       [JSON.stringify(result), id],
     );
     scan = { ...scan, ...updated.rows[0] };
-
     await createNotification(
-      uid,
-      "Scan Complete ✓",
-      `Security scan for ${scan.target} has finished. View your report.`,
-      "success",
-      true,
+      uid, "Scan Complete", `Security scan for ${scan.target} has finished.`, "success", true,
     );
   }
 
   return NextResponse.json({ success: true, scan, pythonStatus: statusData, confirmations });
 }
 
-// ── PATCH — cancel scan ───────────────────────────────────────────────
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
-
   const res = await query(
     `UPDATE scans SET status = 'cancelled' WHERE id = $1 AND user_uid = $2 RETURNING id`,
     [id, uid],
   );
   if (!res.rows.length) return NextResponse.json({ error: "Scan not found" }, { status: 404 });
-
   return NextResponse.json({ success: true });
 }
 
-// ── DELETE — soft delete ──────────────────────────────────────────────
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
-
   const res = await query(
     `UPDATE scans SET deleted_at = NOW() WHERE id = $1 AND user_uid = $2 RETURNING id`,
     [id, uid],
   );
   if (!res.rows.length) return NextResponse.json({ error: "Scan not found" }, { status: 404 });
-
   return NextResponse.json({ success: true });
 }

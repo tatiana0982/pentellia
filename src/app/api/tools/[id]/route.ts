@@ -3,8 +3,9 @@ import { query } from "@/config/db";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const body = await req.json();
     const {
@@ -39,7 +40,7 @@ export async function PUT(
       category,
       version,
       JSON.stringify(toolParams),
-      params.id,
+      id,
     ];
 
     const res = await query(text, values);
@@ -63,11 +64,12 @@ export async function PUT(
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const text = `DELETE FROM tools WHERE id = $1 RETURNING id`;
-    const res = await query(text, [params.id]);
+    const res = await query(text, [id]);
 
     if (res.rowCount === 0) {
       return NextResponse.json({ error: "Tool not found" }, { status: 404 });
@@ -75,7 +77,7 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      deletedId: params.id,
+      deletedId: id,
     });
   } catch (error) {
     console.error("Delete Tool Error:", error);

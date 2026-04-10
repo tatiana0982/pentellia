@@ -3,6 +3,8 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import { Shield, Target, AlertTriangle, CheckCircle2, Globe, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Sparkles } from "lucide-react";
 
 interface ReportProps {
   data: any;

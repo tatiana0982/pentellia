@@ -11,10 +11,10 @@ import { getUid } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
-    const data     = await req.json();
-    const isProd   = process.env.NODE_ENV === "production";
+    const data = await req.json();
+    const isProd = process.env.NODE_ENV === "production";
     const user_uid = data.user_uid;
-    const scanId   = data.id;
+    const scanId = data.id;
 
     if (!user_uid || !scanId) {
       return NextResponse.json({ error: "Missing user_uid or scan id" }, { status: 400 });
@@ -40,10 +40,10 @@ export async function POST(req: Request) {
       return new NextResponse(buf, {
         status: 200,
         headers: {
-          "Content-Type":        "application/pdf",
+          "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename="pentellia-report-${scanId}.pdf"`,
-          "Content-Length":      buf.length.toString(),
-          "X-Cache":             "HIT",
+          "Content-Length": buf.length.toString(),
+          "X-Cache": "HIT",
         },
       });
     }
@@ -60,23 +60,22 @@ export async function POST(req: Request) {
     }
 
     const scanData = scanRes.rows[0];
-    const html     = getPurpleReportHtml(scanData);
+    const html = getPurpleReportHtml(scanData);
 
     // ── Generate PDF ──────────────────────────────────────────────
     let browser;
     if (isProd) {
-      browser = await puppeteer.launch({
-        args:            chromium.args,
-        defaultViewport: chromium.defaultViewport,
-        executablePath:  await chromium.executablePath(
+      browser = await (puppeteer as any).launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath(
           "https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar",
         ),
-        headless: chromium.headless,
+        headless: true,
       });
     } else {
       browser = await puppeteer.launch({
         headless: true,
-        args:     ["--no-sandbox", "--disable-setuid-sandbox"],
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
       });
     }
 
@@ -96,9 +95,9 @@ export async function POST(req: Request) {
     return new NextResponse(Buffer.from(pdfBuffer), {
       status: 200,
       headers: {
-        "Content-Type":        "application/pdf",
+        "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="pentellia-report-${scanId}.pdf"`,
-        "Content-Length":      pdfBuffer.length.toString(),
+        "Content-Length": pdfBuffer.length.toString(),
       },
     });
 

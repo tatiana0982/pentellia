@@ -1,13 +1,6 @@
 // src/middlewares/api/subscription.middleware.ts
-// ── Replaces requireVerifiedDomain + requireCredits ───────────────────
-// Wrap INSIDE authenticate():
-//
-//   export const POST = (req) =>
-//     apiHandler(
-//       authenticate(
-//         requireActivePlan("light", async (user) => { ... })
-//       )
-//     );
+// Enforces active subscription + usage limits.
+// Replaces the old domain + credits middleware system.
 
 import { ApiError } from "@/utils/ApiError";
 import { checkUsageLimit, type ScanType } from "@/lib/subscription";
@@ -26,7 +19,7 @@ export const requireActivePlan =
       const httpStatus =
         status.code === "NO_SUBSCRIPTION" || status.code === "PLAN_EXPIRED"
           ? 402
-          : 429; // rate limit for monthly/daily exceeded
+          : 429;
 
       throw new ApiError(httpStatus, status.reason ?? "Usage limit reached", {
         code:         status.code,
