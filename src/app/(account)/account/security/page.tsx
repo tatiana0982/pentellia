@@ -310,7 +310,7 @@ function DeleteAccountSection() {
 // ─── Page ─────────────────────────────────────────────────────────────
 export default function SecurityPage() {
   return (
-    <div className="w-full max-w-2xl space-y-5 pb-16 font-sans">
+    <div className="w-full space-y-5 pb-16 font-sans">
       <div className="flex items-center gap-3 mb-1">
         <div className="h-9 w-9 rounded-md bg-violet-500/10 border border-violet-500/15 flex items-center justify-center">
           <ShieldAlert className="h-4 w-4 text-violet-400" />

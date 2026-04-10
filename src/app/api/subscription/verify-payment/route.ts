@@ -1,6 +1,5 @@
 // src/app/api/subscription/verify-payment/route.ts
 // Verifies Razorpay HMAC signature and activates the user's subscription.
-// Does NOT credit a wallet — activates user_subscriptions + resets usage_tracking.
 
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
@@ -21,18 +20,20 @@ function verifySignature(
       .update(`${orderId}|${paymentId}`)
       .digest("hex");
 
-    if (expected.length !== signature.length) return false;
-    return crypto.timingSafeEqual(
-      Buffer.from(expected,  "hex"),
-      Buffer.from(signature, "hex"),
-    );
+    // Guard against length mismatch before timingSafeEqual
+    const expBuf = Buffer.from(expected,  "hex");
+    const sigBuf = Buffer.from(signature, "hex");
+    if (expBuf.length !== sigBuf.length) return false;
+    return crypto.timingSafeEqual(expBuf, sigBuf);
   } catch {
     return false;
   }
 }
 
 export async function POST(req: NextRequest) {
-  const uid = await getUid(true);
+  // checkRevoked=false — session cookie verification is sufficient.
+  // checkRevoked=true makes an extra Firebase network call that is unreliable on Vercel serverless.
+  const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: any;
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Payment service not configured" }, { status: 500 });
   }
 
-  // ── 1. Verify HMAC signature ─────────────────────────────────────
+  // ── 1. Verify HMAC ────────────────────────────────────────────────
   if (!verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature, secret)) {
     console.warn(`[Razorpay] Signature mismatch for order=${razorpay_order_id}`);
     return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
@@ -97,6 +98,11 @@ export async function POST(req: NextRequest) {
     );
 
     // ── 5. Activate subscription ──────────────────────────────────
+    // activateSubscription handles all scenarios via ON CONFLICT (user_uid) DO UPDATE:
+    // - First subscription: plain insert
+    // - Upgrade (e.g. Recon → Elite): replaces plan_id, resets expires_at to NOW()+30d, resets usage
+    // - Downgrade (e.g. Elite → Recon): same — takes effect immediately with new limits
+    // - Same plan repurchase: resets expires_at to NOW()+30d (fresh 30-day cycle), resets usage
     await activateSubscription(
       uid,
       order.plan_id,
