@@ -167,8 +167,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Provide payment_id or invoice_id" }, { status: 400 });
   }
 
-  // Fetch invoice — enforce user ownership
-  const res = await query(
+  // Try invoices table first (new payments)
+  let res = await query(
     `SELECT i.*, sp.name AS plan_name
      FROM invoices i
      JOIN subscription_plans sp ON i.plan_id = sp.id
@@ -177,6 +177,44 @@ export async function GET(req: NextRequest) {
      LIMIT 1`,
     [uid, paymentId ?? "", invoiceId ?? ""],
   );
+
+  // Fallback: old payments made before invoice system existed
+  // Build a synthetic invoice record from razorpay_orders
+  if (!res.rows.length && paymentId) {
+    const orderRes = await query(
+      `SELECT ro.*, sp.name AS plan_name,
+              u.first_name || ' ' || u.last_name AS customer_name,
+              u.email AS customer_email
+       FROM razorpay_orders ro
+       JOIN subscription_plans sp ON ro.plan_id = sp.id
+       JOIN users u ON ro.user_uid = u.uid
+       WHERE ro.user_uid = $1
+         AND ro.razorpay_payment_id = $2
+         AND ro.status = 'paid'
+       LIMIT 1`,
+      [uid, paymentId],
+    );
+
+    if (!orderRes.rows.length) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+
+    const o = orderRes.rows[0];
+    // Synthesize invoice-like object for the HTML template
+    res = {
+      rows: [{
+        razorpay_payment_id: o.razorpay_payment_id,
+        razorpay_order_id:   o.razorpay_order_id,
+        amount_inr:          o.amount_inr,
+        plan_name:           o.plan_name,
+        customer_name:       o.customer_name?.trim() || null,
+        customer_email:      o.customer_email || null,
+        invoice_number:      `ORD-${o.razorpay_order_id?.slice(-8).toUpperCase()}`,
+        created_at:          o.paid_at ?? o.created_at,
+        status:              "paid",
+      }],
+    } as any;
+  }
 
   if (!res.rows.length) {
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });

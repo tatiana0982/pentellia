@@ -146,7 +146,6 @@ export default function SubscriptionPage() {
   const [currentSub,  setCurrentSub]  = useState<CurrentSub | null>(null);
   const [usage,       setUsage]       = useState<UsageData | null>(null);
   const [payments,    setPayments]    = useState<PaymentRecord[]>([]);
-  const [invoices,    setInvoices]    = useState<InvoiceMap>({});
   const [isLoading,   setIsLoading]   = useState(true);
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
   const [showPlans,   setShowPlans]   = useState(false);
@@ -168,16 +167,8 @@ export default function SubscriptionPage() {
       if (statusRes.paymentHistory) {
         const pmts: PaymentRecord[] = statusRes.paymentHistory ?? [];
         setPayments(pmts);
-        // Fetch invoice IDs for each payment
-        const invMap: InvoiceMap = {};
-        await Promise.allSettled(pmts.map(async p => {
-          const r = await fetch(`/api/invoice/download?payment_id=${p.razorpay_payment_id}&format=html`, { method: "HEAD" }).catch(() => null);
-          if (r?.ok) {
-            // Invoice exists — store placeholder; actual download uses the payment_id
-            invMap[p.razorpay_payment_id] = { id: p.razorpay_payment_id, invoice_number: "" };
-          }
-        }));
-        setInvoices(invMap);
+        // All payments get a download button — invoice route handles both
+        // new payments (invoices table) and old payments (razorpay_orders fallback)
       }
       if (userRes.success) {
         setUserEmail(userRes.user?.email ?? "");
@@ -252,7 +243,7 @@ export default function SubscriptionPage() {
   const pendingPlan   = plans.find(p => p.id === currentSub?.pendingPlanId);
 
   return (
-    <div className="w-full space-y-6 pb-16 animate-in fade-in duration-300">
+    <div className="px-8 pt-6 pb-10 space-y-6 animate-in fade-in duration-300">
 
       <div>
         <h1 className="text-xl font-semibold text-white tracking-tight">Billing & Subscription</h1>

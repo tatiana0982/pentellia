@@ -101,7 +101,7 @@ export async function GET(
   }
 
   if (newStatus === "completed" && scan.status !== "completed") {
-    const resultRes = await safeFetch(`${toolsBaseUrl}/result/${externalJobId}`, {
+    const resultRes = await safeFetch(`${toolsBaseUrl}/results/${externalJobId}?normalized=true`, {
       headers: { "X-API-Key": apiKey },
     });
     const result  = resultRes.ok && resultRes.json ? resultRes.json : { error: "Could not fetch results" };
