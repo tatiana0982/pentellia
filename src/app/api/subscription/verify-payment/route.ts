@@ -1,5 +1,5 @@
 // src/app/api/subscription/verify-payment/route.ts
-// Verifies Razorpay HMAC signature and activates the user's subscription.
+// Verifies Razorpay HMAC, activates subscription, stores invoice.
 
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
@@ -8,31 +8,23 @@ import { getUid } from "@/lib/auth";
 import { activateSubscription } from "@/lib/subscription";
 import { createNotification } from "@/lib/notifications";
 
-function verifySignature(
-  orderId:   string,
-  paymentId: string,
-  signature: string,
-  secret:    string,
-): boolean {
+function verifySignature(orderId: string, paymentId: string, signature: string, secret: string): boolean {
   try {
-    const expected = crypto
-      .createHmac("sha256", secret)
-      .update(`${orderId}|${paymentId}`)
-      .digest("hex");
-
-    // Guard against length mismatch before timingSafeEqual
-    const expBuf = Buffer.from(expected,  "hex");
+    const expected = crypto.createHmac("sha256", secret).update(`${orderId}|${paymentId}`).digest("hex");
+    const expBuf = Buffer.from(expected, "hex");
     const sigBuf = Buffer.from(signature, "hex");
     if (expBuf.length !== sigBuf.length) return false;
     return crypto.timingSafeEqual(expBuf, sigBuf);
-  } catch {
-    return false;
-  }
+  } catch { return false; }
+}
+
+async function generateInvoiceNumber(): Promise<string> {
+  const res = await query(`SELECT nextval('invoice_number_seq') AS n`);
+  const n   = String(res.rows[0].n).padStart(6, "0");
+  return `INV-${new Date().getFullYear()}-${n}`;
 }
 
 export async function POST(req: NextRequest) {
-  // checkRevoked=false — session cookie verification is sufficient.
-  // checkRevoked=true makes an extra Firebase network call that is unreliable on Vercel serverless.
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -42,88 +34,69 @@ export async function POST(req: NextRequest) {
 
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
 
-  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature)
     return NextResponse.json({ error: "Missing payment fields" }, { status: 400 });
-  }
 
   const idPattern = /^[a-zA-Z0-9_]+$/;
-  if (!idPattern.test(razorpay_order_id) || !idPattern.test(razorpay_payment_id)) {
+  if (!idPattern.test(razorpay_order_id) || !idPattern.test(razorpay_payment_id))
     return NextResponse.json({ error: "Invalid payment ID format" }, { status: 400 });
-  }
 
   const secret = process.env.RAZORPAY_KEY_SECRET;
-  if (!secret) {
-    return NextResponse.json({ error: "Payment service not configured" }, { status: 500 });
-  }
+  if (!secret) return NextResponse.json({ error: "Payment service not configured" }, { status: 500 });
 
-  // ── 1. Verify HMAC ────────────────────────────────────────────────
   if (!verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature, secret)) {
-    console.warn(`[Razorpay] Signature mismatch for order=${razorpay_order_id}`);
+    console.warn(`[Razorpay] Signature mismatch order=${razorpay_order_id}`);
     return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
   }
 
-  // ── 2. Fetch order from DB ────────────────────────────────────────
   const orderRes = await query(
-    `SELECT plan_id, amount_inr, status
-     FROM razorpay_orders
-     WHERE razorpay_order_id = $1 AND user_uid = $2
-     LIMIT 1`,
+    `SELECT plan_id, amount_inr, status FROM razorpay_orders
+     WHERE razorpay_order_id = $1 AND user_uid = $2 LIMIT 1`,
     [razorpay_order_id, uid],
   );
-
-  if (!orderRes.rows.length) {
-    return NextResponse.json({ error: "Order not found" }, { status: 404 });
-  }
-
+  if (!orderRes.rows.length) return NextResponse.json({ error: "Order not found" }, { status: 404 });
   const order = orderRes.rows[0];
 
-  // ── 3. Idempotency — already processed ───────────────────────────
   if (order.status === "paid") {
-    return NextResponse.json({ success: true, message: "Already processed" });
+    const inv = await query(`SELECT id, invoice_number FROM invoices WHERE razorpay_payment_id = $1 LIMIT 1`, [razorpay_payment_id]);
+    return NextResponse.json({ success: true, message: "Already processed", invoiceId: inv.rows[0]?.id ?? null, invoiceNumber: inv.rows[0]?.invoice_number ?? null });
   }
 
-  if (!order.plan_id) {
-    return NextResponse.json({ error: "Order missing plan_id" }, { status: 400 });
-  }
+  if (!order.plan_id) return NextResponse.json({ error: "Order missing plan_id" }, { status: 400 });
 
   try {
-    // ── 4. Mark order paid ────────────────────────────────────────
     await query(
-      `UPDATE razorpay_orders
-       SET status              = 'paid',
-           razorpay_payment_id = $1,
-           paid_at             = NOW()
+      `UPDATE razorpay_orders SET status = 'paid', razorpay_payment_id = $1, paid_at = NOW()
        WHERE razorpay_order_id = $2 AND user_uid = $3`,
       [razorpay_payment_id, razorpay_order_id, uid],
     );
 
-    // ── 5. Activate subscription ──────────────────────────────────
-    // activateSubscription handles all scenarios via ON CONFLICT (user_uid) DO UPDATE:
-    // - First subscription: plain insert
-    // - Upgrade (e.g. Recon → Elite): replaces plan_id, resets expires_at to NOW()+30d, resets usage
-    // - Downgrade (e.g. Elite → Recon): same — takes effect immediately with new limits
-    // - Same plan repurchase: resets expires_at to NOW()+30d (fresh 30-day cycle), resets usage
-    await activateSubscription(
-      uid,
-      order.plan_id,
-      razorpay_order_id,
-      razorpay_payment_id,
+    const result = await activateSubscription(uid, order.plan_id, razorpay_order_id, razorpay_payment_id);
+
+    const userRes   = await query(`SELECT CONCAT(first_name, ' ', last_name) AS name, email FROM users WHERE uid = $1 LIMIT 1`, [uid]);
+    const user      = userRes.rows[0];
+    const invoiceNo = await generateInvoiceNumber();
+
+    const invRes = await query(
+      `INSERT INTO invoices
+         (user_uid, razorpay_order_id, razorpay_payment_id, plan_id,
+          amount_inr, invoice_number, customer_name, customer_email, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'paid')
+       ON CONFLICT (razorpay_payment_id) DO UPDATE SET status = 'paid'
+       RETURNING id, invoice_number`,
+      [uid, razorpay_order_id, razorpay_payment_id, order.plan_id,
+       order.amount_inr, invoiceNo, user?.name?.trim() || null, user?.email || null],
     );
 
-    // ── 6. Notify user ────────────────────────────────────────────
-    createNotification(
-      uid,
-      "Subscription Activated ✓",
-      `Your plan is now active. Payment ID: ${razorpay_payment_id}`,
-      "success",
-      true,
-    ).catch(() => {});
+    const invoiceId     = invRes.rows[0]?.id;
+    const invoiceNumber = invRes.rows[0]?.invoice_number;
 
-    return NextResponse.json({
-      success:   true,
-      planId:    order.plan_id,
-      paymentId: razorpay_payment_id,
-    });
+    const notifMsg = result.immediate
+      ? `Your plan is now active. Invoice: ${invoiceNumber}. Payment ID: ${razorpay_payment_id}`
+      : result.message;
+    createNotification(uid, "Subscription Activated ✓", notifMsg, "success", true).catch(() => {});
+
+    return NextResponse.json({ success: true, immediate: result.immediate, message: result.message, planId: order.plan_id, paymentId: razorpay_payment_id, invoiceId, invoiceNumber });
 
   } catch (err: any) {
     console.error("[VerifyPayment] Failed:", err?.message);

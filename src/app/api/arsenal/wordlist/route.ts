@@ -1,12 +1,9 @@
 // src/app/api/arsenal/wordlist/route.ts
-// Backend proxy for SecLists wordlists from raw.githubusercontent.com.
-// Fetches server-side so frontend CSP doesn't need to allow GitHub.
-// Caches on Vercel edge (s-maxage) to avoid hammering GitHub.
+// Backend proxy for SecLists. Frontend CSP blocks GitHub — this route fetches server-side.
 
 import { NextRequest, NextResponse } from "next/server";
 import { getUid } from "@/lib/auth";
 
-// Allowlist of permitted GitHub raw URLs — never allow arbitrary URLs
 const ALLOWED_PATHS = new Set([
   "Passwords/Common-Credentials/10k-most-common.txt",
   "Passwords/Common-Credentials/top-20-common-SSH-passwords.txt",
@@ -25,60 +22,38 @@ const ALLOWED_PATHS = new Set([
 ]);
 
 const GITHUB_BASE = "https://raw.githubusercontent.com/danielmiessler/SecLists/master";
-// Max lines to return (preview mode — saves bandwidth)
-const MAX_LINES = 500;
 
 export async function GET(req: NextRequest) {
-  // Require valid session — wordlists are a paid feature
   const uid = await getUid();
-  if (!uid) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const path = new URL(req.url).searchParams.get("path");
+  const rawPath   = new URL(req.url).searchParams.get("path");
+  if (!rawPath)   return NextResponse.json({ error: "Missing path" }, { status: 400 });
 
-  if (!path) {
-    return NextResponse.json({ error: "Missing path parameter" }, { status: 400 });
-  }
-
-  // Sanitize — only allow explicitly whitelisted paths
-  const cleanPath = path.replace(/^\/+/, "").replace(/\.\./g, "");
+  const cleanPath = rawPath.replace(/^\/+/, "").replace(/\.\./g, "").trim();
   if (!ALLOWED_PATHS.has(cleanPath)) {
-    return NextResponse.json({ error: "Path not allowed" }, { status: 403 });
+    return NextResponse.json({ error: "Path not in allowlist" }, { status: 403 });
   }
-
-  const url = `${GITHUB_BASE}/${cleanPath}`;
 
   try {
-    const upstream = await fetch(url, {
+    const upstream = await fetch(`${GITHUB_BASE}/${cleanPath}`, {
       headers: { "User-Agent": "Pentellia/1.0" },
-      // Server-side fetch — no CSP restriction
     });
 
     if (!upstream.ok) {
-      return NextResponse.json(
-        { error: `GitHub returned ${upstream.status}` },
-        { status: upstream.status === 404 ? 404 : 502 },
-      );
+      return NextResponse.json({ error: `GitHub returned ${upstream.status}` }, { status: upstream.status === 404 ? 404 : 502 });
     }
 
-    const text  = await upstream.text();
-    const lines = text.split("\n").slice(0, MAX_LINES).join("\n");
-    const total = text.split("\n").filter(Boolean).length;
+    const text     = await upstream.text();
+    const lines    = text.split("\n").filter(l => l.trim());
+    const preview  = lines.slice(0, 500).join("\n");
 
     return new NextResponse(
-      JSON.stringify({ success: true, content: lines, total, preview: true }),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          // Cache for 1 hour on Vercel CDN — wordlists don't change often
-          "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-        },
-      },
+      JSON.stringify({ success: true, content: preview, total: lines.length, preview: true }),
+      { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } },
     );
   } catch (err: any) {
-    console.error("[Arsenal proxy] fetch failed:", err?.message);
+    console.error("[Arsenal proxy]", err?.message);
     return NextResponse.json({ error: "Failed to fetch wordlist" }, { status: 502 });
   }
 }
