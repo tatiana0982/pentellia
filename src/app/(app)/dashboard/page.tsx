@@ -48,12 +48,19 @@ export default function DashboardPage() {
   const [loading,   setLoading]   = useState(true);
   const [chartView, setChartView] = useState<"area" | "bar">("area");
 
-  useEffect(() => {
+  const loadData = () => {
     fetch("/api/dashboard/init")
       .then(r => r.json())
       .then(json => { if (json.success) setData(json); })
       .catch(console.error)
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadData();
+    // Re-fetch when any scan completes (fired by triggerFullRefresh in scan result page)
+    window.addEventListener("dashboard-refresh", loadData);
+    return () => window.removeEventListener("dashboard-refresh", loadData);
   }, []);
 
   if (loading || !data) return <DashboardSkeleton />;

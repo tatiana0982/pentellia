@@ -8,21 +8,23 @@ export const triggerNotificationRefresh = () => {
   }
 };
 
-/**
- * Triggers the WalletProvider to re-fetch subscription status.
- * Call this after subscription activation or plan changes.
- */
+/** Triggers the WalletProvider to re-fetch subscription status. */
 export const triggerWalletRefresh = () => {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("wallet-refresh"));
   }
 };
 
-/**
- * Triggers both subscription and notification refresh together.
- * Use after scan completion which produces a notification.
- */
+/** Triggers the dashboard page to re-fetch stats + risk distribution. */
+export const triggerDashboardRefresh = () => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("dashboard-refresh"));
+  }
+};
+
+/** Triggers notifications + wallet + dashboard refresh together. */
 export const triggerFullRefresh = () => {
   triggerNotificationRefresh();
   triggerWalletRefresh();
+  triggerDashboardRefresh();
 };

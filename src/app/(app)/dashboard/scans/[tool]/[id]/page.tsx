@@ -397,53 +397,71 @@ export default function ScanReportPage() {
   const [aiFromCache,  setAiFromCache]  = useState(false);
   const aiGeneratingRef                 = useRef(false);
 
-  // ── Polling — loads scan + AI summary in one call ─────────────────
+  // ── SSE stream — replaces setInterval polling ───────────────────
+  // Single persistent connection; server pushes only on change.
+  // Auto-reconnects via EventSource on network drop or 55s max-runtime.
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-    let firstLoad  = true;
+    if (!scanId) return;
 
-    const fetchScan = async () => {
-      try {
-        const res  = await fetch(`/api/dashboard/scans/${scanId}`);
-        const data = await res.json();
-
-        if (!data.success) {
-          setPolling(false);
-          toast.error(data.error || "Scan not found");
-          return;
-        }
-
+    // Do one initial fetch to get current state (handles page refresh on completed scans)
+    fetch(`/api/dashboard/scans/${scanId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success) return;
         const scanData: ScanResult = { ...data.scan, result: data.pythonStatus || data.scan.result };
         setScan(scanData);
-
         if (data.confirmations) setConfirmations(data.confirmations);
-
-        if (data.pythonStatus?.cms_confirmation_pending && !showCmsModal) {
-          setCmsDetails({ detected: data.pythonStatus.detected_cms || "Unknown CMS", jobId: data.pythonStatus.job_id });
-          setShowCmsModal(true);
-        }
-
-        // Load AI summary from the API response — no second fetch needed
-        if (firstLoad && data.aiSummary) {
-          setAiSummary(data.aiSummary);
-          setAiFromCache(true);
-          firstLoad = false;
-        }
-
+        if (data.aiSummary) { setAiSummary(data.aiSummary); setAiFromCache(true); }
+        // Already terminal — no SSE needed
         if (["completed", "failed", "cancelled"].includes(scanData.status)) {
           setPolling(false);
-          if (scanData.status === "completed") triggerFullRefresh(); // wallet charged + notification created
         }
-      } catch (err) {
-        console.error("[Polling]", err);
-      }
-    };
+      })
+      .catch(console.error);
 
-    if (scanId) fetchScan();
-    if (polling && scanId) intervalId = setInterval(fetchScan, 3000);
-    return () => clearInterval(intervalId);
+    // If scan is already terminal after initial fetch, EventSource will close immediately
+    const es = new EventSource(`/api/dashboard/scans/${scanId}/stream`);
+
+    es.addEventListener("status", (e: MessageEvent) => {
+      try {
+        const { scan: scanData, confirmations: confs, pythonStatus } = JSON.parse(e.data);
+        const merged: ScanResult = { ...scanData, result: pythonStatus || scanData.result };
+        setScan(merged);
+        if (confs) setConfirmations(confs);
+        if (pythonStatus?.cms_confirmation_pending && !showCmsModal) {
+          setCmsDetails({ detected: pythonStatus.detected_cms || "Unknown CMS", jobId: pythonStatus.job_id });
+          setShowCmsModal(true);
+        }
+      } catch { /* malformed event */ }
+    });
+
+    es.addEventListener("close", () => {
+      es.close();
+      setPolling(false);
+      // Get final scan state one more time so result is fresh
+      fetch(`/api/dashboard/scans/${scanId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.success) return;
+          const scanData: ScanResult = { ...data.scan, result: data.pythonStatus || data.scan.result };
+          setScan(scanData);
+          if (scanData.status === "completed") triggerFullRefresh();
+        })
+        .catch(console.error);
+    });
+
+    es.addEventListener("reconnect", () => {
+      // Server hit 55s limit — EventSource will auto-reconnect via browser
+      es.close();
+    });
+
+    es.addEventListener("error", () => {
+      // EventSource auto-reconnects on error — nothing needed here
+    });
+
+    return () => es.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanId, polling, showCmsModal]);
+  }, [scanId, showCmsModal]);
 
   // ── Generate AI Summary ──────────────────────────────────────────
   const handleGenerate = useCallback(async () => {
@@ -482,31 +500,43 @@ export default function ScanReportPage() {
         return;
       }
 
-      // Streaming path
+      // Streaming path — parse SSE format: data: {"content":"..."}
+
+
       if (!res.body) { toast.error("No stream received."); return; }
 
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
       let   full    = "";
+      let   buf     = "";   // incomplete line buffer
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        full += chunk;
-        setAiSummary((p) => p + chunk);
+
+        buf += decoder.decode(value, { stream: true });
+
+        // Process all complete SSE lines in buffer
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";   // last element may be incomplete
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") continue;
+          try {
+            const { content } = JSON.parse(payload);
+            if (content) {
+              full += content;
+              setAiSummary((p) => p + content);
+            }
+          } catch { /* skip malformed chunk */ }
+        }
       }
 
-      // Persist to DB (client-side guarantee — stream is done)
-      if (full) {
-        fetch("/api/ai/summary", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ scanId, toolId: scan.tool_name, content: full }),
-        }).catch(console.error);
-        // Wallet was debited before stream started — refresh balance display now
-        triggerWalletRefresh();
-      }
+      // Server already caches the summary in ai_summaries table after stream completes
+      // Just trigger a wallet/notification refresh
+      if (full) { triggerWalletRefresh(); }
     } catch (err: any) {
       toast.error(err.message ?? "Generation failed.");
       setAiSummary("");
