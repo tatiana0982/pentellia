@@ -2,39 +2,30 @@
 
 import { useRouter } from "next/navigation";
 import { Key, MessageSquare, Construction, ArrowRight, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 export default function ApiKeysPage() {
   const router = useRouter();
 
   return (
-    <div className="flex flex-col space-y-8 font-sans text-slate-200">
-      {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-          <Key className="h-6 w-6 text-indigo-400" />
-          API Keys
-        </h1>
-        <p className="text-sm text-slate-400">
-          Programmatic access to the Pentellia scanning platform.
-        </p>
+    <div className="w-full space-y-6 font-sans">
+      <div>
+        <h1 className="text-xl font-semibold text-white tracking-tight">API Keys</h1>
+        <p className="text-sm text-slate-500 mt-0.5">Programmatic access to the Pentellia scanning platform.</p>
       </div>
 
-      {/* Coming soon card */}
       <div className="max-w-xl">
-        <div className="rounded-2xl border border-white/10 bg-[#0B0C15] overflow-hidden">
-          {/* Top accent bar */}
-          <div className="h-1 w-full bg-gradient-to-r from-violet-600 to-indigo-600" />
+        <div className="rounded-lg border border-white/[0.07] bg-[#0d0e1a] overflow-hidden">
+          <div className="h-[2px] w-full bg-gradient-to-r from-violet-600 to-indigo-500" />
 
           <div className="p-8 flex flex-col items-center text-center space-y-5">
-            <div className="h-16 w-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-              <Construction className="h-8 w-8 text-indigo-400" />
+            <div className="h-14 w-14 rounded-lg bg-violet-500/10 border border-violet-500/15 flex items-center justify-center">
+              <Construction className="h-7 w-7 text-violet-400" />
             </div>
 
             <div>
-              <h2 className="text-lg font-semibold text-white mb-2">API Access — Coming Soon</h2>
+              <h2 className="text-base font-semibold text-white mb-2">API Access — Coming Soon</h2>
               <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
-                Programmatic API access is currently under development. Once available, you will be able to
+                Programmatic API access is under development. Once available, you will be able to
                 create API keys here to automate scans, retrieve findings, and integrate with your CI/CD pipeline.
               </p>
             </div>
@@ -53,21 +44,20 @@ export default function ApiKeysPage() {
               ))}
             </div>
 
-            <div className="pt-2 flex flex-col gap-2.5 w-full max-w-xs">
-              <Button
+            <div className="pt-1 flex flex-col gap-2 w-full max-w-xs">
+              <button
                 onClick={() => router.push("/dashboard/support")}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white"
+                className="w-full h-9 flex items-center justify-center gap-2 rounded-md bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-all"
               >
-                <MessageSquare className="mr-2 h-4 w-4" />
+                <MessageSquare className="h-4 w-4" />
                 Request Early Access
-              </Button>
-              <Button
-                variant="ghost"
+              </button>
+              <button
                 onClick={() => router.push("/dashboard")}
-                className="w-full text-slate-400 hover:text-white hover:bg-white/5"
+                className="w-full h-9 flex items-center justify-center gap-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/5 text-sm transition-all"
               >
-                Back to Dashboard <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-              </Button>
+                Back to Dashboard <ArrowRight className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         </div>

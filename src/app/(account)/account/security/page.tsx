@@ -11,25 +11,25 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 
-// ─── Generic card ─────────────────────────────────────────────────────
+// ─── Card ────────────────────────────────────────────────────────────
 function Card({ title, icon: Icon, danger = false, children }: {
   title: string; icon: React.ElementType; danger?: boolean; children: React.ReactNode;
 }) {
   return (
     <div className={cn(
-      "rounded-2xl overflow-hidden border",
-      danger ? "bg-red-500/[0.03] border-red-500/15" : "bg-[#0d0e1a] border-slate-800/60",
+      "rounded-lg overflow-hidden border",
+      danger ? "bg-red-500/[0.03] border-red-500/15" : "bg-[#0d0e1a] border-white/[0.07]",
     )}>
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-800/50 bg-slate-900/20">
+      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-white/[0.06]">
         <div className={cn(
-          "h-7 w-7 rounded-lg flex items-center justify-center shrink-0 border",
+          "h-6 w-6 rounded-md flex items-center justify-center shrink-0 border",
           danger ? "bg-red-500/10 border-red-500/20" : "bg-violet-500/10 border-violet-500/15",
         )}>
           <Icon className={cn("h-3.5 w-3.5", danger ? "text-red-400" : "text-violet-400")} />
         </div>
         <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
       </div>
-      <div className="p-6">{children}</div>
+      <div className="p-5">{children}</div>
     </div>
   );
 }
@@ -37,40 +37,36 @@ function Card({ title, icon: Icon, danger = false, children }: {
 function FieldLabel({ label, hint }: { label: string; hint?: string }) {
   return (
     <div className="space-y-0.5 mb-1.5">
-      <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{label}</Label>
+      <Label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{label}</Label>
       {hint && <p className="text-[11px] text-slate-600">{hint}</p>}
     </div>
   );
 }
 
-const iCls = "h-10 bg-slate-900/60 border-slate-700/50 text-slate-100 placeholder:text-slate-600 focus-visible:ring-violet-500/40 focus-visible:border-violet-500/50";
+const iCls = "h-9 bg-black/30 border-white/[0.08] text-slate-100 placeholder:text-slate-600 focus-visible:ring-violet-500/20 focus-visible:border-violet-500/50 rounded-md";
 
 // ─── Change Password ──────────────────────────────────────────────────
 function ChangePasswordSection() {
-  const [step,        setStep]        = useState<"idle"|"otp_sent"|"verified"|"done">("idle");
-  const [otp,         setOtp]         = useState("");
-  const [resetToken,  setResetToken]  = useState("");
-  const [newPwd,      setNewPwd]      = useState("");
-  const [confirmPwd,  setConfirmPwd]  = useState("");
-  const [showPwd,     setShowPwd]     = useState(false);
-  const [loading,     setLoading]     = useState(false);
+  const [step,       setStep]       = useState<"idle"|"otp_sent"|"verified"|"done">("idle");
+  const [otp,        setOtp]        = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [newPwd,     setNewPwd]     = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [showPwd,    setShowPwd]    = useState(false);
+  const [loading,    setLoading]    = useState(false);
 
-  // Step 1 — send OTP to registered email
   const sendOtp = async () => {
     setLoading(true);
     try {
-      // Fetch email from current user
       const uRes  = await fetch("/api/users");
       const uData = await uRes.json();
       if (!uData.success) throw new Error("Could not fetch user email");
-
       const res  = await fetch("/api/auth/send-otp", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body:   JSON.stringify({ email: uData.user.email, type: "forgot" }),
+        body: JSON.stringify({ email: uData.user.email, type: "forgot" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send OTP");
-
       toast.success("OTP sent to your email");
       setStep("otp_sent");
     } catch (err: any) {
@@ -78,21 +74,18 @@ function ChangePasswordSection() {
     } finally { setLoading(false); }
   };
 
-  // Step 2 — verify OTP
   const verifyOtp = async () => {
     if (!otp || otp.length < 4) { toast.error("Enter the OTP"); return; }
     setLoading(true);
     try {
       const uRes  = await fetch("/api/users");
       const uData = await uRes.json();
-
-      const res  = await fetch("/api/auth/verify-otp", {
+      const res   = await fetch("/api/auth/verify-otp", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body:   JSON.stringify({ email: uData.user.email, otp, type: "forgot" }),
+        body: JSON.stringify({ email: uData.user.email, otp, type: "forgot" }),
       });
-      const data = await res.json();
+      const data  = await res.json();
       if (!res.ok) throw new Error(data.error || "Invalid OTP");
-
       setResetToken(data.resetToken);
       setStep("verified");
       toast.success("OTP verified");
@@ -101,7 +94,6 @@ function ChangePasswordSection() {
     } finally { setLoading(false); }
   };
 
-  // Step 3 — change password
   const changePassword = async () => {
     if (newPwd.length < 8) { toast.error("Password must be at least 8 characters"); return; }
     if (newPwd !== confirmPwd) { toast.error("Passwords do not match"); return; }
@@ -109,11 +101,10 @@ function ChangePasswordSection() {
     try {
       const res  = await fetch("/api/auth/change-password", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body:   JSON.stringify({ token: resetToken, newPassword: newPwd }),
+        body: JSON.stringify({ token: resetToken, newPassword: newPwd }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Password change failed");
-
       toast.success("Password changed successfully");
       setStep("done");
       setOtp(""); setNewPwd(""); setConfirmPwd(""); setResetToken("");
@@ -123,23 +114,23 @@ function ChangePasswordSection() {
   };
 
   if (step === "done") return (
-    <div className="flex items-center gap-3 text-emerald-400 text-sm">
-      <div className="h-8 w-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-        <Check className="h-4 w-4" />
+    <div className="flex items-center gap-3 text-violet-400 text-sm">
+      <div className="h-7 w-7 rounded-md bg-violet-500/10 border border-violet-500/15 flex items-center justify-center">
+        <Check className="h-3.5 w-3.5" />
       </div>
       Password updated successfully.
     </div>
   );
 
   return (
-    <div className="space-y-5 max-w-md">
+    <div className="space-y-5 max-w-lg">
       <p className="text-sm text-slate-400 leading-relaxed">
         We'll send a one-time code to your registered email address to verify your identity before changing your password.
       </p>
 
       {step === "idle" && (
         <button onClick={sendOtp} disabled={loading}
-          className="flex items-center gap-2 px-5 h-10 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold shadow-[0_2px_12px_rgba(124,58,237,0.3)] transition-all disabled:opacity-50">
+          className="flex items-center gap-2 px-4 h-9 rounded-md bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium shadow-[0_2px_8px_rgba(124,58,237,0.25)] transition-all disabled:opacity-50">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           Send OTP to Email
         </button>
@@ -149,11 +140,11 @@ function ChangePasswordSection() {
         <div className="space-y-4">
           <div>
             <FieldLabel label="Enter OTP" hint="Check your inbox — code expires in 10 minutes" />
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <Input value={otp} onChange={(e) => setOtp(e.target.value.trim())}
                 placeholder="123456" maxLength={8} className={cn(iCls, "tracking-widest font-mono")} />
               <button onClick={verifyOtp} disabled={loading || !otp}
-                className="px-4 h-10 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-all disabled:opacity-50 shrink-0">
+                className="px-4 h-9 rounded-md bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-all disabled:opacity-50 shrink-0">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
               </button>
             </div>
@@ -185,7 +176,7 @@ function ChangePasswordSection() {
               className={iCls} />
           </div>
           <button onClick={changePassword} disabled={loading || !newPwd || !confirmPwd}
-            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-all disabled:opacity-50">
+            className="flex items-center gap-2 px-4 h-9 rounded-md bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-all disabled:opacity-50">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
             Update Password
           </button>
@@ -198,11 +189,10 @@ function ChangePasswordSection() {
 // ─── Delete Account ──────────────────────────────────────────────────
 function DeleteAccountSection() {
   const router = useRouter();
-  const [step,          setStep]          = useState<"idle"|"confirming"|"otp_sent"|"deleting">("idle");
-  const [confirmation,  setConfirmation]  = useState("");
-  const [otp,           setOtp]           = useState("");
-  const [resetToken,    setResetToken]    = useState("");
-  const [loading,       setLoading]       = useState(false);
+  const [step,         setStep]         = useState<"idle"|"confirming"|"otp_sent"|"deleting">("idle");
+  const [confirmation, setConfirmation] = useState("");
+  const [otp,          setOtp]          = useState("");
+  const [loading,      setLoading]      = useState(false);
 
   const REQUIRED_TEXT = "I delete this account";
 
@@ -212,13 +202,11 @@ function DeleteAccountSection() {
     try {
       const uRes  = await fetch("/api/users");
       const uData = await uRes.json();
-
-      const res  = await fetch("/api/auth/send-otp", {
+      const res   = await fetch("/api/auth/send-otp", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body:   JSON.stringify({ email: uData.user.email, type: "forgot" }),
+        body: JSON.stringify({ email: uData.user.email, type: "forgot" }),
       });
       if (!res.ok) throw new Error("Failed to send OTP");
-
       toast.success("OTP sent to your email");
       setStep("otp_sent");
     } catch (err: any) {
@@ -232,20 +220,17 @@ function DeleteAccountSection() {
     try {
       const uRes  = await fetch("/api/users");
       const uData = await uRes.json();
-
-      // Verify OTP first
       const vRes  = await fetch("/api/auth/verify-otp", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body:   JSON.stringify({ email: uData.user.email, otp, type: "forgot" }),
+        body: JSON.stringify({ email: uData.user.email, otp, type: "forgot" }),
       });
       const vData = await vRes.json();
       if (!vRes.ok) throw new Error(vData.error || "Invalid OTP");
 
-      // Delete account
       setStep("deleting");
       const dRes  = await fetch("/api/auth/delete-account", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body:   JSON.stringify({ token: vData.resetToken, confirmation }),
+        body: JSON.stringify({ token: vData.resetToken, confirmation }),
       });
       const dData = await dRes.json();
       if (!dRes.ok) throw new Error(dData.error || "Deletion failed");
@@ -260,8 +245,8 @@ function DeleteAccountSection() {
   };
 
   return (
-    <div className="space-y-5 max-w-md">
-      <div className="flex items-start gap-3 p-3.5 rounded-xl bg-red-500/5 border border-red-500/15">
+    <div className="space-y-4 max-w-lg">
+      <div className="flex items-start gap-3 p-3.5 rounded-md bg-red-500/5 border border-red-500/15">
         <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
         <p className="text-xs text-red-300/80 leading-relaxed">
           This permanently deletes your account, all scans, reports, AI summaries, domains, and billing history.
@@ -271,7 +256,7 @@ function DeleteAccountSection() {
 
       {step === "idle" && (
         <button onClick={() => setStep("confirming")}
-          className="flex items-center gap-2 text-xs font-semibold text-red-400 border border-red-500/15 bg-red-500/5 hover:bg-red-500/10 px-4 py-2 rounded-xl transition-all">
+          className="flex items-center gap-2 text-xs font-medium text-red-400 border border-red-500/15 bg-red-500/5 hover:bg-red-500/10 px-3 py-2 rounded-md transition-all">
           <Trash2 className="h-3.5 w-3.5" /> Delete My Account
         </button>
       )}
@@ -279,17 +264,19 @@ function DeleteAccountSection() {
       {step === "confirming" && (
         <div className="space-y-4">
           <div>
-            <FieldLabel label={`Type exactly: "${REQUIRED_TEXT}"`} />
+            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+              Type exactly: "{REQUIRED_TEXT}"
+            </label>
             <Input value={confirmation} onChange={(e) => setConfirmation(e.target.value)}
               placeholder={REQUIRED_TEXT} className={iCls} />
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <button onClick={() => { setStep("idle"); setConfirmation(""); }}
-              className="px-4 h-9 rounded-xl text-xs font-semibold text-slate-400 bg-slate-800/60 hover:bg-slate-800 transition-all">
+              className="px-3 h-8 rounded-md text-xs font-medium text-slate-400 bg-white/[0.05] hover:bg-white/[0.08] transition-all">
               Cancel
             </button>
             <button onClick={sendOtp} disabled={loading || confirmation !== REQUIRED_TEXT}
-              className="flex items-center gap-2 px-4 h-9 rounded-xl text-xs font-semibold text-red-400 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-all disabled:opacity-40">
+              className="flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium text-red-400 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-all disabled:opacity-40">
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               Send OTP to Confirm
             </button>
@@ -300,13 +287,16 @@ function DeleteAccountSection() {
       {(step === "otp_sent" || step === "deleting") && (
         <div className="space-y-4">
           <div>
-            <FieldLabel label="Enter OTP from Email" hint="This is your final confirmation step" />
-            <div className="flex gap-3">
+            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+              Enter OTP from Email
+            </label>
+            <p className="text-[11px] text-slate-600 mb-2">This is your final confirmation step</p>
+            <div className="flex gap-2">
               <Input value={otp} onChange={(e) => setOtp(e.target.value.trim())}
                 placeholder="123456" maxLength={8}
                 className={cn(iCls, "tracking-widest font-mono")} disabled={step === "deleting"} />
               <button onClick={verifyAndDelete} disabled={loading || !otp}
-                className="px-4 h-10 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-all disabled:opacity-50 shrink-0">
+                className="px-3 h-9 rounded-md bg-red-600 hover:bg-red-500 text-white text-xs font-medium transition-all disabled:opacity-50 shrink-0">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete Forever"}
               </button>
             </div>
@@ -320,13 +310,13 @@ function DeleteAccountSection() {
 // ─── Page ─────────────────────────────────────────────────────────────
 export default function SecurityPage() {
   return (
-    <div className="w-full max-w-3xl space-y-6 pb-16 font-sans">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="h-10 w-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-          <ShieldAlert className="h-5 w-5 text-violet-400" />
+    <div className="w-full max-w-2xl space-y-5 pb-16 font-sans">
+      <div className="flex items-center gap-3 mb-1">
+        <div className="h-9 w-9 rounded-md bg-violet-500/10 border border-violet-500/15 flex items-center justify-center">
+          <ShieldAlert className="h-4 w-4 text-violet-400" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Account Security</h1>
+          <h1 className="text-xl font-semibold text-white tracking-tight">Account Security</h1>
           <p className="text-xs text-slate-500 mt-0.5">Manage your password and account access</p>
         </div>
       </div>
