@@ -3,19 +3,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
-import { adminAuth } from "@/config/firebaseAdmin";
-import { cookies } from "next/headers";
-import { createNotification } from "@/lib/notifications";
 
-async function getUid() {
-  const cookieStore   = await cookies();
-  const sessionCookie = cookieStore.get("__session")?.value;
-  if (!sessionCookie) return null;
-  try {
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    return decoded.uid;
-  } catch { return null; }
-}
+
+import { createNotification } from "@/lib/notifications";
+import { getUid } from "@/lib/auth";  // ← central getUid, no checkRevoked
+
 
 async function safeFetch(url: string, opts?: RequestInit) {
   try {

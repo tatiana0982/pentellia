@@ -1,6 +1,7 @@
 // src/app/api/dashboard/scans/route.ts
 // Phase 3: Domain gate REMOVED. Credit gate REMOVED.
-// Gate: requireActivePlan() — checks subscription + monthly + daily limits.
+// Gate: checkUsageLimit() — subscription + monthly + daily limits.
+// All calls to Flask engine use TOOLS_BASE_URL + X-API-Key header (server-side only).
 
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
@@ -21,6 +22,24 @@ async function getScanType(toolId: string): Promise<"deep" | "light"> {
   if (!res.rows.length) return "light";
   const cat = (res.rows[0].category as string).toLowerCase().trim();
   return DEEP_CATEGORIES.has(cat) ? "deep" : "light";
+}
+
+// ── Resolve which Flask endpoint to hit ───────────────────────────────
+// discovery → POST /discovery  (interactive multi-phase)
+// authtest  → POST /authtest   (interactive auth testing)
+// default   → POST /scan       (jsspider, breachintel, subdomainfinder, etc.)
+function resolveFlaskEndpoint(
+  base: string,
+  tool: string,
+  params: Record<string, any> | undefined,
+): { endpoint: string; payload: object } {
+  if (params?.discovery === true) {
+    return { endpoint: `${base}/discovery`, payload: { params } };
+  }
+  if (params?.authtest === true || tool === "authtest") {
+    return { endpoint: `${base}/authtest`, payload: { params } };
+  }
+  return { endpoint: `${base}/scan`, payload: { tool, params } };
 }
 
 // ── GET — list scans ──────────────────────────────────────────────────
@@ -74,23 +93,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing tool or target" }, { status: 400 });
     }
 
-    // ── Guard: Flask engine must be configured ───────────────────────
+    // ── Guard: env vars must be set ──────────────────────────────────
     const toolsBaseUrl = process.env.TOOLS_BASE_URL;
-    if (!toolsBaseUrl) {
-      console.error("[Scans POST] TOOLS_BASE_URL not configured");
+    const toolsApiKey  = process.env.TOOLS_API_KEY;
+
+    if (!toolsBaseUrl || !toolsApiKey) {
+      console.error("[Scans POST] TOOLS_BASE_URL or TOOLS_API_KEY not set in environment");
       return NextResponse.json(
         { error: "Scan engine not configured. Contact support." },
         { status: 503 },
       );
     }
 
-    // ── Gate: Check subscription + usage limits ──────────────────────
+    // ── Gate: Require active subscription + usage within limits ──────
     const scanType    = await getScanType(tool);
     const usageStatus = await checkUsageLimit(uid, scanType);
 
     if (!usageStatus.allowed) {
-      const httpStatus = usageStatus.code === "NO_SUBSCRIPTION" || usageStatus.code === "PLAN_EXPIRED"
-        ? 402 : 429;
+      const httpStatus =
+        usageStatus.code === "NO_SUBSCRIPTION" || usageStatus.code === "PLAN_EXPIRED"
+          ? 402 : 429;
       return NextResponse.json(
         {
           error:        usageStatus.reason,
@@ -105,16 +127,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Forward to Flask scan engine ─────────────────────────────────
-    const isDiscovery = params?.discovery === true;
-    const endpoint    = isDiscovery ? `${toolsBaseUrl}/discovery` : `${toolsBaseUrl}/scan`;
-    const payload     = isDiscovery ? { target, params } : { tool, target, params };
+    // ── Route to correct Flask endpoint (server-side, key never exposed) ──
+    const { endpoint, payload: basePayload } = resolveFlaskEndpoint(toolsBaseUrl, tool, params);
+    const payload = { ...basePayload, target };
+
+    console.log(`[Scans POST] uid=${uid} endpoint=${endpoint} tool=${tool} target=${target}`);
 
     const toolsRes = await fetch(endpoint, {
       method:  "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key":    process.env.TOOLS_API_KEY || "",
+        "X-API-Key":    toolsApiKey,   // API key never reaches browser
       },
       body:   JSON.stringify(payload),
       signal: AbortSignal.timeout(30_000),
@@ -123,7 +146,8 @@ export async function POST(req: NextRequest) {
     const toolsData = await toolsRes.json();
 
     if (!toolsRes.ok) {
-      throw new Error(toolsData.error || "Scan engine returned an error");
+      console.error(`[Scans POST] Engine ${toolsRes.status}:`, toolsData);
+      throw new Error(toolsData.error || `Scan engine returned ${toolsRes.status}`);
     }
 
     // ── Insert scan record ───────────────────────────────────────────
@@ -135,20 +159,17 @@ export async function POST(req: NextRequest) {
     );
     const scanId = dbRes.rows[0].id;
 
-    // ── Increment usage counter (after successful queue) ─────────────
+    // ── Increment usage (only after successful queue) ─────────────────
     await incrementUsage(uid, scanType);
 
     await createNotification(
-      uid,
-      "Scan Started",
-      `Scan initiated for ${target}`,
-      "info",
+      uid, "Scan Started", `Scan initiated for ${target}`, "info",
     );
 
     return NextResponse.json({ success: true, scanId, jobId: toolsData.job_id });
 
   } catch (error: any) {
     console.error("[Scans POST]", error?.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Failed to start scan" }, { status: 500 });
   }
 }
