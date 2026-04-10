@@ -30,13 +30,14 @@ const COUNTRIES = [
   "Japan", "South Korea", "Other",
 ];
 
-const YEARS_EXP = ["", "< 1 year", "1–2 years", "3–5 years", "6–10 years", "10+ years"];
-
 const SECURITY_ROLES = [
-  "", "Penetration Tester", "Security Engineer", "Security Analyst",
-  "Bug Bounty Hunter", "Red Team / Offensive", "Blue Team / Defensive",
-  "DevSecOps", "CISO / Security Manager", "Security Researcher",
-  "Student / Learning", "Other",
+  "", "Penetration Tester", "Security Analyst", "SOC Analyst",
+  "Security Engineer", "DevSecOps", "CISO / Security Lead",
+  "Red Team Operator", "Bug Bounty Hunter", "Consultant", "Other",
+];
+
+const YEARS_EXP = [
+  "", "< 1 year", "1–2 years", "3–5 years", "6–10 years", "10+ years",
 ];
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -45,32 +46,36 @@ interface UserData {
   lastName:       string;
   email:          string;
   company:        string;
+  size:           string;
   role:           string;
-  phone:          string;
   country:        string;
   timezone:       string;
+  phone:          string;
+  industry:       string;
+  preferredLang:  string;
+  yearsInSec:     string;
+  secRole:        string;
+  certifications: string;
+  focusAreas:     string;
   bio:            string;
   website:        string;
   linkedin:       string;
   twitter:        string;
   github:         string;
-  industry:       string;
-  yearsInSec:     string;
-  secRole:        string;
-  certifications: string;
+  hasAvatar?:     boolean;  // from API: true if DB has a photo stored
   avatar?:        string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
 function normaliseUrl(raw: string): string {
-  if (!raw.trim()) return "";
+  if (!raw?.trim()) return "";
   const s = raw.trim().toLowerCase();
   if (s.startsWith("http://") || s.startsWith("https://")) return raw.trim();
   return `https://${raw.trim()}`;
 }
 
-function validateLink(value: string, type: "github" | "linkedin" | "twitter" | "website"): string | null {
-  if (!value.trim()) return null;
+function validateLink(value: string | undefined | null, type: "github" | "linkedin" | "twitter" | "website"): string | null {
+  if (!value?.trim()) return null;
   const url = normaliseUrl(value);
   try {
     const u = new URL(url);
@@ -84,8 +89,8 @@ function validateLink(value: string, type: "github" | "linkedin" | "twitter" | "
   }
 }
 
-function validatePhone(p: string): string | null {
-  if (!p.trim()) return null;
+function validatePhone(p: string | undefined | null): string | null {
+  if (!p?.trim()) return null;
   const digits = p.replace(/\D/g, "");
   if (digits.length < 7 || digits.length > 15) return "Must be 7–15 digits";
   return null;
@@ -108,9 +113,9 @@ function profileCompletion(u: UserData, hasPhoto: boolean) {
 // ── Sub-components ─────────────────────────────────────────────────────
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-[#0B0C15]/60 backdrop-blur-sm overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-white/[0.06]">
-        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{title}</p>
+    <div className="rounded-lg border border-white/[0.07] bg-[#0d0e1a]/60 overflow-hidden">
+      <div className="px-5 py-3 border-b border-white/[0.05]">
+        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">{title}</p>
       </div>
       <div className="p-5">{children}</div>
     </div>
@@ -118,30 +123,56 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function FieldGroup({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{children}</div>;
+  return <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">{children}</div>;
 }
 
-function Field({
-  label, error, children,
-}: { label: string; error?: string | null; children: React.ReactNode }) {
+function Field({ label, children, error, hint }: {
+  label: string; children: React.ReactNode; error?: string | null; hint?: string;
+}) {
   return (
-    <div className="space-y-1.5">
-      <Label className="text-xs text-slate-400">{label}</Label>
+    <div className="space-y-1">
+      <Label className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">{label}</Label>
       {children}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {hint  && <p className="text-[11px] text-slate-600">{hint}</p>}
+      {error && <p className="text-[11px] text-red-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" />{error}</p>}
+    </div>
+  );
+}
+
+// ── Styled select ──────────────────────────────────────────────────────
+function StyledSelect({ value, onChange, options, placeholder }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder: string;
+}) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full h-9 px-3 rounded-md bg-black/30 border border-white/[0.08] text-sm text-slate-200 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 appearance-none cursor-pointer transition-colors"
+        style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center" }}
+      >
+        {options.map(o => (
+          <option key={o} value={o} className="bg-[#0d0e1a] text-slate-200">
+            {o || placeholder}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────
 export default function UserSettingsPage() {
-  const [original,     setOriginal]     = useState<UserData | null>(null);
-  const [draft,        setDraft]        = useState<UserData | null>(null);
-  const [isSaving,     setIsSaving]     = useState(false);
+  const [original,      setOriginal]      = useState<UserData | null>(null);
+  const [draft,         setDraft]         = useState<UserData | null>(null);
+  const [isSaving,      setIsSaving]      = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarVersion, setAvatarVersion] = useState(Date.now());
-  const [linkErrors,   setLinkErrors]   = useState<Record<string, string | null>>({});
-  const [phoneError,   setPhoneError]   = useState<string | null>(null);
+  const [linkErrors,    setLinkErrors]    = useState<Record<string, string | null>>({});
+  const [phoneError,    setPhoneError]    = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isDirty = useMemo(() => {
@@ -154,8 +185,33 @@ export default function UserSettingsPage() {
       .then(r => r.json())
       .then(d => {
         if (d.success) {
-          setOriginal(d.user);
-          setDraft(d.user);
+          // Guarantee every string field is a string — never undefined/null
+          const u = d.user;
+          const safe: UserData = {
+            firstName:      u.firstName      || "",
+            lastName:       u.lastName       || "",
+            email:          u.email          || "",
+            company:        u.company        || "",
+            size:           u.size           || "",
+            role:           u.role           || "",
+            country:        u.country        || "",
+            timezone:       u.timezone       || "",
+            phone:          u.phone          || "",
+            industry:       u.industry       || "",
+            preferredLang:  u.preferredLang  || "en",
+            yearsInSec:     u.yearsInSec     || "",
+            secRole:        u.secRole        || "",
+            certifications: u.certifications || "",
+            focusAreas:     u.focusAreas     || "",
+            bio:            u.bio            || "",
+            website:        u.website        || "",
+            linkedin:       u.linkedin       || "",
+            twitter:        u.twitter        || "",
+            github:         u.github         || "",
+            hasAvatar:      !!u.hasAvatar,
+          };
+          setOriginal(safe);
+          setDraft(safe);
         }
       })
       .catch(console.error);
@@ -186,7 +242,6 @@ export default function UserSettingsPage() {
     if (!validateAll()) { toast.error("Fix validation errors before saving"); return; }
     setIsSaving(true);
     try {
-      // Normalise URLs before saving
       const payload = {
         ...draft,
         github:   draft.github   ? normaliseUrl(draft.github)   : "",
@@ -233,6 +288,9 @@ export default function UserSettingsPage() {
         if (data.success) {
           toast.success("Photo updated", { id });
           setAvatarVersion(Date.now());
+          // Mark hasAvatar true in draft so completion doesn't show "Missing photo"
+          setDraft(prev => prev ? { ...prev, hasAvatar: true } : null);
+          setOriginal(prev => prev ? { ...prev, hasAvatar: true } : null);
           setTimeout(() => setAvatarPreview(null), 800);
         } else throw new Error();
       } catch {
@@ -243,11 +301,13 @@ export default function UserSettingsPage() {
     reader.readAsDataURL(file);
   };
 
-  const avatarSrc = avatarPreview ?? (draft?.avatar || `/api/users/avatar?v=${avatarVersion}`);
-  const hasPhoto  = !avatarSrc.startsWith("/api/users");
+  const avatarSrc = avatarPreview ?? `/api/users/avatar?v=${avatarVersion}`;
+  // hasPhoto is true if: user just uploaded (avatarPreview) OR DB has a stored photo (hasAvatar from API)
+  const hasPhoto  = !!avatarPreview || !!draft?.hasAvatar;
+
   const { pct, missing } = useMemo(
     () => profileCompletion(draft ?? {} as UserData, hasPhoto),
-    [draft, avatarPreview, avatarVersion],
+    [draft, hasPhoto],
   );
   const initials = ((draft?.firstName?.[0] ?? "") + (draft?.lastName?.[0] ?? "")).toUpperCase() || "?";
 
@@ -259,8 +319,7 @@ export default function UserSettingsPage() {
     );
   }
 
-  const inp = "bg-black/30 border-white/10 text-slate-200 placeholder:text-slate-600 focus:border-violet-500/60 focus:ring-0 h-9 text-sm";
-  const sel = "w-full h-9 px-3 rounded-md bg-black/30 border border-white/10 text-sm text-slate-200 focus:outline-none focus:border-violet-500/60 appearance-none";
+  const inp = "bg-black/30 border-white/[0.08] text-slate-200 placeholder:text-slate-600 focus-visible:ring-violet-500/20 focus-visible:border-violet-500/50 h-9 text-sm rounded-md transition-colors";
 
   return (
     <div className="space-y-5 max-w-none animate-in fade-in duration-300">
@@ -271,17 +330,15 @@ export default function UserSettingsPage() {
           <h1 className="text-xl font-semibold text-white tracking-tight">Profile Settings</h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage your account information and preferences.</p>
         </div>
-
-        {/* Save / Discard bar */}
         {isDirty && (
           <div className="flex items-center gap-2 animate-in slide-in-from-right-4 duration-200">
-            <button onClick={handleDiscard} className="h-8 px-3 text-xs text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-all">
+            <button onClick={handleDiscard} className="h-8 px-3 text-xs text-slate-400 hover:text-white rounded-md hover:bg-white/5 transition-all">
               Discard
             </button>
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="h-8 px-4 text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white rounded-lg flex items-center gap-1.5 transition-all shadow-[0_2px_8px_rgba(124,58,237,0.3)]"
+              className="h-8 px-4 text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white rounded-md flex items-center gap-1.5 transition-all shadow-[0_2px_8px_rgba(124,58,237,0.25)] disabled:opacity-60"
             >
               {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               Save Changes
@@ -290,42 +347,42 @@ export default function UserSettingsPage() {
         )}
       </div>
 
-      {/* ── Completion banner ── */}
+      {/* ── Profile completion banner — VIOLET not yellow ── */}
       {pct < 100 && (
-        <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.05] px-4 py-3 flex items-center gap-3">
+        <div className="rounded-md border border-violet-500/20 bg-violet-500/[0.06] px-4 py-3 flex items-center gap-3">
           <div className="h-6 w-6 relative shrink-0">
             <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
               <path d="M18 4 a 14 14 0 0 1 0 28 a 14 14 0 0 1 0 -28" fill="none" stroke="#1e293b" strokeWidth="3" />
-              <path d="M18 4 a 14 14 0 0 1 0 28 a 14 14 0 0 1 0 -28" fill="none" stroke="#f59e0b"
+              <path d="M18 4 a 14 14 0 0 1 0 28 a 14 14 0 0 1 0 -28" fill="none" stroke="#8b5cf6"
                 strokeWidth="3" strokeLinecap="round" strokeDasharray={`${pct}, 100`} />
             </svg>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-amber-300">{pct}% profile complete</p>
-            <p className="text-xs text-amber-500/60 mt-0.5">Missing: {missing.join(" · ")}</p>
+            <p className="text-xs font-medium text-violet-300">{pct}% profile complete</p>
+            <p className="text-xs text-slate-500 mt-0.5">Missing: {missing.join(" · ")}</p>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-5">
 
         {/* ── Left column ── */}
         <div className="space-y-5">
 
           {/* Avatar + basic */}
           <Section title="Personal Information">
-            <div className="flex items-start gap-5 mb-5">
+            <div className="flex items-start gap-4 mb-5">
               <div className="relative group cursor-pointer shrink-0" onClick={() => fileInputRef.current?.click()}>
-                <Avatar className="h-16 w-16 border border-white/10">
-                  <AvatarImage src={avatarSrc} className="object-cover" />
-                  <AvatarFallback className="bg-violet-900/50 text-lg font-bold text-violet-200">{initials}</AvatarFallback>
+                <Avatar className="h-16 w-16 border border-white/[0.08] rounded-lg">
+                  <AvatarImage src={avatarSrc} className="object-cover rounded-lg" />
+                  <AvatarFallback className="bg-violet-900/40 text-lg font-bold text-violet-200 rounded-lg">{initials}</AvatarFallback>
                 </Avatar>
-                <div className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="absolute inset-0 rounded-lg bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <Camera className="h-4 w-4 text-white" />
                 </div>
               </div>
               <div className="pt-1">
-                <button onClick={() => fileInputRef.current?.click()} className="h-8 px-3 text-xs border border-white/10 text-slate-300 hover:bg-white/5 rounded-lg flex items-center gap-1.5 transition-all">
+                <button onClick={() => fileInputRef.current?.click()} className="h-8 px-3 text-xs border border-white/[0.08] text-slate-300 hover:bg-white/5 hover:border-white/15 rounded-md flex items-center gap-1.5 transition-all">
                   <Upload className="h-3 w-3" /> Change Photo
                 </button>
                 <p className="text-[11px] text-slate-600 mt-1.5">JPG, PNG, WebP · max 5MB</p>
@@ -346,10 +403,8 @@ export default function UserSettingsPage() {
               <Field label="Job Title / Designation">
                 <Input value={draft.role} onChange={e => set("role", e.target.value)} className={inp} placeholder="Senior Security Analyst" />
               </Field>
-              <Field label="Country" >
-                <select value={draft.country} onChange={e => set("country", e.target.value)} className={sel}>
-                  {COUNTRIES.map(c => <option key={c} value={c} className="bg-[#0B0C15]">{c || "Select country…"}</option>)}
-                </select>
+              <Field label="Country">
+                <StyledSelect value={draft.country} onChange={v => set("country", v)} options={COUNTRIES} placeholder="Select country…" />
               </Field>
               <Field label="Phone" error={phoneError}>
                 <div className="relative">
@@ -364,13 +419,13 @@ export default function UserSettingsPage() {
               </Field>
             </FieldGroup>
 
-            <div className="mt-4 space-y-1.5">
-              <Label className="text-xs text-slate-400">Professional Bio</Label>
+            <div className="mt-4 space-y-1">
+              <Label className="text-[11px] font-medium text-slate-400 uppercase tracking-wide">Professional Bio</Label>
               <Textarea
                 value={draft.bio}
                 onChange={e => set("bio", e.target.value)}
                 rows={3}
-                className="bg-black/30 border-white/10 text-slate-200 placeholder:text-slate-600 focus:border-violet-500/60 focus:ring-0 text-sm resize-none"
+                className="bg-black/30 border-white/[0.08] text-slate-200 placeholder:text-slate-600 focus-visible:ring-violet-500/20 focus-visible:border-violet-500/50 text-sm resize-none rounded-md"
                 placeholder="Brief description of your background and expertise…"
                 maxLength={300}
               />
@@ -378,23 +433,17 @@ export default function UserSettingsPage() {
             </div>
           </Section>
 
-          {/* Security profile */}
+          {/* Security background */}
           <Section title="Security Background">
             <FieldGroup>
               <Field label="Industry / Sector">
-                <select value={draft.industry} onChange={e => set("industry", e.target.value)} className={sel}>
-                  {INDUSTRIES.map(i => <option key={i} value={i} className="bg-[#0B0C15]">{i || "Select industry…"}</option>)}
-                </select>
+                <StyledSelect value={draft.industry} onChange={v => set("industry", v)} options={INDUSTRIES} placeholder="Select industry…" />
               </Field>
               <Field label="Security Role">
-                <select value={draft.secRole} onChange={e => set("secRole", e.target.value)} className={sel}>
-                  {SECURITY_ROLES.map(r => <option key={r} value={r} className="bg-[#0B0C15]">{r || "Select role…"}</option>)}
-                </select>
+                <StyledSelect value={draft.secRole} onChange={v => set("secRole", v)} options={SECURITY_ROLES} placeholder="Select role…" />
               </Field>
               <Field label="Years in Security">
-                <select value={draft.yearsInSec} onChange={e => set("yearsInSec", e.target.value)} className={sel}>
-                  {YEARS_EXP.map(y => <option key={y} value={y} className="bg-[#0B0C15]">{y || "Select experience…"}</option>)}
-                </select>
+                <StyledSelect value={draft.yearsInSec} onChange={v => set("yearsInSec", v)} options={YEARS_EXP} placeholder="Select experience…" />
               </Field>
               <Field label="Certifications">
                 <Input
@@ -407,14 +456,14 @@ export default function UserSettingsPage() {
             </FieldGroup>
           </Section>
 
-          {/* Social / Links */}
+          {/* Online presence */}
           <Section title="Online Presence">
             <div className="space-y-3">
               {([
-                { key: "website",  icon: Globe2,    label: "Website",  placeholder: "yoursite.com",          type: "website"  },
-                { key: "linkedin", icon: Linkedin,  label: "LinkedIn", placeholder: "linkedin.com/in/handle", type: "linkedin" },
-                { key: "twitter",  icon: Twitter,   label: "X / Twitter", placeholder: "twitter.com/handle", type: "twitter"  },
-                { key: "github",   icon: Github,    label: "GitHub",   placeholder: "github.com/username",   type: "github"   },
+                { key: "website",  icon: Globe2,   label: "Website",     placeholder: "yoursite.com",           type: "website"  },
+                { key: "linkedin", icon: Linkedin, label: "LinkedIn",    placeholder: "linkedin.com/in/handle",  type: "linkedin" },
+                { key: "twitter",  icon: Twitter,  label: "X / Twitter", placeholder: "twitter.com/handle",     type: "twitter"  },
+                { key: "github",   icon: Github,   label: "GitHub",      placeholder: "github.com/username",    type: "github"   },
               ] as const).map(f => {
                 const err = linkErrors[f.key];
                 const val = (draft as any)[f.key] ?? "";
@@ -429,10 +478,10 @@ export default function UserSettingsPage() {
                           setLinkErrors(prev => ({ ...prev, [f.key]: validateLink(e.target.value, f.type) }));
                         }}
                         placeholder={f.placeholder}
-                        className={cn("pl-9 pr-8", inp, err && "border-red-500/50")}
+                        className={cn("pl-9 pr-8", inp, err && "border-red-500/40 focus-visible:border-red-500/60")}
                       />
                       {val && !err && (
-                        <CheckCircle2 className="absolute right-2.5 h-3.5 w-3.5 text-emerald-400" />
+                        <CheckCircle2 className="absolute right-2.5 h-3.5 w-3.5 text-violet-400" />
                       )}
                     </div>
                   </Field>
@@ -445,17 +494,17 @@ export default function UserSettingsPage() {
         {/* ── Right column ── */}
         <div className="space-y-4">
 
-          {/* Save button (sticky on mobile) */}
-          <div className="rounded-xl border border-white/[0.08] bg-[#0B0C15]/60 p-4 space-y-3">
-            <p className="text-xs text-slate-500 font-medium">Unsaved changes will be lost on navigation.</p>
+          {/* Save panel */}
+          <div className="rounded-lg border border-white/[0.07] bg-[#0d0e1a]/60 p-4 space-y-3">
+            <p className="text-xs text-slate-500">Unsaved changes will be lost on navigation.</p>
             <button
               onClick={handleSave}
               disabled={!isDirty || isSaving}
               className={cn(
-                "w-full h-9 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all",
+                "w-full h-9 rounded-md text-sm font-semibold flex items-center justify-center gap-2 transition-all",
                 isDirty
-                  ? "bg-violet-600 hover:bg-violet-500 text-white shadow-[0_2px_8px_rgba(124,58,237,0.3)]"
-                  : "bg-white/[0.05] text-slate-600 cursor-not-allowed",
+                  ? "bg-violet-600 hover:bg-violet-500 text-white shadow-[0_2px_8px_rgba(124,58,237,0.25)]"
+                  : "bg-white/[0.04] text-slate-600 cursor-not-allowed",
               )}
             >
               {isSaving
@@ -470,12 +519,12 @@ export default function UserSettingsPage() {
             )}
           </div>
 
-          {/* Subscription quick link */}
-          <div className="rounded-xl border border-white/[0.08] bg-[#0B0C15]/60 p-4">
-            <p className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold mb-3">Billing</p>
+          {/* Billing */}
+          <div className="rounded-lg border border-white/[0.07] bg-[#0d0e1a]/60 p-4">
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold mb-3">Billing</p>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                <div className="h-7 w-7 rounded-md bg-violet-500/10 flex items-center justify-center border border-violet-500/15">
                   <CreditCard className="h-3.5 w-3.5 text-violet-400" />
                 </div>
                 <div>
@@ -484,21 +533,21 @@ export default function UserSettingsPage() {
                 </div>
               </div>
               <Link href="/subscription">
-                <button className="h-7 px-3 text-xs border border-white/[0.08] text-slate-400 hover:text-white hover:bg-white/5 rounded-lg flex items-center gap-1 transition-all">
+                <button className="h-7 px-2.5 text-xs border border-white/[0.07] text-slate-400 hover:text-white hover:bg-white/5 rounded-md flex items-center gap-1 transition-all">
                   View <ArrowRight className="h-3 w-3" />
                 </button>
               </Link>
             </div>
           </div>
 
-          {/* Security quick link */}
-          <div className="rounded-xl border border-white/[0.08] bg-[#0B0C15]/60 p-4">
-            <p className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold mb-3">Security</p>
-            <div className="space-y-2">
+          {/* Security links */}
+          <div className="rounded-lg border border-white/[0.07] bg-[#0d0e1a]/60 p-4">
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold mb-3">Security</p>
+            <div className="space-y-1">
               {[
-                { label: "Change Password",   href: "/account/security"      },
-                { label: "Login History",     href: "/account/login-history" },
-                { label: "API Keys",          href: "/account/api"           },
+                { label: "Change Password",  href: "/account/security"      },
+                { label: "Login History",    href: "/account/login-history" },
+                { label: "API Keys",         href: "/account/api"           },
               ].map(l => (
                 <Link key={l.href} href={l.href}>
                   <div className="flex items-center justify-between py-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors group cursor-pointer">
@@ -511,13 +560,13 @@ export default function UserSettingsPage() {
           </div>
 
           {/* Danger zone */}
-          <div className="rounded-xl border border-red-500/15 bg-red-500/[0.03] p-4">
-            <p className="text-[11px] text-red-500/60 uppercase tracking-wider font-semibold mb-2">Danger Zone</p>
+          <div className="rounded-lg border border-red-500/15 bg-red-500/[0.03] p-4">
+            <p className="text-[10px] text-red-500/50 uppercase tracking-widest font-semibold mb-2">Danger Zone</p>
             <p className="text-xs text-slate-600 mb-3 leading-relaxed">
               Permanently delete your account and all associated data. This cannot be undone.
             </p>
             <Link href="/account/security">
-              <button className="h-7 px-3 text-xs border border-red-500/20 text-red-400/70 hover:text-red-400 hover:border-red-500/40 rounded-lg transition-all">
+              <button className="h-7 px-3 text-xs border border-red-500/20 text-red-400/70 hover:text-red-400 hover:border-red-500/35 rounded-md transition-all">
                 Delete Account
               </button>
             </Link>

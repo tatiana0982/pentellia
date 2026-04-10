@@ -23,7 +23,12 @@ const FIELD_MAP: Record<string, string> = {
   secRole:        "sec_role",
   certifications: "certifications",
   focusAreas:     "focus_areas",
-  avatar:         "avatar",   // binary blob — handled separately
+  bio:            "bio",
+  website:        "website",
+  linkedin:       "linkedin",
+  twitter:        "twitter",
+  github:         "github",
+  avatar:         "avatar",
 };
 
 // ─── GET ─────────────────────────────────────────────────────────────
@@ -36,6 +41,8 @@ export async function GET() {
       `SELECT first_name, last_name, email, company, size, role,
               country, timezone, phone, industry, preferred_lang,
               years_in_sec, sec_role, certifications, focus_areas,
+              bio, website, linkedin, twitter, github,
+              (avatar IS NOT NULL AND length(avatar) > 0) AS has_avatar,
               created_at, updated_at
        FROM users WHERE uid = $1`,
       [uid],
@@ -64,6 +71,12 @@ export async function GET() {
         secRole:        u.sec_role        || "",
         certifications: u.certifications  || "",
         focusAreas:     u.focus_areas     || "",
+        bio:            u.bio             || "",
+        website:        u.website         || "",
+        linkedin:       u.linkedin        || "",
+        twitter:        u.twitter         || "",
+        github:         u.github          || "",
+        hasAvatar:      !!u.has_avatar,     // ← tells client whether DB has a photo
         createdAt:      u.created_at,
         updatedAt:      u.updated_at,
       },
@@ -94,8 +107,6 @@ export async function PUT(req: NextRequest) {
     if (key === "avatar" && typeof value === "string") {
       const b64 = (value as string).replace(/^data:image\/\w+;base64,/, "");
       if (!b64) continue;
-      // Guard: ~400 KB decoded (~533 KB base64). Rejects oversized uploads
-      // that would bloat the DB or cause OOM on the server.
       if (b64.length > 533_000) {
         return NextResponse.json(
           { error: "Avatar image must be under 400 KB" },

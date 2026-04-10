@@ -1,7 +1,4 @@
 // src/app/api/subscription/create-order/route.ts
-// Creates a Razorpay order for a FIXED subscription plan.
-// Amount is always read from DB — never trusted from client.
-
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import crypto from "crypto";
@@ -15,7 +12,8 @@ const razorpay = new Razorpay({
 });
 
 export async function POST(req: NextRequest) {
-  const uid = await getUid(true);
+  // checkRevoked removed — causes unreliable Firebase network calls on Vercel serverless
+  const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: any;
@@ -28,16 +26,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "planId is required" }, { status: 400 });
   }
 
-  // ── 1. Fetch plan from DB (server-authoritative price) ───────────
   const plan = await getPlanById(planId);
   if (!plan) {
     return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
   }
 
   const amountINR   = plan.price_inr;
-  const amountPaise = amountINR * 100; // Razorpay uses paise
+  const amountPaise = amountINR * 100;
 
-  // ── 2. Idempotency — reuse pending order same user+plan+minute ───
   const idempotencyKey = crypto
     .createHash("sha256")
     .update(`${uid}:${planId}:${Math.floor(Date.now() / 60_000)}`)
