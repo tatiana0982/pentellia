@@ -71,10 +71,7 @@ export default function DashboardPage() {
   const riskData  = (stats.riskDistribution ?? []).map(d => ({ ...d, fill: RISK_COLORS[d.name] ?? "#8b5cf6" }));
 
   return (
-    // FIXED: No overflow-y-auto (parent handles scroll), no bg override, no min-h-screen
-    // Layout already provides the correct background and scroll container
-    // p-8 added here since layout no longer wraps dashboard pages in p-8
-    <div className="space-y-6 p-8 pb-12 text-slate-200">
+    <div className="px-8 pt-6 pb-10 space-y-6 text-slate-200">
 
       {/* 1. KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -298,7 +295,7 @@ function EmptyState({ text }: { text: string }) {
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-5 p-8 animate-pulse">
+    <div className="px-8 pt-6 pb-10 space-y-5 animate-pulse">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[1,2,3,4].map(i => <div key={i} className="h-32 bg-white/[0.04] rounded-lg border border-white/[0.06]" />)}
       </div>

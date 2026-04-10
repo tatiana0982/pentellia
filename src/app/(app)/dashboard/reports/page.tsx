@@ -116,7 +116,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] space-y-6 font-sans text-slate-200">
+    <div className="px-8 pt-6 pb-10 space-y-5 font-sans text-slate-200">
       {/* --- Header --- */}
       <div className="flex-none flex justify-between items-center">
         <div className="space-y-1">
@@ -130,9 +130,9 @@ export default function ReportsPage() {
       </div>
 
       {/* --- Main Content --- */}
-      <div className="flex-1 flex flex-col min-h-0 rounded-2xl border border-white/10 bg-[#0B0C15]/50 backdrop-blur-md shadow-xl overflow-hidden">
+      <div className="rounded-lg border border-white/[0.08] bg-[#0B0C15]/50 overflow-hidden">
         {/* Table Area */}
-        <div className="flex-1 overflow-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 z-20 bg-[#0B0C15] shadow-sm shadow-black/40">
               <tr className="border-b border-white/5 text-xs uppercase tracking-wider text-slate-500 font-medium">
@@ -255,7 +255,7 @@ export default function ReportsPage() {
 
         {/* Footer / Pagination */}
         {!isLoading && (
-          <div className="flex-none flex items-center justify-between px-6 py-4 border-t border-white/5 bg-white/[0.02]">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-white/[0.06]">
             <span className="text-xs text-slate-500">
               Showing {(page - 1) * limit + 1} -{" "}
               {Math.min(page * limit, totalReports)} of {totalReports} reports

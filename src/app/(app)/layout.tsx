@@ -81,11 +81,6 @@ function InnerLayout({
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
 }) {
-  // Dashboard pages handle their own padding and height constraints.
-  // Account/subscription pages get the standard p-8 wrapper.
-  // This prevents double-padding and height conflicts.
-  const isDashboardPage = path.startsWith("/dashboard") || path === "/subscription";
-
   return (
     <div className="relative h-screen w-full bg-[#05050A] font-sans text-slate-200 selection:bg-violet-500/30 overflow-hidden flex flex-col">
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
@@ -104,12 +99,8 @@ function InnerLayout({
         )}>
           <SubscriptionBanner />
 
-          {/* Dashboard pages: no outer padding (they manage their own)
-              Account pages:   p-8 wrapper for comfortable reading width */}
-          <div className={cn(
-            "animate-in fade-in slide-in-from-bottom-2 duration-300 min-h-full",
-            isDashboardPage ? "" : "p-8",
-          )}>
+          {/* Pages own their padding — layout provides structure only */}
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 min-h-full">
             {children}
           </div>
         </main>

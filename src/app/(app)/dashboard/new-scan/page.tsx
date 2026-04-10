@@ -94,7 +94,7 @@ export default function NewScanPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] space-y-6 font-sans text-slate-200">
+    <div className="px-8 pt-6 pb-10 space-y-6 font-sans text-slate-200">
       {/* Header */}
       <div className="flex-none space-y-4">
         <div className="flex flex-col gap-1">
@@ -149,7 +149,7 @@ export default function NewScanPage() {
       </div>
 
       {/* Tools Grid */}
-      <div className="flex-1 overflow-y-auto pr-2">
+      <div className="mt-1">
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-10">
             {Array.from({ length: 8 }).map((_, i) => <ToolSkeleton key={i} />)}
