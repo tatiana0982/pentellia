@@ -1,9 +1,6 @@
 // src/utils/apiHandler.ts
 // Utility wrapper for legacy API routes.
-//
-// NOTE: New routes use Pattern B (return NextResponse.json directly).
-// This wrapper exists for backward compatibility only.
-// Do NOT add new routes via apiHandler.
+// New routes use direct NextResponse.json — do NOT add new routes via apiHandler.
 
 import { NextResponse } from "next/server";
 
@@ -22,13 +19,12 @@ export async function apiHandler<T>(handler: ApiHandler<T>) {
 }
 
 export function authenticate<T>(
-  handler: (user: { id: string; email: string }) => Promise<T>,
+  handler: (user: { id: string }) => Promise<T>,
 ) {
   return async () => {
-    const { getUid, getUserEmail } = await import("@/lib/auth");
-    const uid   = await getUid();
-    const email = await getUserEmail();
-    if (!uid || !email) throw { status: 401, message: "Unauthorized" };
-    return handler({ id: uid, email });
+    const { getUid } = await import("@/lib/auth");
+    const uid = await getUid();
+    if (!uid) throw { status: 401, message: "Unauthorized" };
+    return handler({ id: uid });
   };
 }
