@@ -128,7 +128,7 @@ export default function ScansPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] space-y-4 font-sans text-slate-200 p-6">
+    <div className="flex flex-col h-[calc(100vh-4rem)] space-y-4 font-sans text-slate-200 p-6">
       {/* Header */}
       <div className="flex-none flex items-end justify-between space-y-4">
         <div className="flex flex-col gap-1">

@@ -1,8 +1,11 @@
 // src/app/api/arsenal/wordlist/route.ts
-// Backend proxy for SecLists. Frontend CSP blocks GitHub — this route fetches server-side.
+// Backend proxy for SecLists wordlists.
+// Strategy: LOCAL embedded data first → GitHub fetch second.
+// Guarantees reliability regardless of GitHub availability.
 
 import { NextRequest, NextResponse } from "next/server";
 import { getUid } from "@/lib/auth";
+import { getLocalWordlist } from "@/data/wordlists";
 
 const ALLOWED_PATHS = new Set([
   "Passwords/Common-Credentials/10k-most-common.txt",
@@ -27,33 +30,81 @@ export async function GET(req: NextRequest) {
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rawPath   = new URL(req.url).searchParams.get("path");
-  if (!rawPath)   return NextResponse.json({ error: "Missing path" }, { status: 400 });
+  const rawPath = new URL(req.url).searchParams.get("path");
+  if (!rawPath)  return NextResponse.json({ error: "Missing path" }, { status: 400 });
 
   const cleanPath = rawPath.replace(/^\/+/, "").replace(/\.\./g, "").trim();
   if (!ALLOWED_PATHS.has(cleanPath)) {
     return NextResponse.json({ error: "Path not in allowlist" }, { status: 403 });
   }
 
+  // ── 1. Try local embedded data first (zero latency, always available) ──
+  const localContent = getLocalWordlist(cleanPath);
+  if (localContent) {
+    const lines = localContent.split("\n").filter(l => l.trim());
+    return new NextResponse(
+      JSON.stringify({
+        success:   true,
+        content:   localContent,
+        total:     lines.length,
+        preview:   false,   // local = complete list for our mini versions
+        source:    "local",
+      }),
+      {
+        status:  200,
+        headers: {
+          "Content-Type":  "application/json",
+          "Cache-Control": "public, s-maxage=86400",  // 24h cache for local data
+        },
+      },
+    );
+  }
+
+  // ── 2. Fallback: fetch from GitHub ─────────────────────────────────────
   try {
+    const controller = new AbortController();
+    const timeout    = setTimeout(() => controller.abort(), 12_000);  // 12s timeout
+
     const upstream = await fetch(`${GITHUB_BASE}/${cleanPath}`, {
       headers: { "User-Agent": "Pentellia/1.0" },
+      signal:  controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!upstream.ok) {
-      return NextResponse.json({ error: `GitHub returned ${upstream.status}` }, { status: upstream.status === 404 ? 404 : 502 });
+      return NextResponse.json(
+        { error: `GitHub returned ${upstream.status}`, source: "github" },
+        { status: upstream.status === 404 ? 404 : 502 },
+      );
     }
 
-    const text     = await upstream.text();
-    const lines    = text.split("\n").filter(l => l.trim());
-    const preview  = lines.slice(0, 500).join("\n");
+    const text  = await upstream.text();
+    const lines = text.split("\n").filter(l => l.trim());
 
     return new NextResponse(
-      JSON.stringify({ success: true, content: preview, total: lines.length, preview: true }),
-      { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" } },
+      JSON.stringify({
+        success: true,
+        content: lines.slice(0, 500).join("\n"),
+        total:   lines.length,
+        preview: true,
+        source:  "github",
+      }),
+      {
+        status:  200,
+        headers: {
+          "Content-Type":  "application/json",
+          "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+        },
+      },
     );
+
   } catch (err: any) {
+    const isAbort = err?.name === "AbortError";
     console.error("[Arsenal proxy]", err?.message);
-    return NextResponse.json({ error: "Failed to fetch wordlist" }, { status: 502 });
+
+    return NextResponse.json(
+      { error: isAbort ? "GitHub request timed out" : "Failed to fetch wordlist" },
+      { status: 502 },
+    );
   }
 }

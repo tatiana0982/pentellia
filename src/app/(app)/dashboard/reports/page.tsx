@@ -116,7 +116,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] space-y-6 font-sans text-slate-200">
+    <div className="flex flex-col h-[calc(100vh-4rem)] space-y-6 font-sans text-slate-200">
       {/* --- Header --- */}
       <div className="flex-none flex justify-between items-center">
         <div className="space-y-1">

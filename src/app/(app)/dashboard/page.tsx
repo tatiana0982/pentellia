@@ -9,15 +9,13 @@ import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import {
   ShieldAlert, Activity, ArrowUp, ScanLine, Target,
   LayoutTemplate, BarChart3, PieChart as PieIcon,
-  AlertTriangle, CheckCircle2, Clock, ExternalLink, Zap,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 
-// --- Types matching /api/dashboard/init response ---
 interface DashboardData {
   stats: {
     totalScans:       number;
@@ -29,11 +27,7 @@ interface DashboardData {
     exposureTrend:    { week: string; scans: number }[];
   };
   subscription: {
-    planId:    string;
-    planName:  string;
-    status:    string;
-    expiresAt: string;
-    daysLeft:  number;
+    planId: string; planName: string; status: string; expiresAt: string; daysLeft: number;
   } | null;
   usage: {
     deepScans:  { used: number; limit: number };
@@ -45,12 +39,8 @@ interface DashboardData {
 }
 
 const RISK_COLORS: Record<string, string> = {
-  Critical: "#ef4444",
-  High:     "#f97316",
-  Medium:   "#eab308",
-  Low:      "#3b82f6",
+  Critical: "#ef4444", High: "#f97316", Medium: "#eab308", Low: "#3b82f6",
 };
-
 const trendConfig = { scans: { label: "Scans", color: "#8b5cf6" } };
 
 export default function DashboardPage() {
@@ -77,43 +67,21 @@ export default function DashboardPage() {
   })();
   const scanTrendType = !stats.scanTrend ? "neutral" : stats.scanTrend > 0 ? "up" : "down";
 
-  // Map chart data
-  const chartData = (stats.exposureTrend ?? []).map(d => ({
-    date:  d.week,
-    scans: d.scans,
-  }));
-  const riskData = (stats.riskDistribution ?? []).map(d => ({
-    ...d,
-    fill: RISK_COLORS[d.name] ?? "#8b5cf6",
-  }));
+  const chartData = (stats.exposureTrend ?? []).map(d => ({ date: d.week, scans: d.scans }));
+  const riskData  = (stats.riskDistribution ?? []).map(d => ({ ...d, fill: RISK_COLORS[d.name] ?? "#8b5cf6" }));
 
   return (
-    <div className="flex-1 space-y-6 overflow-y-auto p-6 bg-[#02040a] min-h-screen text-slate-200">
+    // FIXED: No overflow-y-auto (parent handles scroll), no bg override, no min-h-screen
+    // Layout already provides the correct background and scroll container
+    // p-8 added here since layout no longer wraps dashboard pages in p-8
+    <div className="space-y-6 p-8 pb-12 text-slate-200">
 
       {/* 1. KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          title="Total Scans"
-          metric={stats.totalScans.toString()}
-          icon={ScanLine}
-          trend={scanTrendLabel}
-          trendType={scanTrendType}
-        />
-        <KpiCard
-          title="Active Scans"
-          metric={stats.activeScans.toString()}
-          icon={Target}
-          trend={null}
-          trendType="neutral"
-        />
-        <KpiCard
-          title="Failed (24h)"
-          metric={stats.failedScans.toString()}
-          icon={ShieldAlert}
-          alert={stats.failedScans > 0}
-          trend={stats.failedScans > 0 ? "Check logs" : "All clear"}
-          trendType="neutral"
-        />
+        <KpiCard title="Total Scans"  metric={stats.totalScans.toString()}  icon={ScanLine}   trend={scanTrendLabel} trendType={scanTrendType} />
+        <KpiCard title="Active Scans" metric={stats.activeScans.toString()} icon={Target}     trend={null} trendType="neutral" />
+        <KpiCard title="Failed (24h)" metric={stats.failedScans.toString()} icon={ShieldAlert} alert={stats.failedScans > 0} trend={stats.failedScans > 0 ? "Check logs" : "All clear"} trendType="neutral" />
+
         {/* Subscription card */}
         <Card className="bg-[#0B0C15]/50 backdrop-blur-md border border-white/10 p-6 relative overflow-hidden group hover:border-white/20 transition-all">
           <div className="absolute right-4 top-4 p-2 rounded-lg bg-white/5 text-slate-400">
@@ -126,44 +94,37 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-bold text-white leading-tight">
                   {subscription.planName.replace("Pentellia ", "")}
                 </h2>
-                <p className={cn(
-                  "text-xs font-medium",
-                  subscription.daysLeft <= 3 ? "text-red-400" : "text-slate-400",
-                )}>
-                  {subscription.daysLeft > 0
-                    ? `${subscription.daysLeft} days left`
-                    : "Expired"}
+                <p className={cn("text-xs font-medium", subscription.daysLeft <= 3 ? "text-red-400" : "text-slate-400")}>
+                  {subscription.daysLeft > 0 ? `${subscription.daysLeft} days left` : "Expired"}
                 </p>
               </>
             ) : (
               <>
                 <h2 className="text-lg font-bold text-slate-500">No Plan</h2>
-                <Link href="/subscription" className="text-xs text-violet-400 hover:text-violet-300">
-                  Subscribe →
-                </Link>
+                <Link href="/subscription" className="text-xs text-violet-400 hover:text-violet-300">Subscribe →</Link>
               </>
             )}
           </div>
         </Card>
       </div>
 
-      {/* Usage bars if subscribed */}
+      {/* Usage bars */}
       {usage && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
-            { label: "Deep Scans",  ...usage.deepScans },
+            { label: "Deep Scans",  ...usage.deepScans  },
             { label: "Light Scans", ...usage.lightScans },
-            { label: "Reports",     ...usage.reports },
+            { label: "Reports",     ...usage.reports    },
           ].map(u => (
-            <div key={u.label} className="rounded-xl border border-white/10 bg-[#0B0C15]/40 p-4">
+            <div key={u.label} className="rounded-lg border border-white/[0.07] bg-[#0B0C15]/40 p-4">
               <div className="flex justify-between text-xs text-slate-400 mb-2">
                 <span>{u.label}</span>
-                <span>{u.used}/{u.limit}</span>
+                <span className="font-mono">{u.used}/{u.limit}</span>
               </div>
               <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
                 <div
                   className={cn(
-                    "h-full rounded-full transition-all",
+                    "h-full rounded-full transition-all duration-500",
                     u.limit > 0 && u.used / u.limit >= 0.9 ? "bg-red-500"
                     : u.limit > 0 && u.used / u.limit >= 0.7 ? "bg-amber-500"
                     : "bg-violet-500",
@@ -176,7 +137,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 2. CHARTS */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <GlassCard
           title="Scan Velocity"
@@ -227,9 +188,7 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={riskData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                      {riskData.map((entry, i) => (
-                        <Cell key={i} fill={entry.fill} stroke="rgba(0,0,0,0.5)" />
-                      ))}
+                      {riskData.map((entry, i) => <Cell key={i} fill={entry.fill} stroke="rgba(0,0,0,0.5)" />)}
                     </Pie>
                     <Tooltip contentStyle={{ backgroundColor: "#0B0C15", borderColor: "rgba(255,255,255,0.1)", borderRadius: "8px" }} itemStyle={{ color: "#fff" }} />
                     <Legend verticalAlign="bottom" height={36} iconType="circle" />
@@ -250,7 +209,7 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
-      {/* 3. RECENT SCANS */}
+      {/* Recent scans */}
       <GlassCard title="Recent Assessments" noPadding>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -277,7 +236,7 @@ export default function DashboardPage() {
   );
 }
 
-// --- Sub Components ---
+// ── Sub-components ─────────────────────────────────────────────────────
 function KpiCard({ title, metric, icon: Icon, trend, trendType, alert }: any) {
   return (
     <Card className="bg-[#0B0C15]/50 backdrop-blur-md border border-white/10 p-6 relative overflow-hidden group hover:border-white/20 transition-all">
@@ -291,7 +250,7 @@ function KpiCard({ title, metric, icon: Icon, trend, trendType, alert }: any) {
           {trend && (
             <span className={cn(
               "flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded mb-1",
-              trendType === "up"   ? "text-emerald-400 bg-emerald-500/10"
+              trendType === "up"   ? "text-violet-400 bg-violet-500/10"
               : trendType === "down" ? "text-red-400 bg-red-500/10"
               : "text-slate-400 bg-white/5",
             )}>
@@ -308,7 +267,7 @@ function KpiCard({ title, metric, icon: Icon, trend, trendType, alert }: any) {
 
 function GlassCard({ children, title, className, noPadding, action }: any) {
   return (
-    <Card className={cn("bg-[#0B0C15]/50 backdrop-blur-md border border-white/10 shadow-sm rounded-xl overflow-hidden flex flex-col", className)}>
+    <Card className={cn("bg-[#0B0C15]/50 backdrop-blur-md border border-white/10 shadow-sm rounded-lg overflow-hidden flex flex-col", className)}>
       {title && (
         <CardHeader className="px-6 py-4 border-b border-white/5 flex flex-row items-center justify-between">
           <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-300">{title}</CardTitle>
@@ -339,13 +298,16 @@ function EmptyState({ text }: { text: string }) {
 
 function DashboardSkeleton() {
   return (
-    <div className="flex-1 space-y-4 p-6 animate-pulse">
+    <div className="space-y-5 p-8 animate-pulse">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[1,2,3,4].map(i => <div key={i} className="h-32 bg-white/5 rounded-xl border border-white/5" />)}
+        {[1,2,3,4].map(i => <div key={i} className="h-32 bg-white/[0.04] rounded-lg border border-white/[0.06]" />)}
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        {[1,2,3].map(i => <div key={i} className="h-16 bg-white/[0.04] rounded-lg border border-white/[0.06]" />)}
       </div>
       <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 h-[400px] bg-white/5 rounded-xl border border-white/5" />
-        <div className="h-[400px] bg-white/5 rounded-xl border border-white/5" />
+        <div className="col-span-2 h-[380px] bg-white/[0.04] rounded-lg border border-white/[0.06]" />
+        <div className="h-[380px] bg-white/[0.04] rounded-lg border border-white/[0.06]" />
       </div>
     </div>
   );
