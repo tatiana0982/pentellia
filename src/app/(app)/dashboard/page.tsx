@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Tooltip,
   XAxis, YAxis, PieChart, Pie, Cell, ResponsiveContainer, Legend,
@@ -9,30 +10,38 @@ import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
 import {
   ShieldAlert, Activity, ArrowUp, ScanLine, Target,
   LayoutTemplate, BarChart3, PieChart as PieIcon,
-  Zap,
+  Zap, CheckCircle2, XCircle, Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
+interface RecentScan {
+  id: string; tool_id: string; tool_name: string;
+  target: string; status: string; created_at: string;
+  risk_score: number; finding_count: number;
+}
+
 interface DashboardData {
-  stats: {
-    totalScans:       number;
-    activeScans:      number;
-    failedScans:      number;
-    weeklyScans:      number;
-    scanTrend:        number | null;
-    riskDistribution: { name: string; value: number }[];
-    exposureTrend:    { week: string; scans: number }[];
+  success: boolean;
+  kpi: {
+    totalScans: number; activeScans: number; failedScans24h: number;
+    totalAssets: number; openCritical: number; openHigh: number;
   };
+  scanTrend: { thisWeek: number; prevWeek: number };
+  charts: {
+    exposureTrend:    { date: string; scans: number }[];
+    riskDistribution: { name: string; value: number; fill: string }[];
+  };
+  recentScans: RecentScan[];
   subscription: {
     planId: string; planName: string; status: string; expiresAt: string; daysLeft: number;
   } | null;
   usage: {
-    deepScans:  { used: number; limit: number };
-    lightScans: { used: number; limit: number };
-    reports:    { used: number; limit: number };
+    deepScans:  { used: number; limit: number; dailyUsed: number; dailyLimit: number };
+    lightScans: { used: number; limit: number; dailyUsed: number; dailyLimit: number };
+    reports:    { used: number; limit: number; dailyUsed: number; dailyLimit: number };
   } | null;
   unreadNotifications: number;
   user: { firstName: string; lastName: string; email: string };
@@ -42,49 +51,67 @@ const RISK_COLORS: Record<string, string> = {
   Critical: "#ef4444", High: "#f97316", Medium: "#eab308", Low: "#3b82f6",
 };
 const trendConfig = { scans: { label: "Scans", color: "#8b5cf6" } };
+const STATUS_CONFIG: Record<string, { icon: React.ElementType; color: string; label: string }> = {
+  completed: { icon: CheckCircle2, color: "text-emerald-400", label: "Completed" },
+  running:   { icon: Activity,     color: "text-violet-400",  label: "Running"   },
+  queued:    { icon: Clock,        color: "text-amber-400",   label: "Queued"    },
+  failed:    { icon: XCircle,      color: "text-red-400",     label: "Failed"    },
+  cancelled: { icon: XCircle,      color: "text-slate-500",   label: "Cancelled" },
+};
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [data,      setData]      = useState<DashboardData | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [chartView, setChartView] = useState<"area" | "bar">("area");
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     fetch("/api/dashboard/init")
       .then(r => r.json())
       .then(json => { if (json.success) setData(json); })
       .catch(console.error)
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-    // Re-fetch when any scan completes (fired by triggerFullRefresh in scan result page)
     window.addEventListener("dashboard-refresh", loadData);
     return () => window.removeEventListener("dashboard-refresh", loadData);
-  }, []);
+  }, [loadData]);
 
   if (loading || !data) return <DashboardSkeleton />;
 
-  const { stats, subscription, usage } = data;
+  // Safe destructuring — works with both old API shape (stats.*) and new (kpi.*)
+  const kpi = data.kpi ?? {
+    totalScans:     (data as any).stats?.totalScans     ?? 0,
+    activeScans:    (data as any).stats?.activeScans    ?? 0,
+    failedScans24h: (data as any).stats?.failedScans    ?? 0,
+    totalAssets: 0, openCritical: 0, openHigh: 0,
+  };
+  const scanTrend   = data.scanTrend ?? { thisWeek: 0, prevWeek: 0 };
+  const charts      = data.charts ?? {
+    exposureTrend:    (data as any).stats?.exposureTrend    ?? [],
+    riskDistribution: (data as any).stats?.riskDistribution ?? [],
+  };
+  const recentScans = data.recentScans ?? (data as any).stats?.recentScans ?? [];
+  const { subscription, usage } = data;
 
-  const scanTrendLabel = (() => {
-    if (stats.scanTrend === null) return null;
-    if (stats.scanTrend === 0)   return "No change";
-    return stats.scanTrend > 0 ? `+${stats.scanTrend}%` : `${stats.scanTrend}%`;
-  })();
-  const scanTrendType = !stats.scanTrend ? "neutral" : stats.scanTrend > 0 ? "up" : "down";
+  const trendPct = scanTrend.prevWeek === 0 ? null
+    : Math.round(((scanTrend.thisWeek - scanTrend.prevWeek) / scanTrend.prevWeek) * 100);
+  const scanTrendLabel = trendPct == null ? null : trendPct === 0 ? "No change" : trendPct > 0 ? `+${trendPct}%` : `${trendPct}%`;
+  const scanTrendType  = !trendPct ? "neutral" : trendPct > 0 ? "up" : "down";
 
-  const chartData = (stats.exposureTrend ?? []).map(d => ({ date: d.week, scans: d.scans }));
-  const riskData  = (stats.riskDistribution ?? []).map(d => ({ ...d, fill: RISK_COLORS[d.name] ?? "#8b5cf6" }));
+  const chartData = (charts.exposureTrend ?? []).map(d => ({ date: d.date, scans: d.scans }));
+  const riskData  = (charts.riskDistribution ?? []).filter(d => d.value > 0);
 
   return (
     <div className="px-8 pt-6 pb-10 space-y-6 text-slate-200">
 
       {/* 1. KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard title="Total Scans"  metric={stats.totalScans.toString()}  icon={ScanLine}   trend={scanTrendLabel} trendType={scanTrendType} />
-        <KpiCard title="Active Scans" metric={stats.activeScans.toString()} icon={Target}     trend={null} trendType="neutral" />
-        <KpiCard title="Failed (24h)" metric={stats.failedScans.toString()} icon={ShieldAlert} alert={stats.failedScans > 0} trend={stats.failedScans > 0 ? "Check logs" : "All clear"} trendType="neutral" />
+        <KpiCard title="Total Scans"  metric={kpi.totalScans.toString()}    icon={ScanLine}    trend={scanTrendLabel} trendType={scanTrendType} />
+        <KpiCard title="Active Scans" metric={kpi.activeScans.toString()}   icon={Target}      trend={null} trendType="neutral" />
+        <KpiCard title="Failed (24h)" metric={kpi.failedScans24h.toString()} icon={ShieldAlert} alert={kpi.failedScans24h > 0} trend={kpi.failedScans24h > 0 ? "Check logs" : "All clear"} trendType="neutral" />
 
         {/* Subscription card */}
         <Card className="bg-[#0B0C15]/50 backdrop-blur-md border border-white/10 p-6 relative overflow-hidden group hover:border-white/20 transition-all">
@@ -123,16 +150,14 @@ export default function DashboardPage() {
             <div key={u.label} className="rounded-lg border border-white/[0.07] bg-[#0B0C15]/40 p-4">
               <div className="flex justify-between text-xs text-slate-400 mb-2">
                 <span>{u.label}</span>
-                <span className="font-mono">{u.used}/{u.limit}</span>
+                <span className="font-mono text-slate-200">{u.used}<span className="text-slate-600">/{u.limit}</span></span>
               </div>
               <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
                 <div
-                  className={cn(
-                    "h-full rounded-full transition-all duration-500",
+                  className={cn("h-full rounded-full transition-all duration-700",
                     u.limit > 0 && u.used / u.limit >= 0.9 ? "bg-red-500"
                     : u.limit > 0 && u.used / u.limit >= 0.7 ? "bg-amber-500"
-                    : "bg-violet-500",
-                  )}
+                    : "bg-violet-500")}
                   style={{ width: u.limit > 0 ? `${Math.min(100, Math.round((u.used / u.limit) * 100))}%` : "0%" }}
                 />
               </div>
@@ -213,27 +238,66 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
-      {/* Recent scans */}
+      {/* Recent scans — live from DB */}
       <GlassCard title="Recent Assessments" noPadding>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-[10px] uppercase bg-white/5 text-slate-400 tracking-wider font-semibold">
+            <thead className="text-[10px] uppercase bg-white/[0.03] text-slate-500 tracking-wider font-semibold border-b border-white/[0.06]">
               <tr>
-                <th className="px-6 py-4">Tool</th>
-                <th className="px-6 py-4">Target</th>
-                <th className="px-6 py-4 text-center">Status</th>
-                <th className="px-6 py-4 text-right">Action</th>
+                <th className="px-6 py-3.5">Tool</th>
+                <th className="px-6 py-3.5">Target</th>
+                <th className="px-6 py-3.5 text-center">Status</th>
+                <th className="px-6 py-3.5 text-right">Findings</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
-              <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-slate-500 text-xs">
-                  Recent scans appear here.{" "}
-                  <Link href="/dashboard/scans" className="text-violet-400 hover:underline">View all scans →</Link>
-                </td>
-              </tr>
+            <tbody className="divide-y divide-white/[0.04]">
+              {recentScans.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-10 text-center">
+                    <div className="flex flex-col items-center gap-2 text-slate-500">
+                      <ScanLine className="h-8 w-8 opacity-20" />
+                      <span className="text-xs">No scans yet.</span>
+                      <Link href="/dashboard/scans" className="text-xs text-violet-400 hover:text-violet-300 font-medium">View all scans →</Link>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                recentScans.map(scan => {
+                  const sc = STATUS_CONFIG[scan.status] ?? STATUS_CONFIG.queued;
+                  const StatusIcon = sc.icon;
+                  return (
+                    <tr key={scan.id}
+                      onClick={() => router.push(`/dashboard/scans/${scan.tool_id || "unknown"}/${scan.id}`)}
+                      className="hover:bg-white/[0.025] transition-colors cursor-pointer group">
+                      <td className="px-6 py-4">
+                        <span className="font-medium text-slate-200 text-sm">{scan.tool_name}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-mono text-xs text-slate-300 bg-white/5 px-2 py-1 rounded">{scan.target}</span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", sc.color)}>
+                          <StatusIcon className="h-3.5 w-3.5" />{sc.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {scan.finding_count > 0 ? (
+                          <span className="text-xs font-mono text-amber-400">{scan.finding_count}</span>
+                        ) : (
+                          <span className="text-xs text-slate-600">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
+          {recentScans.length > 0 && (
+            <div className="px-6 py-3 border-t border-white/[0.04] flex justify-end">
+              <Link href="/dashboard/scans" className="text-xs text-slate-500 hover:text-violet-400 transition-colors">View all scans →</Link>
+            </div>
+          )}
         </div>
       </GlassCard>
     </div>
