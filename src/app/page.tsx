@@ -71,14 +71,13 @@ export default function DashboardPage() {
       .then(json => { if (json.success) setData(json); })
       .catch(console.error)
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-    // Re-fetch when any scan completes (fired by triggerFullRefresh in scan result page)
     window.addEventListener("dashboard-refresh", loadData);
     return () => window.removeEventListener("dashboard-refresh", loadData);
-  }, []);
+  }, [loadData]);
 
   if (loading || !data) return <DashboardSkeleton />;
 
