@@ -37,6 +37,119 @@ function ToolSkeleton() {
   );
 }
 
+// ─── Shared ToolCard ────────────────────────────────────────────────
+function ToolCard({ tool, onSelect }: { tool: SecurityTool; onSelect: (slug: string) => void }) {
+  const Icon         = getIcon(tool.id);
+  const isPinned     = PINNED_TOOLS.includes(tool.slug) || PINNED_TOOLS.includes(tool.id);
+  const isMaintenance = MAINTENANCE_TOOLS.includes(tool.slug) || MAINTENANCE_TOOLS.includes(tool.id);
+  return (
+    <div
+      onClick={() => !isMaintenance && onSelect(tool.slug)}
+      className={cn(
+        "group relative flex flex-col p-5 rounded-xl border backdrop-blur-sm transition-all duration-300 overflow-hidden",
+        isPinned      ? "bg-violet-500/[0.08] border-violet-500/40 hover:bg-violet-500/[0.12] hover:border-violet-400/60 shadow-[0_0_20px_rgba(139,92,246,0.1)] cursor-pointer"
+        : isMaintenance ? "bg-amber-500/[0.08] border-amber-500/40 cursor-not-allowed opacity-90"
+        : "bg-[#0B0C15]/40 border-white/10 hover:bg-white/[0.07] hover:border-violet-500/30 cursor-pointer",
+      )}
+    >
+      {isPinned     && <div className="absolute top-0 right-0 p-16 bg-violet-500/20 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none" />}
+      {isMaintenance && <div className="absolute top-0 right-0 p-16 bg-amber-500/10  blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none" />}
+      <div className="flex items-start justify-between mb-4 relative z-10">
+        <div className={cn("flex h-12 w-12 items-center justify-center rounded-lg border transition-colors",
+          isPinned ? "bg-violet-500/20 border-violet-500/30 text-violet-200"
+          : isMaintenance ? "bg-amber-500/20 border-amber-500/30 text-amber-200"
+          : "bg-white/5 border-white/5 text-slate-300 group-hover:border-violet-500/20 group-hover:bg-violet-500/10 group-hover:text-violet-300")}>
+          <Icon className="h-6 w-6" />
+        </div>
+        {isPinned ? (
+          <Badge className="bg-violet-500 text-white border-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 flex items-center gap-1">
+            <Star className="h-3 w-3 fill-current" /> Recommended
+          </Badge>
+        ) : isMaintenance ? (
+          <Badge className="bg-amber-500 text-white border-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 flex items-center gap-1">
+            <Wrench className="h-3 w-3" /> Maintenance
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="bg-transparent border-white/10 text-slate-500 text-[10px] uppercase tracking-wider group-hover:border-violet-500/20 group-hover:text-violet-400">
+            {tool.category}
+          </Badge>
+        )}
+      </div>
+      <div className="relative z-10 flex-1">
+        <h3 className={cn("font-semibold text-lg mb-1 transition-colors",
+          isPinned ? "text-white group-hover:text-violet-100"
+          : isMaintenance ? "text-white/80"
+          : "text-white group-hover:text-violet-200")}>{tool.name}</h3>
+        <p className="text-sm text-slate-400 line-clamp-2 leading-relaxed">{tool.description}</p>
+      </div>
+      <div className={cn("relative z-10 mt-4 flex items-center text-xs font-medium transition-colors",
+        isPinned ? "text-violet-300 group-hover:text-violet-200"
+        : isMaintenance ? "text-amber-400/80"
+        : "text-slate-500 group-hover:text-violet-400")}>
+        {isMaintenance ? <span>Currently Unavailable</span> : (
+          <><span>Configure Scan</span><ArrowRight className="ml-2 h-3.5 w-3.5 transition-transform group-hover:translate-x-1" /></>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Clustered A–Z Category View ────────────────────────────────────
+// Pinned tools always first, then categories in alphabetical order
+function ClusteredView({ tools, onSelect }: { tools: SecurityTool[]; onSelect: (slug: string) => void }) {
+  // Separate pinned from rest
+  const pinned = tools.filter(t => PINNED_TOOLS.includes(t.slug) || PINNED_TOOLS.includes(t.id));
+  const rest   = tools.filter(t => !PINNED_TOOLS.includes(t.slug) && !PINNED_TOOLS.includes(t.id));
+
+  // Group rest by category, sort categories A–Z
+  const categoryMap = new Map<string, SecurityTool[]>();
+  for (const tool of rest) {
+    const cat = tool.category || "Other";
+    if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+    categoryMap.get(cat)!.push(tool);
+  }
+  const sortedCategories = Array.from(categoryMap.keys()).sort((a, b) => a.localeCompare(b));
+
+  return (
+    <div className="space-y-10 pb-10">
+      {/* ── Recommended ──────────────────────────────────────────── */}
+      {pinned.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <Star className="h-4 w-4 text-violet-400 fill-violet-400" />
+            <span className="text-xs font-bold text-violet-300 uppercase tracking-widest">Recommended</span>
+            <div className="flex-1 h-px bg-violet-500/20" />
+            <span className="text-[11px] text-slate-600">{pinned.length} tools</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {pinned.map(t => <ToolCard key={t.id} tool={t} onSelect={onSelect} />)}
+          </div>
+        </div>
+      )}
+
+      {/* ── A–Z Categories ───────────────────────────────────────── */}
+      {sortedCategories.map(category => {
+        const catTools = categoryMap.get(category)!;
+        return (
+          <div key={category}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-5 w-5 rounded-md bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                <span className="text-[9px] font-black text-slate-400">{category[0].toUpperCase()}</span>
+              </div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{category}</span>
+              <div className="flex-1 h-px bg-white/[0.06]" />
+              <span className="text-[11px] text-slate-600">{catTools.length} tool{catTools.length !== 1 ? "s" : ""}</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {catTools.map(t => <ToolCard key={t.id} tool={t} onSelect={onSelect} />)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function NewScanPage() {
   const router = useRouter();
 
@@ -154,91 +267,20 @@ export default function NewScanPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-10">
             {Array.from({ length: 8 }).map((_, i) => <ToolSkeleton key={i} />)}
           </div>
-        ) : filteredTools.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-10">
-            {filteredTools.map(tool => {
-              const Icon        = getIcon(tool.id);
-              const isPinned    = PINNED_TOOLS.includes(tool.slug) || PINNED_TOOLS.includes(tool.id);
-              const isMaintenance = MAINTENANCE_TOOLS.includes(tool.slug) || MAINTENANCE_TOOLS.includes(tool.id);
-
-              return (
-                <div
-                  key={tool.id}
-                  onClick={() => !isMaintenance && handleToolClick(tool.slug)}
-                  className={cn(
-                    "group relative flex flex-col p-5 rounded-xl border backdrop-blur-sm transition-all duration-300 overflow-hidden",
-                    isPinned
-                      ? "bg-violet-500/[0.08] border-violet-500/40 hover:bg-violet-500/[0.12] hover:border-violet-400/60 shadow-[0_0_20px_rgba(139,92,246,0.1)] cursor-pointer"
-                      : isMaintenance
-                      ? "bg-amber-500/[0.08] border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.05)] cursor-not-allowed opacity-90"
-                      : "bg-[#0B0C15]/40 border-white/10 hover:bg-white/[0.07] hover:border-violet-500/30 cursor-pointer",
-                  )}
-                >
-                  {isPinned    && <div className="absolute top-0 right-0 p-16 bg-violet-500/20 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none" />}
-                  {isMaintenance && <div className="absolute top-0 right-0 p-16 bg-amber-500/10  blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none" />}
-
-                  <div className="flex items-start justify-between mb-4 relative z-10">
-                    <div className={cn(
-                      "flex h-12 w-12 items-center justify-center rounded-lg border transition-colors",
-                      isPinned
-                        ? "bg-violet-500/20 border-violet-500/30 text-violet-200"
-                        : isMaintenance
-                        ? "bg-amber-500/20 border-amber-500/30 text-amber-200"
-                        : "bg-white/5 border-white/5 text-slate-300 group-hover:border-violet-500/20 group-hover:bg-violet-500/10 group-hover:text-violet-300",
-                    )}>
-                      <Icon className="h-6 w-6" />
-                    </div>
-
-                    {isPinned ? (
-                      <Badge className="bg-violet-500 text-white border-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-current" /> Recommended
-                      </Badge>
-                    ) : isMaintenance ? (
-                      <Badge className="bg-amber-500 text-white border-0 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 flex items-center gap-1">
-                        <Wrench className="h-3 w-3" /> Maintenance
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-transparent border-white/10 text-slate-500 text-[10px] uppercase tracking-wider group-hover:border-violet-500/20 group-hover:text-violet-400">
-                        {tool.category}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="relative z-10 flex-1">
-                    <h3 className={cn(
-                      "font-semibold text-lg mb-1 transition-colors",
-                      isPinned ? "text-white group-hover:text-violet-100" : isMaintenance ? "text-white/80" : "text-white group-hover:text-violet-200",
-                    )}>
-                      {tool.name}
-                    </h3>
-                    <p className="text-sm text-slate-400 line-clamp-2 leading-relaxed">
-                      {tool.description}
-                    </p>
-                  </div>
-
-                  <div className={cn(
-                    "relative z-10 mt-4 flex items-center text-xs font-medium transition-colors",
-                    isPinned ? "text-violet-300 group-hover:text-violet-200" : isMaintenance ? "text-amber-400/80" : "text-slate-500 group-hover:text-violet-400",
-                  )}>
-                    {isMaintenance ? (
-                      <span>Currently Unavailable</span>
-                    ) : (
-                      <>
-                        <span>Configure Scan</span>
-                        <ArrowRight className="ml-2 h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
+        ) : filteredTools.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-[50vh] text-slate-500">
             <Search className="h-12 w-12 mb-4 opacity-20" />
             <p className="text-lg font-medium">No tools found</p>
             <p className="text-sm">Try adjusting your search terms</p>
           </div>
+        ) : (searchQuery || selectedCategory) ? (
+          // Flat grid when filtering/searching
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-10">
+            {filteredTools.map(tool => <ToolCard key={tool.id} tool={tool} onSelect={handleToolClick} />)}
+          </div>
+        ) : (
+          // Clustered A–Z category view when browsing all
+          <ClusteredView tools={filteredTools} onSelect={handleToolClick} />
         )}
       </div>
     </div>

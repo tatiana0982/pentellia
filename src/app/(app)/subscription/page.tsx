@@ -5,7 +5,7 @@ import {
   Check, Loader2, Zap, Shield, Crown, Building2,
   Clock, ChevronRight, ChevronDown, Download,
   CreditCard, Calendar, TrendingUp, RefreshCw,
-  Lock, Star, Receipt, AlertTriangle, Info,
+  Lock, Star, Receipt, AlertTriangle, Info, X, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
@@ -150,6 +150,7 @@ export default function SubscriptionPage() {
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
   const [showPlans,   setShowPlans]   = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [receiptModal, setReceiptModal] = useState<{ html: string; paymentId: string; invoiceNumber: string } | null>(null);
   const [userEmail,   setUserEmail]   = useState("");
   const [userName,    setUserName]    = useState("");
 
@@ -224,15 +225,38 @@ export default function SubscriptionPage() {
     }
   };
 
-  const handleDownloadInvoice = async (paymentId: string) => {
+  // Open receipt modal (fetches HTML, renders inline)
+  const handleViewReceipt = async (paymentId: string) => {
     setDownloading(paymentId);
     try {
-      // Open invoice HTML in new tab — user can print as PDF
-      window.open(`/api/invoice/download?payment_id=${paymentId}&format=html`, "_blank");
-    } finally {
-      setDownloading(null);
-    }
+      const res = await fetch(`/api/invoice/download?payment_id=${paymentId}&format=html`);
+      if (!res.ok) { toast.error("Could not load receipt"); return; }
+      const html = await res.text();
+      // Extract invoice number from HTML title
+      const match = html.match(/Invoice ([\w-]+)/);
+      const invoiceNumber = match ? match[1] : paymentId.slice(-8).toUpperCase();
+      setReceiptModal({ html, paymentId, invoiceNumber });
+    } catch { toast.error("Failed to load receipt"); }
+    finally { setDownloading(null); }
   };
+
+  // Direct PDF download
+  const handleDownloadPdf = async (paymentId: string) => {
+    setDownloading(paymentId);
+    try {
+      const res = await fetch(`/api/invoice/download?payment_id=${paymentId}&format=pdf`);
+      if (!res.ok) { toast.error("Could not generate PDF"); return; }
+      const blob = await res.blob();
+      const url  = window.URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href = url; a.download = `pentellia-invoice-${paymentId.slice(-8)}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch { toast.error("Download failed"); }
+    finally { setDownloading(null); }
+  };
+
+  const handleDownloadInvoice = handleViewReceipt; // kept for backward compat
 
   if (isLoading) return <PageSkeleton />;
 
@@ -392,10 +416,16 @@ export default function SubscriptionPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-slate-200">₹{Number(p.amount_inr).toLocaleString("en-IN")}</p>
-                      <button onClick={() => handleDownloadInvoice(p.razorpay_payment_id)} disabled={isDown}
-                        className="h-7 w-7 flex items-center justify-center rounded-md text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 transition-all">
-                        {isDown ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleViewReceipt(p.razorpay_payment_id)} disabled={isDown}
+                          className="h-7 w-7 flex items-center justify-center rounded-md text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 transition-all">
+                          {isDown ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                        </button>
+                        <button onClick={() => handleDownloadPdf(p.razorpay_payment_id)} disabled={isDown}
+                          className="h-7 w-7 flex items-center justify-center rounded-md text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 transition-all">
+                          <Download className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -412,14 +442,18 @@ export default function SubscriptionPage() {
                       {p.paid_at ? new Date(p.paid_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                     </span>
                     <span className="text-sm font-semibold text-slate-200">₹{Number(p.amount_inr).toLocaleString("en-IN")}</span>
-                    <button
-                      onClick={() => handleDownloadInvoice(p.razorpay_payment_id)}
-                      disabled={isDown}
-                      title="Download invoice"
-                      className="h-7 w-7 flex items-center justify-center rounded-md text-slate-600 hover:text-violet-400 hover:bg-violet-500/10 transition-all disabled:opacity-50"
-                    >
-                      {isDown ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                    </button>
+                    <div className="flex items-center gap-0.5">
+                      <button onClick={() => handleViewReceipt(p.razorpay_payment_id)} disabled={isDown}
+                        title="View receipt"
+                        className="h-7 w-7 flex items-center justify-center rounded-md text-slate-600 hover:text-violet-400 hover:bg-violet-500/10 transition-all disabled:opacity-50">
+                        {isDown ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                      </button>
+                      <button onClick={() => handleDownloadPdf(p.razorpay_payment_id)} disabled={isDown}
+                        title="Download PDF"
+                        className="h-7 w-7 flex items-center justify-center rounded-md text-slate-600 hover:text-violet-400 hover:bg-violet-500/10 transition-all disabled:opacity-50">
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -433,6 +467,48 @@ export default function SubscriptionPage() {
           </div>
           <p className="text-sm text-slate-400 font-medium">No payments yet</p>
           <p className="text-xs text-slate-600">Your payment history will appear here after subscribing.</p>
+        </div>
+      )}
+    </div>
+      {/* ── Receipt Modal ──────────────────────────────────────── */}
+      {receiptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => setReceiptModal(null)}>
+          <div className="relative w-full max-w-2xl max-h-[90vh] rounded-xl overflow-hidden shadow-2xl border border-white/10"
+            onClick={e => e.stopPropagation()}>
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-3.5 bg-[#0d0e1a] border-b border-white/[0.07]">
+              <div className="flex items-center gap-2.5">
+                <Receipt className="h-4 w-4 text-violet-400" />
+                <span className="text-sm font-semibold text-white">Invoice {receiptModal.invoiceNumber}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownloadPdf(receiptModal.paymentId)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-all">
+                  <Download className="h-3.5 w-3.5" /> Download PDF
+                </button>
+                <button onClick={() => setReceiptModal(null)}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-all">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            {/* Invoice HTML rendered in scaled iframe */}
+            <div className="bg-white overflow-auto" style={{ maxHeight: "calc(90vh - 56px)" }}>
+              <iframe
+                srcDoc={receiptModal.html}
+                title="Invoice"
+                className="w-full border-0"
+                style={{ minHeight: "600px", height: "100%" }}
+                onLoad={e => {
+                  const iframe = e.currentTarget;
+                  const doc    = iframe.contentDocument;
+                  if (doc) iframe.style.height = doc.body.scrollHeight + "px";
+                }}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
