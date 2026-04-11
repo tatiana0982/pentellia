@@ -23,7 +23,7 @@ import toast from "react-hot-toast";
 
 import { CommonScanReport } from "@/lib/Common";
 import { AssetDiscoveryReport } from "@/lib/AssetDiscoveryReport";
-import { triggerNotificationRefresh, triggerWalletRefresh, triggerFullRefresh } from "@/lib/events";
+import { triggerNotificationRefresh, triggerFullRefresh } from "@/lib/events";
 
 // ─────────────────────────────────────────────────────────────────────
 // Types
@@ -565,9 +565,7 @@ export default function ScanReportPage() {
         }
       }
 
-      // Server already caches the summary in ai_summaries table after stream completes
-      // Just trigger a wallet/notification refresh
-      if (full) { triggerWalletRefresh(); }
+      if (full) { triggerNotificationRefresh(); }
     } catch (err: any) {
       toast.error(err.message ?? "Generation failed.");
       setAiSummary("");
@@ -646,8 +644,6 @@ export default function ScanReportPage() {
       a.href = url; a.download = `Pentellia_Report_${scan.id.slice(0, 8)}.pdf`;
       document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
       toast.success("Report exported", { id: tid });
-      // ₹100 was charged after successful PDF generation — refresh wallet balance
-      triggerWalletRefresh();
     } catch (err: any) {
       toast.error(err.message || "Export failed", { id: tid });
     }
