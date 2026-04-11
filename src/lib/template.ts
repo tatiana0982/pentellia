@@ -405,7 +405,7 @@ canvas { max-height: 100%; max-width: 100%; }
     <div class="p-2 bg-emerald-500/10 rounded border border-emerald-500/20">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
     </div>
-    <h2 class="text-2xl font-bold text-white tracking-tight">OWASP Top 10 (2021) Matrix</h2>
+    <h2 class="text-2xl font-bold text-white tracking-tight">OWASP Top 10 (2025) Matrix</h2>
   </div>
 
   <div class="flex items-center justify-between mb-8">
