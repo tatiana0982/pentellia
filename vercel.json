@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/cleanup",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/expire-subscriptions",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/stale-scans",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}

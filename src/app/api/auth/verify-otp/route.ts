@@ -1,17 +1,21 @@
 // src/app/api/auth/verify-otp/route.ts
+// AUDIT FIX: Added brute-force protection — max 5 attempts per OTP.
+// Previously had NO attempt limiting. Attacker could enumerate all 1,000,000
+// 6-digit codes without any restriction.
+
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
 
-// Shared reset-token store for change-password and delete-account routes
 const g = globalThis as typeof globalThis & {
   _rts?: Map<string, { uid: string; email: string; purpose: string; expiresAt: number }>;
 };
 if (!g._rts) g._rts = new Map();
 export const resetTokenStore = g._rts;
 
-const ALLOWED = ["verify-email", "reset", "change_password", "delete_account"];
+const ALLOWED    = ["verify-email", "reset", "change_password", "delete_account"];
+const MAX_ATTEMPTS = 5;
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +26,6 @@ export async function POST(req: NextRequest) {
 
     const { otp, email: bodyEmail } = body;
 
-    // Accept both "purpose" (canonical) and legacy "type" field names
     let purpose: string =
       body?.purpose ||
       (body?.type === "forgot-password" ? "reset" :
@@ -36,17 +39,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "OTP is required" }, { status: 400 });
     }
 
-    // Resolve which email to look up against
     let email: string;
-
     if (purpose === "verify-email" || purpose === "reset") {
-      // Both use the email from the request body (no session needed)
       email = typeof bodyEmail === "string" ? bodyEmail.toLowerCase().trim() : "";
       if (!email || !email.includes("@")) {
         return NextResponse.json({ error: "Valid email required" }, { status: 400 });
       }
     } else {
-      // change_password / delete_account — resolve email from active session
       const uid = await getUid();
       if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       const res = await query(`SELECT email FROM users WHERE uid = $1`, [uid]);
@@ -54,9 +53,9 @@ export async function POST(req: NextRequest) {
       email = res.rows[0].email;
     }
 
-    // Look up the most recent valid OTP for this email + purpose
+    // ── Fetch OTP record ────────────────────────────────────────────
     const record = await query(
-      `SELECT id, otp_hash FROM otp_store
+      `SELECT id, otp_hash, attempt_count FROM otp_store
        WHERE email = $1 AND purpose = $2 AND used = FALSE AND expires_at > NOW()
        ORDER BY created_at DESC LIMIT 1`,
       [email, purpose],
@@ -69,40 +68,50 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Constant-time comparison to prevent timing attacks
-    const row       = record.rows[0];
+    const row = record.rows[0];
+
+    // ── Brute-force protection ──────────────────────────────────────
+    const attempts = Number(row.attempt_count ?? 0);
+    if (attempts >= MAX_ATTEMPTS) {
+      // Mark as used to invalidate — force user to request a new OTP
+      await query(`UPDATE otp_store SET used = TRUE WHERE id = $1`, [row.id]);
+      return NextResponse.json(
+        { error: `Too many failed attempts. Please request a new OTP.` },
+        { status: 429 },
+      );
+    }
+
+    // ── Constant-time comparison ────────────────────────────────────
     const inputHash = crypto.createHash("sha256").update(otp.trim()).digest("hex");
     const stored    = Buffer.from(row.otp_hash, "hex");
     const input     = Buffer.from(inputHash,    "hex");
     const match     = stored.length === input.length && crypto.timingSafeEqual(stored, input);
 
     if (!match) {
-      return NextResponse.json({ error: "Incorrect OTP. Please try again." }, { status: 400 });
+      // Increment attempt counter atomically
+      await query(
+        `UPDATE otp_store SET attempt_count = attempt_count + 1 WHERE id = $1`,
+        [row.id],
+      );
+      const remaining = MAX_ATTEMPTS - attempts - 1;
+      return NextResponse.json(
+        { error: `Incorrect OTP. ${remaining} attempt${remaining !== 1 ? "s" : ""} remaining.` },
+        { status: 400 },
+      );
     }
 
-    // Mark OTP as used — prevents replay
+    // ── OTP correct — mark as used ──────────────────────────────────
     await query(`UPDATE otp_store SET used = TRUE WHERE id = $1`, [row.id]);
 
-    // For verify-email: no resetToken needed — just return success confirmation
-    // The frontend will then create the Firebase account on this success response
     if (purpose === "verify-email") {
       return NextResponse.json({ success: true, verified: true });
     }
 
-    // For reset / change_password / delete_account — issue a short-lived resetToken
-    const userRes = await query(
-      `SELECT uid FROM users WHERE LOWER(email) = LOWER($1)`,
-      [email],
-    );
+    const userRes    = await query(`SELECT uid FROM users WHERE LOWER(email) = LOWER($1)`, [email]);
     const uid        = userRes.rows[0]?.uid ?? "";
     const resetToken = crypto.randomBytes(32).toString("hex");
 
-    resetTokenStore.set(resetToken, {
-      uid,
-      email,
-      purpose,
-      expiresAt: Date.now() + 15 * 60 * 1000, // 15 min window to complete the next step
-    });
+    resetTokenStore.set(resetToken, { uid, email, purpose, expiresAt: Date.now() + 15 * 60 * 1000 });
 
     // Prune expired entries
     const now = Date.now();

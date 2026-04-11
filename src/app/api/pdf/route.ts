@@ -1,5 +1,7 @@
 // src/app/api/pdf/route.ts
-// Phase 3: Credit billing REMOVED. PDF generation requires active subscription only.
+// SECURITY FIX: user_uid now comes from verified session, NOT request body.
+// Previous version took user_uid from data.user_uid — IDOR vulnerability
+// where any authenticated user could generate PDFs for other users' scans.
 
 import { NextResponse } from "next/server";
 import puppeteer from "puppeteer-core";
@@ -11,17 +13,22 @@ import { getUid } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
-    const data = await req.json();
-    const isProd = process.env.NODE_ENV === "production";
-    const user_uid = data.user_uid;
-    const scanId = data.id;
+    // ── Auth: uid ALWAYS from session, never from body ─────────────
+    const uid = await getUid();
+    if (!uid) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    if (!user_uid || !scanId) {
-      return NextResponse.json({ error: "Missing user_uid or scan id" }, { status: 400 });
+    const data   = await req.json();
+    const scanId = data.id ?? data.scan_id;
+    const isProd = process.env.NODE_ENV === "production";
+
+    if (!scanId) {
+      return NextResponse.json({ error: "Missing scan id" }, { status: 400 });
     }
 
     // ── Require active subscription ───────────────────────────────
-    const sub = await getActiveSubscription(user_uid);
+    const sub = await getActiveSubscription(uid);
     if (!sub) {
       return NextResponse.json(
         { error: "Active subscription required to generate PDF reports.", code: "NO_SUBSCRIPTION" },
@@ -32,7 +39,7 @@ export async function POST(req: Request) {
     // ── Check for existing report (idempotency) ───────────────────
     const existing = await query(
       `SELECT id, pdf_blob FROM reports WHERE scan_id = $1 AND user_uid = $2 AND deleted_at IS NULL LIMIT 1`,
-      [scanId, user_uid],
+      [scanId, uid],
     );
 
     if (existing.rows.length && existing.rows[0].pdf_blob) {
@@ -40,19 +47,19 @@ export async function POST(req: Request) {
       return new NextResponse(buf, {
         status: 200,
         headers: {
-          "Content-Type": "application/pdf",
+          "Content-Type":        "application/pdf",
           "Content-Disposition": `attachment; filename="pentellia-report-${scanId}.pdf"`,
-          "Content-Length": buf.length.toString(),
-          "X-Cache": "HIT",
+          "Content-Length":      buf.length.toString(),
+          "X-Cache":             "HIT",
         },
       });
     }
 
-    // ── Fetch scan data ───────────────────────────────────────────
+    // ── Fetch scan — uid enforced in WHERE clause ─────────────────
     const scanRes = await query(
       `SELECT s.*, t.name AS tool_name FROM scans s LEFT JOIN tools t ON s.tool_id = t.id
        WHERE s.id = $1 AND s.user_uid = $2 AND s.status = 'completed' LIMIT 1`,
-      [scanId, user_uid],
+      [scanId, uid],
     );
 
     if (!scanRes.rows.length) {
@@ -60,13 +67,13 @@ export async function POST(req: Request) {
     }
 
     const scanData = scanRes.rows[0];
-    const html = getPurpleReportHtml(scanData);
+    const html     = getPurpleReportHtml({ ...scanData, ai_summary: data.ai_summary });
 
     // ── Generate PDF ──────────────────────────────────────────────
     let browser;
     if (isProd) {
       browser = await (puppeteer as any).launch({
-        args: chromium.args,
+        args:           chromium.args,
         executablePath: await chromium.executablePath(
           "https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar",
         ),
@@ -89,15 +96,15 @@ export async function POST(req: Request) {
       `INSERT INTO reports (user_uid, scan_id, pdf_blob)
        VALUES ($1, $2, $3)
        ON CONFLICT DO NOTHING`,
-      [user_uid, scanId, pdfBuffer],
+      [uid, scanId, pdfBuffer],
     );
 
     return new NextResponse(Buffer.from(pdfBuffer), {
       status: 200,
       headers: {
-        "Content-Type": "application/pdf",
+        "Content-Type":        "application/pdf",
         "Content-Disposition": `attachment; filename="pentellia-report-${scanId}.pdf"`,
-        "Content-Length": pdfBuffer.length.toString(),
+        "Content-Length":      pdfBuffer.length.toString(),
       },
     });
 

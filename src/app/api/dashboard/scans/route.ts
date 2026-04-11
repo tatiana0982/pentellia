@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
 import { createNotification } from "@/lib/notifications";
-import { checkUsageLimit, incrementUsage } from "@/lib/subscription";
+import { checkUsageLimit } from "@/lib/subscription";
 
 // ── Determine scan type from tool category ────────────────────────────
 const DEEP_CATEGORIES = new Set([
@@ -105,62 +105,104 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Gate: Require active subscription + usage within limits ──────
+    // ── Gate: check limits (soft read) ─────────────────────────────────
     const scanType    = await getScanType(tool);
     const usageStatus = await checkUsageLimit(uid, scanType);
 
     if (!usageStatus.allowed) {
-      const httpStatus =
-        usageStatus.code === "NO_SUBSCRIPTION" || usageStatus.code === "PLAN_EXPIRED"
-          ? 402 : 429;
       return NextResponse.json(
-        {
-          error:        usageStatus.reason,
-          code:         usageStatus.code,
-          monthlyUsed:  usageStatus.monthlyUsed,
-          monthlyLimit: usageStatus.monthlyLimit,
-          dailyUsed:    usageStatus.dailyUsed,
-          dailyLimit:   usageStatus.dailyLimit,
-          action:       "/subscription",
-        },
-        { status: httpStatus },
+        { error: usageStatus.reason, code: usageStatus.code,
+          monthlyUsed: usageStatus.monthlyUsed, monthlyLimit: usageStatus.monthlyLimit,
+          dailyUsed: usageStatus.dailyUsed, dailyLimit: usageStatus.dailyLimit, action: "/subscription" },
+        { status: usageStatus.code === "NO_SUBSCRIPTION" || usageStatus.code === "PLAN_EXPIRED" ? 402 : 429 },
       );
     }
 
-    // ── Route to correct Flask endpoint (server-side, key never exposed) ──
+    // ── Atomic pre-increment: reserve slot BEFORE calling Flask ──────────
+    // Fixes TOCTOU race: two concurrent requests can both pass checkUsageLimit.
+    // The atomic UPDATE ... WHERE col < limit ensures only one wins.
+    const col          = scanType === "deep" ? "deep_scans_used" : scanType === "light" ? "light_scans_used" : "reports_used";
+    const dailyLimit   = usageStatus.dailyLimit;
+    const monthlyLimit = usageStatus.monthlyLimit;
+
+    const dailyIncr = await query(
+      `INSERT INTO daily_usage (user_uid, date, ${col}) VALUES ($1, CURRENT_DATE, 1)
+       ON CONFLICT (user_uid, date) DO UPDATE
+         SET ${col} = daily_usage.${col} + 1, updated_at = NOW()
+         WHERE daily_usage.${col} < $2
+       RETURNING ${col}`,
+      [uid, dailyLimit],
+    );
+    if (!dailyIncr.rows.length) {
+      return NextResponse.json(
+        { error: `Daily ${scanType} limit reached concurrently. Try again shortly.`, code: "DAILY_LIMIT", action: "/subscription" },
+        { status: 429 },
+      );
+    }
+
+    const subRow = await query(
+      `SELECT started_at, expires_at FROM user_subscriptions
+       WHERE user_uid = $1 AND status = 'active' AND expires_at > NOW() LIMIT 1`, [uid],
+    );
+    if (!subRow.rows.length) {
+      await query(`UPDATE daily_usage SET ${col} = GREATEST(0, ${col} - 1) WHERE user_uid = $1 AND date = CURRENT_DATE`, [uid]);
+      return NextResponse.json({ error: "Subscription expired", code: "PLAN_EXPIRED" }, { status: 402 });
+    }
+    const { started_at, expires_at } = subRow.rows[0];
+
+    const monthlyIncr = await query(
+      `INSERT INTO usage_tracking (user_uid, period_start, period_end, ${col}) VALUES ($1, $2, $3, 1)
+       ON CONFLICT (user_uid, period_start) DO UPDATE
+         SET ${col} = usage_tracking.${col} + 1, updated_at = NOW()
+         WHERE usage_tracking.${col} < $4
+       RETURNING ${col}`,
+      [uid, started_at, expires_at, monthlyLimit],
+    );
+    if (!monthlyIncr.rows.length) {
+      await query(`UPDATE daily_usage SET ${col} = GREATEST(0, ${col} - 1) WHERE user_uid = $1 AND date = CURRENT_DATE`, [uid]);
+      return NextResponse.json(
+        { error: `Monthly ${scanType} limit reached concurrently. Upgrade for more.`, code: "MONTHLY_LIMIT", action: "/subscription" },
+        { status: 429 },
+      );
+    }
+
+    // ── Route to Flask (usage already debited — refund on failure) ────────
     const { endpoint, payload: basePayload } = resolveFlaskEndpoint(toolsBaseUrl, tool, params);
     const payload = { ...basePayload, target };
-
     console.log(`[Scans POST] uid=${uid} endpoint=${endpoint} tool=${tool} target=${target}`);
 
-    const toolsRes = await fetch(endpoint, {
-      method:  "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key":    toolsApiKey,   // API key never reaches browser
-      },
-      body:   JSON.stringify(payload),
-      signal: AbortSignal.timeout(30_000),
-    });
+    let toolsRes: Response;
+    try {
+      toolsRes = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": toolsApiKey },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (fetchErr: any) {
+      // Refund usage — Flask never received the request
+      await query(`UPDATE daily_usage    SET ${col} = GREATEST(0, ${col} - 1) WHERE user_uid = $1 AND date = CURRENT_DATE`, [uid]);
+      await query(`UPDATE usage_tracking SET ${col} = GREATEST(0, ${col} - 1), updated_at = NOW() WHERE user_uid = $1 AND period_start = $2`, [uid, started_at]);
+      console.error(`[Scans POST] Network error: ${fetchErr?.cause?.code ?? fetchErr?.message}`);
+      return NextResponse.json({ error: "Scan engine unreachable.", detail: fetchErr?.cause?.code ?? fetchErr?.message }, { status: 503 });
+    }
 
     const toolsData = await toolsRes.json();
-
     if (!toolsRes.ok) {
-      console.error(`[Scans POST] Engine ${toolsRes.status}:`, toolsData);
+      // Refund usage — Flask rejected the scan
+      await query(`UPDATE daily_usage    SET ${col} = GREATEST(0, ${col} - 1) WHERE user_uid = $1 AND date = CURRENT_DATE`, [uid]);
+      await query(`UPDATE usage_tracking SET ${col} = GREATEST(0, ${col} - 1), updated_at = NOW() WHERE user_uid = $1 AND period_start = $2`, [uid, started_at]);
       throw new Error(toolsData.error || `Scan engine returned ${toolsRes.status}`);
     }
 
-    // ── Insert scan record ───────────────────────────────────────────
+    // ── Insert scan record (usage already committed above) ────────────────
     const dbRes = await query(
       `INSERT INTO scans (user_uid, tool_id, target, params, external_job_id, status)
-       VALUES ($1, $2, $3, $4, $5, 'queued')
-       RETURNING id`,
+       VALUES ($1, $2, $3, $4, $5, 'queued') RETURNING id`,
       [uid, tool, target, JSON.stringify(params), toolsData.job_id],
     );
     const scanId = dbRes.rows[0].id;
-
-    // ── Increment usage (only after successful queue) ─────────────────
-    await incrementUsage(uid, scanType);
+    // No incrementUsage call — usage was already atomically pre-incremented above.
 
     await createNotification(
       uid, "Scan Started", `Scan initiated for ${target}`, "info",

@@ -130,33 +130,26 @@ export async function getActiveSubscription(uid: string): Promise<UserSubscripti
 // ── Apply a pending downgrade if the current plan has expired ──────────
 // Called automatically inside getActiveSubscription.
 async function applyPendingDowngradeIfDue(uid: string): Promise<void> {
-  const res = await query(
-    `SELECT pending_plan_id, expires_at
-     FROM user_subscriptions
-     WHERE user_uid = $1
-       AND pending_plan_id IS NOT NULL
-       AND expires_at <= NOW()
-     LIMIT 1`,
-    [uid],
-  );
-  if (!res.rows.length) return;
-
-  const { pending_plan_id } = res.rows[0];
   const newExpiry = new Date();
   newExpiry.setDate(newExpiry.getDate() + 30);
 
-  // Activate the downgraded plan
-  await query(
+  // Atomic UPDATE: reads pending_plan_id and applies it in a single statement.
+  // Eliminates race condition where two concurrent requests both read the same row.
+  const res = await query(
     `UPDATE user_subscriptions SET
-       plan_id          = $1,
-       status           = 'active',
-       started_at       = NOW(),
-       expires_at       = $2,
-       pending_plan_id  = NULL,
-       pending_plan_at  = NULL
-     WHERE user_uid = $3`,
-    [pending_plan_id, newExpiry, uid],
+       plan_id         = pending_plan_id,
+       status          = 'active',
+       started_at      = NOW(),
+       expires_at      = $1,
+       pending_plan_id = NULL,
+       pending_plan_at = NULL
+     WHERE user_uid = $2
+       AND pending_plan_id IS NOT NULL
+       AND expires_at <= NOW()
+     RETURNING pending_plan_id AS applied_plan`,
+    [newExpiry, uid],
   );
+  if (!res.rows.length) return;  // nothing to apply, or another request got there first
 
   // Reset usage for new period
   await query(
@@ -317,6 +310,8 @@ export async function activateSubscription(
   }
 
   // ── UPGRADE or SAME PLAN: immediate activation ─────────────────
+  await query("BEGIN");
+  try {
   await query(
     `INSERT INTO user_subscriptions
        (user_uid, plan_id, status, started_at, expires_at,
@@ -362,6 +357,12 @@ export async function activateSubscription(
   const action = !hasActivePlan ? "activated"
     : newSortOrder > currentSortOrder ? "upgraded"
     : "renewed";
+
+  await query("COMMIT");
+  } catch (txErr) {
+    await query("ROLLBACK");
+    throw txErr;
+  }
 
   return { immediate: true, message: `Plan ${action} successfully.` };
 }
