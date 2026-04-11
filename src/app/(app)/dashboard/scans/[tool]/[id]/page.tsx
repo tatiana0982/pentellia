@@ -262,13 +262,29 @@ function GlobalLoadingState() {
   );
 }
 
+// Step-based progress when backend doesn't send a percentage
+function getStepProgress(scan: ScanResult): { pct: number; label: string } {
+  const raw = scan.result?.progress?.percentage;
+  if (typeof raw === "number" && raw > 0) return { pct: raw, label: "" };
+  // Derive from status + elapsed time
+  const elapsed = Date.now() - new Date(scan.created_at).getTime();
+  if (scan.status === "queued")   return { pct: 5,  label: "Queued — waiting for engine..." };
+  if (scan.status === "running") {
+    // Smooth fake progress that never exceeds 85% (backend hasn't confirmed yet)
+    const minutes = elapsed / 60_000;
+    const pct = Math.min(85, 15 + Math.round(minutes * 8));
+    return { pct, label: scan.result?.progress?.current_description || "Running intelligence modules..." };
+  }
+  return { pct: 0, label: "Initializing Scan Core..." };
+}
+
 function RunningStateView({ scan, confirmations, onConfirm, isConfirming }: {
   scan: ScanResult; confirmations: any[]; isConfirming: boolean;
   onConfirm: (reqId: string, response: string, action?: "single" | "all") => void;
 }) {
   const [logsOpen, setLogsOpen] = useState(true);
-  const progress       = scan.result?.progress?.percentage          || 0;
-  const currentStep    = scan.result?.progress?.current_description || "Initializing Scan Core...";
+  const { pct: progress, label: stepLabel } = getStepProgress(scan);
+  const currentStep    = scan.result?.progress?.current_description || stepLabel || "Initializing Scan Core...";
   const completedTools: string[] = scan.result?.progress?.completed_steps || [];
   const pendingConf    = confirmations.find((c: any) => c.status === "pending");
 
@@ -397,36 +413,43 @@ export default function ScanReportPage() {
   const [aiFromCache,  setAiFromCache]  = useState(false);
   const aiGeneratingRef                 = useRef(false);
 
-  // ── Smart polling — replaces broken SSE (Vercel Hobby kills at 10s) ─
-  // Uses /api/dashboard/scans/[id]/stream as a lightweight status endpoint.
-  // Exponential backoff: 3s → 5s → 8s → 12s → max 15s
-  // Stops immediately when scan reaches terminal state.
+  // ── Reliable polling — time-based intervals, stops on terminal state ─
+  // Intervals: first 30s → every 2s | next 2min → every 5s | after → every 10s
+  // Uses /stream (lightweight status check, fits Vercel 10s limit).
+  // On first load uses /scans/[id] (DB-only, instant).
   useEffect(() => {
     if (!scanId) return;
 
-    let stopped    = false;
+    let stopped   = false;
     let timeoutId: NodeJS.Timeout;
-    let delay      = 3_000;   // start at 3s
-    const MAX_DELAY = 15_000;
+    const startedAt = Date.now();
+
+    const getDelay = () => {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 30_000)  return 2_000;   // first 30s  → every 2s
+      if (elapsed < 150_000) return 5_000;   // next 2min  → every 5s
+      return 10_000;                          // after      → every 10s
+    };
 
     const poll = async (isFirst = false) => {
       if (stopped) return;
-
-      // Use /stream endpoint (same logic as old [id]/route but via GET)
-      // For terminal scans it returns instantly from DB; for running scans
-      // it does one Flask check (<3s) and returns. Fits in 10s function limit.
       const endpoint = isFirst
-        ? `/api/dashboard/scans/${scanId}`           // initial load: no Flask call
-        : `/api/dashboard/scans/${scanId}/stream`;   // polling: checks Flask + returns
+        ? `/api/dashboard/scans/${scanId}`         // initial: DB only, instant
+        : `/api/dashboard/scans/${scanId}/stream`; // polling: checks Flask status
 
       try {
-        const res  = await fetch(endpoint);
+        const res  = await fetch(endpoint, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (stopped || !data.success) return;
 
         const scanData: ScanResult = { ...data.scan, result: data.pythonStatus || data.scan.result };
-        setScan(scanData);
-        if (data.confirmations) setConfirmations(data.confirmations);
+        setScan(prev => {
+          // Never downgrade a completed scan to running due to stale poll
+          if (prev?.status === "completed" && scanData.status !== "completed") return prev;
+          return scanData;
+        });
+        if (data.confirmations?.length) setConfirmations(data.confirmations);
         if (data.aiSummary && isFirst) { setAiSummary(data.aiSummary); setAiFromCache(true); }
 
         if (data.pythonStatus?.cms_confirmation_pending && !showCmsModal) {
@@ -437,21 +460,31 @@ export default function ScanReportPage() {
         if (["completed", "failed", "cancelled"].includes(scanData.status)) {
           stopped = true;
           setPolling(false);
-          if (scanData.status === "completed") triggerFullRefresh();
+          if (scanData.status === "completed") {
+            toast.success("Scan completed!", {
+              icon: "✅",
+              style: { background: "#0B0C15", color: "#fff", border: "1px solid rgba(139,92,246,0.3)" },
+              duration: 4000,
+            });
+            triggerFullRefresh();
+          }
+          if (scanData.status === "failed") {
+            toast.error("Scan failed. Check logs for details.", {
+              style: { background: "#0B0C15", color: "#fff" },
+            });
+          }
           return;
         }
-      } catch { /* network blip — retry */ }
+      } catch { /* network blip — retry on next tick */ }
 
       if (!stopped) {
-        // Exponential backoff
-        delay = Math.min(delay * 1.4, MAX_DELAY);
-        timeoutId = setTimeout(() => poll(), delay);
+        timeoutId = setTimeout(() => poll(), getDelay());
       }
     };
 
-    // Immediate first load, then start polling loop
+    // Immediate first fetch (no delay), then start interval loop
     poll(true).then(() => {
-      if (!stopped) timeoutId = setTimeout(() => poll(), delay);
+      if (!stopped) timeoutId = setTimeout(() => poll(), getDelay());
     });
 
     return () => {
