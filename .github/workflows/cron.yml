@@ -1,12 +1,26 @@
-# .github/workflows/cron.yml
-name: Pentellia Cron
+name: Pentellia Cron Jobs
+
 on:
   schedule:
-    - cron: '*/15 * * * *'   # every 15 min — free on GitHub
+    # Stale scan recovery — every 15 minutes (free on GitHub Actions)
+    - cron: '*/15 * * * *'
+  # Allow manual trigger from GitHub UI for testing
+  workflow_dispatch:
+
 jobs:
   stale-scans:
+    name: Recover stale scans
     runs-on: ubuntu-latest
+    timeout-minutes: 2
+
     steps:
-      - run: |
-          curl -s -X GET https://pentellia.io/api/cron/stale-scans \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+      - name: Call stale-scans cron
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET https://pentellia.io/api/cron/stale-scans \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "Response: $RESPONSE"
+          if [ "$RESPONSE" != "200" ]; then
+            echo "Cron returned $RESPONSE — check Vercel logs"
+            exit 1
+          fi

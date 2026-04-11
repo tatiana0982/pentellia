@@ -397,69 +397,67 @@ export default function ScanReportPage() {
   const [aiFromCache,  setAiFromCache]  = useState(false);
   const aiGeneratingRef                 = useRef(false);
 
-  // ── SSE stream — replaces setInterval polling ───────────────────
-  // Single persistent connection; server pushes only on change.
-  // Auto-reconnects via EventSource on network drop or 55s max-runtime.
+  // ── Smart polling — replaces broken SSE (Vercel Hobby kills at 10s) ─
+  // Uses /api/dashboard/scans/[id]/stream as a lightweight status endpoint.
+  // Exponential backoff: 3s → 5s → 8s → 12s → max 15s
+  // Stops immediately when scan reaches terminal state.
   useEffect(() => {
     if (!scanId) return;
 
-    // Do one initial fetch to get current state (handles page refresh on completed scans)
-    fetch(`/api/dashboard/scans/${scanId}`)
-      .then(r => r.json())
-      .then(data => {
-        if (!data.success) return;
+    let stopped    = false;
+    let timeoutId: NodeJS.Timeout;
+    let delay      = 3_000;   // start at 3s
+    const MAX_DELAY = 15_000;
+
+    const poll = async (isFirst = false) => {
+      if (stopped) return;
+
+      // Use /stream endpoint (same logic as old [id]/route but via GET)
+      // For terminal scans it returns instantly from DB; for running scans
+      // it does one Flask check (<3s) and returns. Fits in 10s function limit.
+      const endpoint = isFirst
+        ? `/api/dashboard/scans/${scanId}`           // initial load: no Flask call
+        : `/api/dashboard/scans/${scanId}/stream`;   // polling: checks Flask + returns
+
+      try {
+        const res  = await fetch(endpoint);
+        const data = await res.json();
+        if (stopped || !data.success) return;
+
         const scanData: ScanResult = { ...data.scan, result: data.pythonStatus || data.scan.result };
         setScan(scanData);
         if (data.confirmations) setConfirmations(data.confirmations);
-        if (data.aiSummary) { setAiSummary(data.aiSummary); setAiFromCache(true); }
-        // Already terminal — no SSE needed
-        if (["completed", "failed", "cancelled"].includes(scanData.status)) {
-          setPolling(false);
-        }
-      })
-      .catch(console.error);
+        if (data.aiSummary && isFirst) { setAiSummary(data.aiSummary); setAiFromCache(true); }
 
-    // If scan is already terminal after initial fetch, EventSource will close immediately
-    const es = new EventSource(`/api/dashboard/scans/${scanId}/stream`);
-
-    es.addEventListener("status", (e: MessageEvent) => {
-      try {
-        const { scan: scanData, confirmations: confs, pythonStatus } = JSON.parse(e.data);
-        const merged: ScanResult = { ...scanData, result: pythonStatus || scanData.result };
-        setScan(merged);
-        if (confs) setConfirmations(confs);
-        if (pythonStatus?.cms_confirmation_pending && !showCmsModal) {
-          setCmsDetails({ detected: pythonStatus.detected_cms || "Unknown CMS", jobId: pythonStatus.job_id });
+        if (data.pythonStatus?.cms_confirmation_pending && !showCmsModal) {
+          setCmsDetails({ detected: data.pythonStatus.detected_cms || "Unknown CMS", jobId: data.pythonStatus.job_id });
           setShowCmsModal(true);
         }
-      } catch { /* malformed event */ }
-    });
 
-    es.addEventListener("close", () => {
-      es.close();
-      setPolling(false);
-      // Get final scan state one more time so result is fresh
-      fetch(`/api/dashboard/scans/${scanId}`)
-        .then(r => r.json())
-        .then(data => {
-          if (!data.success) return;
-          const scanData: ScanResult = { ...data.scan, result: data.pythonStatus || data.scan.result };
-          setScan(scanData);
+        if (["completed", "failed", "cancelled"].includes(scanData.status)) {
+          stopped = true;
+          setPolling(false);
           if (scanData.status === "completed") triggerFullRefresh();
-        })
-        .catch(console.error);
+          return;
+        }
+      } catch { /* network blip — retry */ }
+
+      if (!stopped) {
+        // Exponential backoff
+        delay = Math.min(delay * 1.4, MAX_DELAY);
+        timeoutId = setTimeout(() => poll(), delay);
+      }
+    };
+
+    // Immediate first load, then start polling loop
+    poll(true).then(() => {
+      if (!stopped) timeoutId = setTimeout(() => poll(), delay);
     });
 
-    es.addEventListener("reconnect", () => {
-      // Server hit 55s limit — EventSource will auto-reconnect via browser
-      es.close();
-    });
-
-    es.addEventListener("error", () => {
-      // EventSource auto-reconnects on error — nothing needed here
-    });
-
-    return () => es.close();
+    return () => {
+      stopped = true;
+      clearTimeout(timeoutId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanId, showCmsModal]);
 
