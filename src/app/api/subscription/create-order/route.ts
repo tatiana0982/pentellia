@@ -1,4 +1,8 @@
 // src/app/api/subscription/create-order/route.ts
+// FIX: Razorpay instantiated INSIDE handler, not at module level.
+// Module-level new Razorpay() crashes Next.js build — env vars not
+// available during page data collection phase.
+
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import crypto from "crypto";
@@ -6,30 +10,30 @@ import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
 import { getPlanById } from "@/lib/subscription";
 
-const razorpay = new Razorpay({
-  key_id:     process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
-
 export async function POST(req: NextRequest) {
-  // checkRevoked removed — causes unreliable Firebase network calls on Vercel serverless
   const uid = await getUid();
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const keyId     = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    console.error("[CreateOrder] Razorpay keys not configured");
+    return NextResponse.json({ error: "Payment service not configured" }, { status: 500 });
+  }
+
+  const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
 
   let body: any;
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
   const { planId } = body;
-
   if (!planId || typeof planId !== "string") {
     return NextResponse.json({ error: "planId is required" }, { status: 400 });
   }
 
   const plan = await getPlanById(planId);
-  if (!plan) {
-    return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
-  }
+  if (!plan) return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
 
   const amountINR   = plan.price_inr;
   const amountPaise = amountINR * 100;
@@ -53,38 +57,23 @@ export async function POST(req: NextRequest) {
       orderId = existing.rows[0].razorpay_order_id;
     } else {
       const order = await razorpay.orders.create({
-        amount:   amountPaise,
-        currency: "INR",
-        notes: {
-          uid,
-          plan_id:    planId,
-          plan_name:  plan.name,
-          amount_inr: amountINR.toString(),
-          type:       "subscription",
-        },
+        amount: amountPaise, currency: "INR",
+        notes: { uid, plan_id: planId, plan_name: plan.name, amount_inr: amountINR.toString(), type: "subscription" },
       });
       orderId = order.id;
 
       await query(
         `INSERT INTO razorpay_orders
-           (user_uid, plan_id, razorpay_order_id, amount_inr, credits_inr,
-            status, idempotency_key)
+           (user_uid, plan_id, razorpay_order_id, amount_inr, credits_inr, status, idempotency_key)
          VALUES ($1, $2, $3, $4, $4, 'created', $5)`,
         [uid, planId, orderId, amountINR, idempotencyKey],
       );
     }
 
     return NextResponse.json({
-      success:     true,
-      orderId,
-      amount:      amountPaise,
-      currency:    "INR",
-      keyId:       process.env.RAZORPAY_KEY_ID,
-      name:        "Pentellia",
-      description: `${plan.name} — ₹${amountINR}/month`,
-      planId,
-      planName:    plan.name,
-      amountINR,
+      success: true, orderId, amount: amountPaise, currency: "INR",
+      keyId, name: "Pentellia", description: `${plan.name} — ₹${amountINR}/month`,
+      planId, planName: plan.name, amountINR,
     });
 
   } catch (err: any) {
