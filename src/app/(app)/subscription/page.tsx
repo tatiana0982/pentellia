@@ -469,7 +469,6 @@ export default function SubscriptionPage() {
           <p className="text-xs text-slate-600">Your payment history will appear here after subscribing.</p>
         </div>
       )}
-    </div>
       {/* ── Receipt Modal ──────────────────────────────────────── */}
       {receiptModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
