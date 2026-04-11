@@ -10,6 +10,8 @@ const PUBLIC_API = [
   "/api/auth/verify-otp",
   "/api/auth/reset-password",
   "/api/webhooks/razorpay",
+  // Cron routes are authenticated by CRON_SECRET header, not session cookie
+  "/api/cron/",
 ];
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
