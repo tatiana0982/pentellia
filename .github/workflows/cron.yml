@@ -4,7 +4,6 @@ on:
   schedule:
     # Stale scan recovery — every 15 minutes (free on GitHub Actions)
     - cron: '*/15 * * * *'
-  # Allow manual trigger from GitHub UI for testing
   workflow_dispatch:
 
 jobs:
@@ -16,11 +15,18 @@ jobs:
     steps:
       - name: Call stale-scans cron
         run: |
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+          RESPONSE=$(curl -s -o /tmp/cron_response.txt -w "%{http_code}" \
             -X GET https://pentellia.io/api/cron/stale-scans \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
-          echo "Response: $RESPONSE"
-          if [ "$RESPONSE" != "200" ]; then
-            echo "Cron returned $RESPONSE — check Vercel logs"
+          BODY=$(cat /tmp/cron_response.txt)
+          echo "HTTP Status: $RESPONSE"
+          echo "Response: $BODY"
+          if [ "$RESPONSE" = "401" ]; then
+            echo "ERROR: Unauthorized — CRON_SECRET mismatch or Vercel not redeployed"
             exit 1
           fi
+          if [ "$RESPONSE" = "000" ]; then
+            echo "ERROR: Could not reach pentellia.io"
+            exit 1
+          fi
+          echo "Cron completed successfully"
