@@ -1,0 +1,12 @@
+# .github/workflows/cron.yml
+name: Pentellia Cron
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # every 15 min — free on GitHub
+jobs:
+  stale-scans:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s -X GET https://pentellia.io/api/cron/stale-scans \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
