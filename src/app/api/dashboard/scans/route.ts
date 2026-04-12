@@ -7,26 +7,12 @@ import { query } from "@/config/db";
 import { getUid } from "@/lib/auth";
 import { createNotification } from "@/lib/notifications";
 import { checkUsageLimit } from "@/lib/subscription";
-
-// ── Determine scan type from tool category ────────────────────────────
-const DEEP_CATEGORIES = new Set([
-  "web", "vulnerability", "exploit", "injection", "composite", "cloud",
-]);
-
-async function getScanType(toolId: string): Promise<"deep" | "light"> {
-  const res = await query(
-    `SELECT category FROM tools WHERE id = $1 LIMIT 1`,
-    [toolId],
-  );
-  if (!res.rows.length) return "light";
-  const cat = (res.rows[0].category as string).toLowerCase().trim();
-  return DEEP_CATEGORIES.has(cat) ? "deep" : "light";
-}
+import { classifyScan } from "@/lib/scan-classifier";
 
 // ── Resolve which Flask endpoint to hit ───────────────────────────────
 // discovery → POST /discovery  (interactive multi-phase)
 // authtest  → POST /authtest   (interactive auth testing)
-// default   → POST /scan       (jsspider, breachintel, subdomainfinder, etc.)
+// default   → POST /scan       (all other tools)
 function resolveFlaskEndpoint(
   base: string,
   tool: string,
@@ -54,7 +40,7 @@ export async function GET(req: NextRequest) {
   try {
     const [scansRes, countRes] = await Promise.all([
       query(
-        `SELECT s.id, s.target, s.status, s.tool_id, s.created_at, s.completed_at,
+        `SELECT s.id, s.target, s.status, s.tool_id, s.scan_type, s.created_at, s.completed_at,
                 t.name AS tool_name
          FROM scans s JOIN tools t ON s.tool_id = t.id
          WHERE s.user_uid = $1 AND s.deleted_at IS NULL
@@ -74,7 +60,6 @@ export async function GET(req: NextRequest) {
       pagination: { page, limit, totalScans, totalPages: Math.ceil(totalScans / limit) },
     });
   } catch (err: any) {
-    console.error("[Scans GET]", err?.message);
     return NextResponse.json({ error: "Failed to fetch scans" }, { status: 500 });
   }
 }
@@ -92,35 +77,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing tool or target" }, { status: 400 });
     }
 
-    // ── Guard: env vars must be set ──────────────────────────────────
     const toolsBaseUrl = process.env.TOOLS_BASE_URL;
     const toolsApiKey  = process.env.TOOLS_API_KEY;
 
     if (!toolsBaseUrl || !toolsApiKey) {
-      console.error("[Scans POST] TOOLS_BASE_URL or TOOLS_API_KEY not set in environment");
       return NextResponse.json(
         { error: "Scan engine not configured. Contact support." },
         { status: 503 },
       );
     }
 
-    // ── Gate: check limits (soft read) ─────────────────────────────────
-    const scanType    = await getScanType(tool);
+    // ── Classify scan from actual params, not tool category ───────────
+    // Old getScanType(tool) queried the tools table and returned "deep"
+    // for any tool in category web/vulnerability/exploit/composite —
+    // meaning nmap with type='1' (light) was still counted as deep.
+    //
+    // classifyScan reads the actual params the user submitted, applies
+    // rules derived from reading every tool function in f.py, and
+    // returns the correct type. No DB roundtrip. Pure + deterministic.
+    const scanType = classifyScan(tool, params ?? {});
+
+    // ── Gate: check limits ─────────────────────────────────────────────
     const usageStatus = await checkUsageLimit(uid, scanType);
 
     if (!usageStatus.allowed) {
       return NextResponse.json(
-        { error: usageStatus.reason, code: usageStatus.code,
-          monthlyUsed: usageStatus.monthlyUsed, monthlyLimit: usageStatus.monthlyLimit,
-          dailyUsed: usageStatus.dailyUsed, dailyLimit: usageStatus.dailyLimit, action: "/subscription" },
+        {
+          error:        usageStatus.reason,
+          code:         usageStatus.code,
+          monthlyUsed:  usageStatus.monthlyUsed,
+          monthlyLimit: usageStatus.monthlyLimit,
+          dailyUsed:    usageStatus.dailyUsed,
+          dailyLimit:   usageStatus.dailyLimit,
+          action:       "/subscription",
+        },
         { status: usageStatus.code === "NO_SUBSCRIPTION" || usageStatus.code === "PLAN_EXPIRED" ? 402 : 429 },
       );
     }
 
-    // ── Atomic pre-increment: reserve slot BEFORE calling Flask ──────────
-    // Fixes TOCTOU race: two concurrent requests can both pass checkUsageLimit.
-    // The atomic UPDATE ... WHERE col < limit ensures only one wins.
-    const col          = scanType === "deep" ? "deep_scans_used" : scanType === "light" ? "light_scans_used" : "reports_used";
+    // ── Atomic pre-increment ──────────────────────────────────────────
+    const col          = scanType === "deep" ? "deep_scans_used" : "light_scans_used";
     const dailyLimit   = usageStatus.dailyLimit;
     const monthlyLimit = usageStatus.monthlyLimit;
 
@@ -165,50 +161,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Route to Flask (usage already debited — refund on failure) ────────
+    // ── Call Flask ─────────────────────────────────────────────────────
     const { endpoint, payload: basePayload } = resolveFlaskEndpoint(toolsBaseUrl, tool, params);
     const payload = { ...basePayload, target };
+
     let toolsRes: Response;
     try {
       toolsRes = await fetch(endpoint, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": toolsApiKey },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(30_000),
+        body:    JSON.stringify(payload),
+        signal:  AbortSignal.timeout(30_000),
       });
     } catch (fetchErr: any) {
-      // Refund usage — Flask never received the request
       await query(`UPDATE daily_usage    SET ${col} = GREATEST(0, ${col} - 1) WHERE user_uid = $1 AND date = CURRENT_DATE`, [uid]);
       await query(`UPDATE usage_tracking SET ${col} = GREATEST(0, ${col} - 1), updated_at = NOW() WHERE user_uid = $1 AND period_start = $2`, [uid, started_at]);
-      console.error(`[Scans POST] Network error: ${fetchErr?.cause?.code ?? fetchErr?.message}`);
       return NextResponse.json({ error: "Scan engine unreachable.", detail: fetchErr?.cause?.code ?? fetchErr?.message }, { status: 503 });
     }
 
     const toolsData = await toolsRes.json();
     if (!toolsRes.ok) {
-      // Refund usage — Flask rejected the scan
       await query(`UPDATE daily_usage    SET ${col} = GREATEST(0, ${col} - 1) WHERE user_uid = $1 AND date = CURRENT_DATE`, [uid]);
       await query(`UPDATE usage_tracking SET ${col} = GREATEST(0, ${col} - 1), updated_at = NOW() WHERE user_uid = $1 AND period_start = $2`, [uid, started_at]);
       throw new Error(toolsData.error || `Scan engine returned ${toolsRes.status}`);
     }
 
-    // ── Insert scan record (usage already committed above) ────────────────
+    // ── Insert scan — scan_type stored for audit and dashboard reporting
     const dbRes = await query(
-      `INSERT INTO scans (user_uid, tool_id, target, params, external_job_id, status)
-       VALUES ($1, $2, $3, $4, $5, 'queued') RETURNING id`,
-      [uid, tool, target, JSON.stringify(params), toolsData.job_id],
+      `INSERT INTO scans (user_uid, tool_id, target, params, external_job_id, scan_type, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'queued') RETURNING id`,
+      [uid, tool, target, JSON.stringify(params), toolsData.job_id, scanType],
     );
     const scanId = dbRes.rows[0].id;
-    // No incrementUsage call — usage was already atomically pre-incremented above.
 
-    await createNotification(
-      uid, "Scan Started", `Scan initiated for ${target}`, "info",
-    );
+    await createNotification(uid, "Scan Started", `Scan initiated for ${target}`, "info");
 
-    return NextResponse.json({ success: true, scanId, jobId: toolsData.job_id });
+    return NextResponse.json({ success: true, scanId, jobId: toolsData.job_id, scanType });
 
   } catch (error: any) {
-    console.error("[Scans POST]", error?.message);
     return NextResponse.json({ error: error.message || "Failed to start scan" }, { status: 500 });
   }
 }
