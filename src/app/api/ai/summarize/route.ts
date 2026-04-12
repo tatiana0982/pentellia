@@ -50,12 +50,15 @@ export async function POST(req: NextRequest) {
   const scan = scanRes.rows[0];
 
   // ── Stream from DeepSeek ─────────────────────────────────────────
-  const systemPrompt = `You are a cybersecurity expert. Analyze this security scan result and provide:
-1. Executive Summary (2-3 sentences)
-2. Critical Findings (bullet points)
-3. Risk Assessment (Low/Medium/High/Critical)
-4. Recommended Actions (prioritized)
-Keep it concise and actionable. Use markdown formatting.`;
+  const systemPrompt = `You are a Chief Information Security Officer presenting to a Corporate Board.
+Summarize this tool scan for both technical staff and non-technical executives.
+Structure:
+1. *Executive Summary*: Overall Vulnerabilities Summary in plain English.
+2. *Risk Level*: Assign Critical / High / Medium / Low.
+3. *Business Impact*: What happens if issues are not fixed.
+4. Mitigations: Detailed Mitigations for top 3 Findings as bullet points.
+5. *Top 3 Findings*: Important or High Level issues as bullet points.
+5. *Next Steps*: Clear, jargon-free action items.`;
 
   const userPrompt = `Scan Tool: ${scan.tool_name}
 Target: ${scan.target}
