@@ -9,22 +9,17 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Header } from "@/components/header";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
-import { WalletProvider } from "@/providers/WalletProvider";
+import { WalletProvider, useWallet } from "@/providers/WalletProvider";
 import { AlertTriangle, ArrowRight, X, Clock } from "lucide-react";
 
 // ── Subscription expiry banner ─────────────────────────────────────────
 function SubscriptionBanner() {
-  const [data,      setData]      = useState<any>(null);
+  const { subscription, isLoading } = useWallet();
   const [dismissed, setDismissed] = useState(false);
+  // Use wallet context data - avoids duplicate wallet-summary API call
+  const data = { subscription };
 
-  useEffect(() => {
-    fetch("/api/subscription/wallet-summary")
-      .then(r => r.json())
-      .then(d => setData(d))
-      .catch(() => {});
-  }, []);
-
-  if (!data || dismissed) return null;
+  if (isLoading || !data || dismissed) return null;
 
   if (!data.subscription) {
     return (

@@ -220,10 +220,17 @@ export async function checkUsageLimit(
   const dailyUsed = Number(dailyRes.rows[0]?.used ?? 0);
 
   if (dailyUsed >= dailyLimit) {
+    // Calculate exact reset time — midnight UTC today
+    const now = new Date();
+    const midnightUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
+    const resetAt = midnightUTC.toISOString();
+    const minsLeft = Math.ceil((midnightUTC.getTime() - now.getTime()) / 60000);
+    const hh = String(Math.floor(minsLeft / 60)).padStart(2, "0");
+    const mm = String(minsLeft % 60).padStart(2, "0");
     return {
       allowed: false,
-      reason: `Daily ${scanType} scan limit reached (${dailyUsed}/${dailyLimit}). Limits reset at midnight UTC.`,
-      code: "DAILY_LIMIT", monthlyUsed, monthlyLimit, dailyUsed, dailyLimit,
+      reason: `Daily ${scanType} scan limit reached (${dailyUsed}/${dailyLimit}). Resets in ${hh}:${mm}.`,
+      code: "DAILY_LIMIT", monthlyUsed, monthlyLimit, dailyUsed, dailyLimit, resetAt,
     };
   }
 

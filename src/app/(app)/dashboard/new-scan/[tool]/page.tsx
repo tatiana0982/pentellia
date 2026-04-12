@@ -193,10 +193,30 @@ export default function ToolScanPage() {
         triggerNotificationRefresh();
         router.push(`/dashboard/scans/${toolSlug}/${data.scanId}`);
       } else {
-        throw new Error(data.error || "Failed to start scan");
+        // Part 1: Rich error for rate limits
+        if (response.status === 429 && data.code === "DAILY_LIMIT") {
+          toast.error(data.error, {
+            duration: 6000,
+            icon: "⏳",
+            style: { background: "#0B0C15", color: "#fff", border: "1px solid rgba(239,68,68,0.3)" },
+          });
+        } else if (response.status === 429 && data.code === "MONTHLY_LIMIT") {
+          toast.error(data.error, {
+            duration: 6000,
+            icon: "📊",
+            style: { background: "#0B0C15", color: "#fff", border: "1px solid rgba(239,68,68,0.3)" },
+          });
+        } else if (response.status === 402) {
+          toast.error(data.error || "Subscription required.", {
+            duration: 5000,
+            icon: "🔒",
+          });
+        } else {
+          toast.error(data.error || "Failed to start scan.");
+        }
       }
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || "Network error. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
