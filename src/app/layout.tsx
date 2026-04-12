@@ -7,10 +7,12 @@ import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
 const inter = Inter({
-  subsets:  ["latin"],
-  variable: "--font-sans",
-  display:  "swap",
-  fallback: ["system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+  subsets:      ["latin"],
+  variable:     "--font-sans",
+  display:      "swap",
+  preload:      true,
+  adjustFontFallback: true,
+  fallback:     ["system-ui", "-apple-system", "Segoe UI", "sans-serif"],
 });
 
 export const metadata: Metadata = {

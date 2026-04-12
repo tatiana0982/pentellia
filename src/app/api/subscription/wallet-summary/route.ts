@@ -9,7 +9,13 @@ import { query } from "@/config/db";
 
 export async function GET() {
   const uid = await getUid();
-  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Return empty state instead of 401 — WalletProvider calls this on mount
+  // before session is confirmed; a 401 floods the browser console harmlessly
+  // but looks bad. Empty response is equivalent: isLoading stays false, subscription=null.
+  if (!uid) return NextResponse.json({
+    success: true, balance: 0, totalSpent: 0, totalBought: 0, totalScans: 0,
+    verifiedDomains: 0, subscription: null, usage: null,
+  });
 
   try {
     const [sub, summary, scanCountRes] = await Promise.all([
