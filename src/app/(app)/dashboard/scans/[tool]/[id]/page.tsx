@@ -262,20 +262,18 @@ function GlobalLoadingState() {
   );
 }
 
-// Step-based progress when backend doesn't send a percentage
-function getStepProgress(scan: ScanResult): { pct: number; label: string } {
+// Real-state progress — NO fake time-based simulation
+// Uses actual backend percentage if available, otherwise indeterminate
+function getStepProgress(scan: ScanResult): { pct: number | null; label: string; indeterminate: boolean } {
   const raw = scan.result?.progress?.percentage;
-  if (typeof raw === "number" && raw > 0) return { pct: raw, label: "" };
-  // Derive from status + elapsed time
-  const elapsed = Date.now() - new Date(scan.created_at).getTime();
-  if (scan.status === "queued")   return { pct: 5,  label: "Queued — waiting for engine..." };
-  if (scan.status === "running") {
-    // Smooth fake progress that never exceeds 85% (backend hasn't confirmed yet)
-    const minutes = elapsed / 60_000;
-    const pct = Math.min(85, 15 + Math.round(minutes * 8));
-    return { pct, label: scan.result?.progress?.current_description || "Running intelligence modules..." };
+  // Real backend % — use it
+  if (typeof raw === "number" && raw > 0 && raw <= 100) {
+    return { pct: raw, label: scan.result?.progress?.current_description || "", indeterminate: false };
   }
-  return { pct: 0, label: "Initializing Scan Core..." };
+  // Status-only — no fake math
+  if (scan.status === "queued")  return { pct: null, label: "Queued — waiting for engine...",   indeterminate: true };
+  if (scan.status === "running") return { pct: null, label: scan.result?.progress?.current_description || "Running intelligence modules...", indeterminate: true };
+  return { pct: null, label: "Initializing...", indeterminate: true };
 }
 
 function RunningStateView({ scan, confirmations, onConfirm, isConfirming }: {
@@ -283,7 +281,7 @@ function RunningStateView({ scan, confirmations, onConfirm, isConfirming }: {
   onConfirm: (reqId: string, response: string, action?: "single" | "all") => void;
 }) {
   const [logsOpen, setLogsOpen] = useState(true);
-  const { pct: progress, label: stepLabel } = getStepProgress(scan);
+  const { pct, label: stepLabel, indeterminate } = getStepProgress(scan);
   const currentStep    = scan.result?.progress?.current_description || stepLabel || "Initializing Scan Core...";
   const completedTools: string[] = scan.result?.progress?.completed_steps || [];
   const pendingConf    = confirmations.find((c: any) => c.status === "pending");
@@ -309,16 +307,37 @@ function RunningStateView({ scan, confirmations, onConfirm, isConfirming }: {
             </div>
           </div>
           <div className="max-w-2xl mx-auto px-2 space-y-4">
-            <div className="flex justify-between items-end">
-              <div><span className="text-slate-500 font-mono text-[10px] uppercase block">Compute Allocation</span><span className="text-slate-300 text-sm font-medium">Node Cluster 04</span></div>
-              <span className="text-white text-5xl font-black tabular-nums">{Math.round(progress)}<span className="text-violet-500 text-3xl">%</span></span>
-            </div>
-            <div className="h-4 w-full bg-black/50 rounded-full overflow-hidden p-0.5 border border-white/10">
-              <div className="h-full rounded-full transition-all duration-1000 relative overflow-hidden"
-                style={{ width: `${progress}%`, backgroundImage: "linear-gradient(90deg, #6d28d9 0%, #a21caf 100%)" }}>
-                <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.4)_50%,transparent_75%)] bg-[length:20px_20px] animate-[shimmer_1s_infinite_linear]" />
-              </div>
-            </div>
+            {/* Show real % only if backend provides it, otherwise indeterminate */}
+            {pct !== null ? (
+              <>
+                <div className="flex justify-between items-end">
+                  <div><span className="text-slate-500 font-mono text-[10px] uppercase block">Progress</span></div>
+                  <span className="text-white text-5xl font-black tabular-nums">{Math.round(pct)}<span className="text-violet-500 text-3xl">%</span></span>
+                </div>
+                <div className="h-4 w-full bg-black/50 rounded-full overflow-hidden p-0.5 border border-white/10">
+                  <div className="h-full rounded-full transition-all duration-700 relative overflow-hidden"
+                    style={{ width: `${pct}%`, backgroundImage: "linear-gradient(90deg, #6d28d9 0%, #a21caf 100%)" }}>
+                    <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.4)_50%,transparent_75%)] bg-[length:20px_20px] animate-[shimmer_1s_infinite_linear]" />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-mono text-[10px] uppercase">
+                    {scan.status === "queued" ? "Queued" : "Running"}
+                  </span>
+                  <span className="text-slate-500 font-mono text-[10px] animate-pulse">Processing...</span>
+                </div>
+                {/* Indeterminate shimmer bar — no fake % */}
+                <div className="h-4 w-full bg-black/50 rounded-full overflow-hidden p-0.5 border border-white/10">
+                  <div className="h-full rounded-full relative overflow-hidden bg-gradient-to-r from-violet-700 to-fuchsia-700"
+                    style={{ width: "100%" }}>
+                    <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.25)_50%,transparent_100%)] animate-[shimmer_1.5s_infinite_linear] bg-[length:200%_100%]" />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <AlertDialog open={!!pendingConf}>
             <AlertDialogContent className="bg-[#0A0505] border border-blue-500/30 text-slate-200 rounded-2xl p-0 overflow-hidden">
@@ -405,6 +424,8 @@ export default function ScanReportPage() {
   const [isAiOpen,      setIsAiOpen]      = useState(false);
   const [isConfirming,  setIsConfirming]  = useState(false);
   const [showCmsModal,  setShowCmsModal]  = useState(false);
+  // Keep ref in sync with state so polling closure can read it without restart
+  useEffect(() => { showCmsModalRef.current = showCmsModal; }, [showCmsModal]);
   const [cmsDetails,    setCmsDetails]    = useState<{ detected: string; jobId: string } | null>(null);
 
   // AI Summary — plain state, no custom hook
@@ -412,6 +433,7 @@ export default function ScanReportPage() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiFromCache,  setAiFromCache]  = useState(false);
   const aiGeneratingRef                 = useRef(false);
+  const showCmsModalRef                 = useRef(false); // ref so polling doesn't restart on modal open
 
   // ── Reliable polling — time-based intervals, stops on terminal state ─
   // Intervals: first 30s → every 2s | next 2min → every 5s | after → every 10s
@@ -433,6 +455,11 @@ export default function ScanReportPage() {
 
     const poll = async (isFirst = false) => {
       if (stopped) return;
+      // PART 8: Pause polling when tab is not visible — saves resources
+      if (!isFirst && document.hidden) {
+        if (!stopped) timeoutId = setTimeout(() => poll(), getDelay());
+        return;
+      }
       const endpoint = isFirst
         ? `/api/dashboard/scans/${scanId}`         // initial: DB only, instant
         : `/api/dashboard/scans/${scanId}/stream`; // polling: checks Flask status
@@ -452,7 +479,7 @@ export default function ScanReportPage() {
         if (data.confirmations?.length) setConfirmations(data.confirmations);
         if (data.aiSummary && isFirst) { setAiSummary(data.aiSummary); setAiFromCache(true); }
 
-        if (data.pythonStatus?.cms_confirmation_pending && !showCmsModal) {
+        if (data.pythonStatus?.cms_confirmation_pending && !showCmsModalRef.current) {
           setCmsDetails({ detected: data.pythonStatus.detected_cms || "Unknown CMS", jobId: data.pythonStatus.job_id });
           setShowCmsModal(true);
         }
@@ -492,7 +519,7 @@ export default function ScanReportPage() {
       clearTimeout(timeoutId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanId, showCmsModal]);
+  }, [scanId]); // showCmsModal intentionally excluded — use ref to avoid restart
 
   // ── Generate AI Summary ──────────────────────────────────────────
   const handleGenerate = useCallback(async () => {
