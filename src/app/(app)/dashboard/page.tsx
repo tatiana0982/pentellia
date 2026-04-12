@@ -89,7 +89,7 @@ export default function DashboardPage() {
   const chartData      = (charts.exposureTrend ?? []).map(d => ({ date: d.date.slice(5), scans: d.scans }));
   const riskData       = (charts.riskDistribution ?? []).filter(d => d.value > 0);
   const topTargets     = charts.topTargets ?? [];
-  const totalFindings  = kpi.totalFindings || riskData.reduce((s, d) => s + d.value, 0);
+  const totalFindings  = kpi.totalFindings; // single source of truth — matches riskDistribution chart sum
 
   return (
     <div className="px-6 pt-6 pb-10 space-y-5 text-slate-200">

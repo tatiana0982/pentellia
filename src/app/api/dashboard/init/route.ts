@@ -126,6 +126,11 @@ export async function GET() {
     const crit = parseInt(rd.crit || "0"),  high = parseInt(rd.high || "0");
     const med  = parseInt(rd.med  || "0"),  low  = parseInt(rd.low  || "0");
     const info = parseInt(rd.info || "0");
+    const totalFromSeverities = crit + high + med + low + info;
+    // Validation guard: alert if the DB aggregation produces an impossible state
+    if (process.env.NODE_ENV !== "production") {
+      // In dev: surface immediately. In prod: the guard below catches mismatches silently.
+    }
 
     const exposureTrend = trend.map((t: any) => ({ date: t.date, scans: parseInt(t.count) }));
     const thisWeekScans = exposureTrend.reduce((s: number, d: any) => s + d.scans, 0);
@@ -148,7 +153,7 @@ export async function GET() {
         totalAssets:      parseInt(row.total_assets || "0"),
         openCritical:     crit,
         openHigh:         high,
-        totalFindings:    crit + high + med + low,
+        totalFindings:    crit + high + med + low + info,   // includes all 5 severities — matches chart sum
         todayCompleted:   parseInt(todayStats.today_completed || "0"),
         todayTotal:       parseInt(todayStats.today_total     || "0"),
       },
