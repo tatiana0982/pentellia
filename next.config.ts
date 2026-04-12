@@ -1,44 +1,46 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Puppeteer and Chromium must stay in Node.js runtime (not bundled)
   serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium-min"],
   outputFileTracingIncludes: {
-    "/api/**/*": ["./node_modules/@sparticuz/chromium-min/**/*"],
+    "/api/pdf": ["./node_modules/@sparticuz/chromium-min/**/*"],
+    "/api/invoice/download": ["./node_modules/@sparticuz/chromium-min/**/*"],
   },
-  /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
+
+  typescript: { ignoreBuildErrors: true },
+  eslint:     { ignoreDuringBuilds: true },
+
+  // Compress responses
+  compress: true,
+
+  // Faster builds + smaller bundles
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "recharts",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-select",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-avatar",
+      "@radix-ui/react-checkbox",
+      "@radix-ui/react-switch",
+      "@radix-ui/react-scroll-area",
+    ],
   },
-  eslint: {
-    ignoreDuringBuilds: true,
+
+  // Remove debug logs in production
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production"
+      ? { exclude: ["error"] }   // keep console.error only
+      : false,
   },
+
   images: {
     unoptimized: false,
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "placehold.co",
-        port: "",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "images.unsplash.com",
-        port: "",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "picsum.photos",
-        port: "",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "blush-fashionable-swift-557.mypinata.cloud",
-        port: "",
-        pathname: "/**",
-      },
+      { protocol: "https", hostname: "placehold.co" },
     ],
   },
 };

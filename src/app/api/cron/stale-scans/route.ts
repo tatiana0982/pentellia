@@ -90,7 +90,6 @@ export async function GET(req: NextRequest) {
     }
 
     if (results.recovered > 0 || results.marked_failed > 0) {
-      console.log("[Cron/StaleScans]", results);
     }
     return NextResponse.json({ success: true, results });
 

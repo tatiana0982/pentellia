@@ -1,7 +1,6 @@
 "use client";
 
 // src/providers/WalletProvider.tsx
-// Phase 3: Reads subscription status instead of wallet balance.
 // Kept same context shape so header/other consumers don't break.
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";

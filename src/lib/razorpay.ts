@@ -14,11 +14,8 @@ function authHeader() {
   const encoded = Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64");
   return `Basic ${encoded}`;
 }
-
-// ─────────────────────────────────────────────
 // Create a Razorpay order
 // amount is in paise (INR × 100)
-// ─────────────────────────────────────────────
 export async function createRazorpayOrder(params: {
   amount: number; // paise
   currency?: string;
@@ -46,11 +43,8 @@ export async function createRazorpayOrder(params: {
 
   return res.json();
 }
-
-// ─────────────────────────────────────────────
 // Verify payment signature (checkout callback)
 // razorpay_signature = HMAC-SHA256(order_id + "|" + payment_id, key_secret)
-// ─────────────────────────────────────────────
 export function verifyPaymentSignature(
   orderId: string,
   paymentId: string,
@@ -66,11 +60,8 @@ export function verifyPaymentSignature(
     Buffer.from(signature, "hex"),
   );
 }
-
-// ─────────────────────────────────────────────
 // Verify webhook signature
 // X-Razorpay-Signature = HMAC-SHA256(raw_body, webhook_secret)
-// ─────────────────────────────────────────────
 export function verifyWebhookSignature(
   rawBody: string,
   signature: string,

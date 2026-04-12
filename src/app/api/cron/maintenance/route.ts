@@ -91,8 +91,6 @@ export async function GET(req: NextRequest) {
       }
     }
     results.accounts_purged = hardDeleted;
-
-    console.log("[Cron/Maintenance]", results);
     return NextResponse.json({ success: true, results });
 
   } catch (err: any) {

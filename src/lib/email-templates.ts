@@ -6,11 +6,8 @@
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pentellia.io";
 const SUPPORT_EMAIL = "pentellia@encoderspro.com";
 const YEAR = new Date().getFullYear();
-
-// ─────────────────────────────────────────────────────────────────────
 // BASE LAYOUT
 // Shared shell used by every template. Accepts a content block.
-// ─────────────────────────────────────────────────────────────────────
 
 function base(options: {
   previewText: string;
@@ -160,10 +157,7 @@ function base(options: {
 </body>
 </html>`;
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // SHARED COMPONENTS
-// ─────────────────────────────────────────────────────────────────────
 
 function para(text: string, muted = false): string {
   const color = muted ? "#8a8aaa" : "#c8c8e0";
@@ -285,10 +279,7 @@ function featureList(items: string[]): string {
       ${listItems}
     </table>`;
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 1. WELCOME — sent on first sign-up
-// ─────────────────────────────────────────────────────────────────────
 
 export function welcomeEmail(firstName: string): string {
   return base({
@@ -308,10 +299,7 @@ export function welcomeEmail(firstName: string): string {
     footerNote: `You received this message because an account was created at Pentellia using this email address. If this was not you, please contact us immediately.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 2. OTP — email verification on signup
-// ─────────────────────────────────────────────────────────────────────
 
 export function verifyEmailOtpEmail(firstName: string, otp: string): string {
   return base({
@@ -328,10 +316,7 @@ export function verifyEmailOtpEmail(firstName: string, otp: string): string {
     footerNote: `This is an automated security message. Do not reply to this email.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 3. FORGOT PASSWORD — OTP to reset password
-// ─────────────────────────────────────────────────────────────────────
 
 export function forgotPasswordOtpEmail(firstName: string, otp: string): string {
   return base({
@@ -349,10 +334,7 @@ export function forgotPasswordOtpEmail(firstName: string, otp: string): string {
     footerNote: `This is an automated security message from Pentellia. Do not reply to this email.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 4. PASSWORD CHANGED — alert after password update
-// ─────────────────────────────────────────────────────────────────────
 
 export function passwordChangedEmail(
   firstName: string,
@@ -379,10 +361,7 @@ export function passwordChangedEmail(
     footerNote: `This security notification was sent to protect your Pentellia account. It cannot be disabled.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 5. LOGIN ALERT — new device or location
-// ─────────────────────────────────────────────────────────────────────
 
 export function loginAlertEmail(
   firstName: string,
@@ -411,10 +390,7 @@ export function loginAlertEmail(
     footerNote: `Login notifications help protect your account. Contact support to adjust your notification preferences.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 6. DOMAIN VERIFIED — domain ownership confirmed
-// ─────────────────────────────────────────────────────────────────────
 
 export function domainVerifiedEmail(firstName: string, domainName: string): string {
   return base({
@@ -439,10 +415,7 @@ export function domainVerifiedEmail(firstName: string, domainName: string): stri
     footerNote: `If you did not authorise this domain, contact us at ${SUPPORT_EMAIL} immediately.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 7. SCAN STARTED — confirmation when a scan is queued
-// ─────────────────────────────────────────────────────────────────────
 
 export function scanStartedEmail(
   firstName: string,
@@ -472,10 +445,7 @@ export function scanStartedEmail(
     footerNote: `Credits are non-refundable once a scan has been queued and accepted by the processing engine.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 8. SCAN COMPLETE — results available
-// ─────────────────────────────────────────────────────────────────────
 
 export function scanCompleteEmail(
   firstName: string,
@@ -513,10 +483,7 @@ export function scanCompleteEmail(
     footerNote: `Findings are provided for informational purposes. Always validate results in your specific environment before taking action.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 9. SCAN FAILED — scan encountered an error
-// ─────────────────────────────────────────────────────────────────────
 
 export function scanFailedEmail(
   firstName: string,
@@ -544,10 +511,7 @@ export function scanFailedEmail(
     footerNote: `For support, contact ${SUPPORT_EMAIL} with your scan ID and the error details shown above.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 10. CREDITS ADDED — successful wallet top-up
-// ─────────────────────────────────────────────────────────────────────
 
 export function creditsAddedEmail(
   firstName: string,
@@ -579,10 +543,7 @@ export function creditsAddedEmail(
     footerNote: `This is a confirmation of a charge processed via Razorpay. Retain this email for your records. For billing enquiries, contact ${SUPPORT_EMAIL}.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 11. LOW CREDITS REMINDER — balance below threshold
-// ─────────────────────────────────────────────────────────────────────
 
 export function lowCreditsEmail(
   firstName: string,
@@ -609,10 +570,7 @@ export function lowCreditsEmail(
     footerNote: `You are receiving this notice because your balance has dropped below the configured alert threshold. Manage your notification preferences in account settings.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 12. CREDITS EXHAUSTED — balance is zero
-// ─────────────────────────────────────────────────────────────────────
 
 export function creditsExhaustedEmail(firstName: string): string {
   return base({
@@ -632,10 +590,7 @@ export function creditsExhaustedEmail(firstName: string): string {
     footerNote: `Pentellia is a pay-as-you-go platform. There are no recurring charges. Credits are only consumed when scans are executed.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 13. AI SUMMARY GENERATED — report available
-// ─────────────────────────────────────────────────────────────────────
 
 export function aiSummaryGeneratedEmail(
   firstName: string,
@@ -658,10 +613,7 @@ export function aiSummaryGeneratedEmail(
     footerNote: `AI-generated summaries are produced by language models and should be reviewed by a qualified security professional before being relied upon for remediation decisions.`,
   });
 }
-
-// ─────────────────────────────────────────────────────────────────────
 // 14. GENERAL NOTIFICATION — used by the notifications system
-// ─────────────────────────────────────────────────────────────────────
 
 export function generalNotificationEmail(
   firstName: string,

@@ -470,7 +470,13 @@ export default function ScanReportPage() {
         const data = await res.json();
         if (stopped || !data.success) return;
 
-        const scanData: ScanResult = { ...data.scan, result: data.pythonStatus || data.scan.result };
+        // FIX: Use pythonStatus only for active scans (progress/logs).
+        // On completion, scan.result contains actual findings from DB — never overwrite with pythonStatus.
+        const isTerminal = ["completed", "failed", "cancelled"].includes(data.scan?.status);
+        const resolvedResult = isTerminal
+          ? data.scan.result                              // completed: use DB findings
+          : (data.pythonStatus || data.scan.result);     // active: use Flask status for progress
+        const scanData: ScanResult = { ...data.scan, result: resolvedResult };
         setScan(prev => {
           // Never downgrade a completed scan to running due to stale poll
           if (prev?.status === "completed" && scanData.status !== "completed") return prev;

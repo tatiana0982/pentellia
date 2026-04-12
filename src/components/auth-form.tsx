@@ -40,10 +40,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { GoogleIcon } from "./icons";
-
-// ─────────────────────────────────────────────
 // Zod Schemas
-// ─────────────────────────────────────────────
 
 const loginSchema = z.object({
   email:    z.string().email("Invalid email address.").trim(),
@@ -78,10 +75,7 @@ const resetPasswordSchema = z
     message: "Passwords do not match.",
     path: ["confirmPassword"],
   });
-
-// ─────────────────────────────────────────────
 // Types & Constants
-// ─────────────────────────────────────────────
 
 type AuthView =
   | "login"
@@ -94,10 +88,7 @@ type AuthView =
 // OTP expires in 60 seconds — match the server-side TTL exactly
 const OTP_TTL    = 60;
 const RESET_TTL  = 5 * 60;
-
-// ─────────────────────────────────────────────
 // Component
-// ─────────────────────────────────────────────
 
 export default function AuthForm({
   initialView = "login",
@@ -201,10 +192,7 @@ export default function AuthForm({
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to send OTP");
   };
-
-  // ─────────────────────────────────────────────
   // Handlers
-  // ─────────────────────────────────────────────
 
   // Login — straightforward, no OTP needed
   const onLogin = async (values: z.infer<typeof loginSchema>) => {
@@ -457,10 +445,7 @@ export default function AuthForm({
       setIsLoading(false);
     }
   };
-
-  // ─────────────────────────────────────────────
   // Shared UI
-  // ─────────────────────────────────────────────
 
   const inputCls =
     "h-10 bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-violet-500 focus-visible:border-violet-500/50";
@@ -480,10 +465,7 @@ export default function AuthForm({
     "verify-email-otp":{ title: "Verify your email", sub: `We sent a 6-digit code to ${otpEmail}` },
   };
   const { title, sub } = headerMap[view];
-
-  // ─────────────────────────────────────────────
   // Render
-  // ─────────────────────────────────────────────
 
   return (
     <div className="container min-h-screen flex-col fixed items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0 bg-[#05050A]">

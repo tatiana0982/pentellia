@@ -42,7 +42,6 @@ export async function GET(req: NextRequest) {
 }
 
 // ─── POST — save generated PDF blob (called internally after generation) ─
-// NOTE: Billing is handled by /api/pdf/route.ts before this is called.
 // This endpoint is purely storage — no credit deduction here.
 export async function POST(req: NextRequest) {
   const uid = await getUid();

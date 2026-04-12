@@ -45,7 +45,6 @@ export async function GET(req: NextRequest) {
          ORDER BY created_at DESC LIMIT 20`,
         [uid],
       ),
-      // Fix: count ALL unread rows in the table, not just the fetched 20
       query(
         `SELECT COUNT(*) AS cnt FROM notifications WHERE user_uid = $1 AND COALESCE(is_read, false) = FALSE`,
         [uid],

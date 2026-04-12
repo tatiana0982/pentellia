@@ -1,5 +1,4 @@
 // src/app/api/subscription/create-order/route.ts
-// FIX: Razorpay instantiated INSIDE handler, not at module level.
 // Module-level new Razorpay() crashes Next.js build — env vars not
 // available during page data collection phase.
 

@@ -1,5 +1,4 @@
 // src/app/api/ai/summarize/route.ts
-// Phase 3: Credit deduction REMOVED. Plan gate added (requires active subscription).
 // IMPORTANT: NO export const runtime = "edge" — must use Node.js runtime.
 
 import { NextRequest, NextResponse } from "next/server";

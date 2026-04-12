@@ -1,5 +1,4 @@
 // src/app/api/dashboard/scans/route.ts
-// Phase 3: Domain gate REMOVED. Credit gate REMOVED.
 // Gate: checkUsageLimit() — subscription + monthly + daily limits.
 // All calls to Flask engine use TOOLS_BASE_URL + X-API-Key header (server-side only).
 
@@ -169,8 +168,6 @@ export async function POST(req: NextRequest) {
     // ── Route to Flask (usage already debited — refund on failure) ────────
     const { endpoint, payload: basePayload } = resolveFlaskEndpoint(toolsBaseUrl, tool, params);
     const payload = { ...basePayload, target };
-    console.log(`[Scans POST] uid=${uid} endpoint=${endpoint} tool=${tool} target=${target}`);
-
     let toolsRes: Response;
     try {
       toolsRes = await fetch(endpoint, {

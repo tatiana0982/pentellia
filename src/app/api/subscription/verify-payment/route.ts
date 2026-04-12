@@ -45,7 +45,6 @@ export async function POST(req: NextRequest) {
   if (!secret) return NextResponse.json({ error: "Payment service not configured" }, { status: 500 });
 
   if (!verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature, secret)) {
-    console.warn(`[Razorpay] Signature mismatch order=${razorpay_order_id}`);
     return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
   }
 

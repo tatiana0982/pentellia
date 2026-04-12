@@ -168,7 +168,6 @@ export function Wafw00fReport({ data }: { data: any }) {
 
 export function NmapReport({ data }: { data: any }) {
   // Parse raw output if it's a string, or use directly if object
-  // Note: Your example output shows "result": "Nmap scan report..." string.
   // We'll simulate parsing a structured output or handle the string gracefully.
 
   const rawOutput = data.result || "";
