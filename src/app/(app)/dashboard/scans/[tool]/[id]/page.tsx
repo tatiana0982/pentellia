@@ -514,9 +514,20 @@ export default function ScanReportPage() {
       if (!stopped) timeoutId = setTimeout(() => poll(), getDelay());
     });
 
+    // Part 2: Resume polling immediately when tab becomes visible again
+    // (avoids waiting for next scheduled tick after long background period)
+    const onVisible = () => {
+      if (!stopped && !document.hidden) {
+        clearTimeout(timeoutId);
+        poll();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       stopped = true;
       clearTimeout(timeoutId);
+      document.removeEventListener("visibilitychange", onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanId]); // showCmsModal intentionally excluded — use ref to avoid restart
