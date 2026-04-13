@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { refreshSession } from "@/lib/refreshSession";
 
 interface Plan {
   id: string; name: string; price_inr: number;
@@ -193,6 +194,10 @@ export default function SubscriptionPage() {
   const handleSubscribe = async (planId: string) => {
     setCheckingOut(planId);
     try {
+      // Refresh session cookie before any payment API call —
+      // prevents 401s from stale tokens after Google login or long idle
+      await refreshSession();
+
       const orderRes  = await fetch("/api/subscription/create-order", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ planId }),
@@ -206,6 +211,9 @@ export default function SubscriptionPage() {
         prefill: { name: userName, email: userEmail }, theme: { color: "#7C3AED" },
         handler: async (response: any) => {
           try {
+            // Re-refresh after Razorpay popup closes — popup can take minutes
+            await refreshSession();
+
             const vRes  = await fetch("/api/subscription/verify-payment", {
               method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature, planId }),
