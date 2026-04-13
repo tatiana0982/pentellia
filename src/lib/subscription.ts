@@ -13,6 +13,7 @@
 // MONTHLY LIMITS: tracked in usage_tracking table, reset on plan activation
 
 import { query } from "@/config/db";
+import pool from "@/config/db";
 
 // ── Types ──────────────────────────────────────────────────────────────
 export type ScanType = "deep" | "light" | "report";
@@ -52,6 +53,7 @@ export interface UsageStatus {
   monthlyLimit:   number;
   dailyUsed:      number;
   dailyLimit:     number;
+  resetAt?:       string;
 }
 
 // ── Get all active plans ───────────────────────────────────────────────
@@ -141,12 +143,11 @@ async function applyPendingDowngradeIfDue(uid: string): Promise<void> {
        status          = 'active',
        started_at      = NOW(),
        expires_at      = $1,
-       pending_plan_id = NULL,
-       pending_plan_at = NULL
+       pending_plan_id = NULL
      WHERE user_uid = $2
        AND pending_plan_id IS NOT NULL
        AND expires_at <= NOW()
-     RETURNING pending_plan_id AS applied_plan`,
+     RETURNING plan_id AS applied_plan`,
     [newExpiry, uid],
   );
   if (!res.rows.length) return;  // nothing to apply, or another request got there first
@@ -303,10 +304,7 @@ export async function activateSubscription(
   // ── DOWNGRADE: defer to after current plan expires ────────────
   if (hasActivePlan && newSortOrder < currentSortOrder) {
     await query(
-      `UPDATE user_subscriptions SET
-         pending_plan_id = $1,
-         pending_plan_at = NOW()
-       WHERE user_uid = $2`,
+      `UPDATE user_subscriptions SET pending_plan_id = $1 WHERE user_uid = $2`,
       [planId, uid],
     );
     // Still record the payment order for history
@@ -317,59 +315,62 @@ export async function activateSubscription(
   }
 
   // ── UPGRADE or SAME PLAN: immediate activation ─────────────────
-  await query("BEGIN");
+  // Use a dedicated client for the transaction — pool.query() gets a
+  // different connection each call, making BEGIN/COMMIT non-functional.
+  const client = await pool.connect();
   try {
-  await query(
-    `INSERT INTO user_subscriptions
-       (user_uid, plan_id, status, started_at, expires_at,
-        razorpay_order_id, razorpay_payment_id, pending_plan_id, pending_plan_at)
-     VALUES ($1, $2, 'active', NOW(), $3, $4, $5, NULL, NULL)
-     ON CONFLICT (user_uid) DO UPDATE SET
-       plan_id             = EXCLUDED.plan_id,
-       status              = 'active',
-       started_at          = NOW(),
-       expires_at          = EXCLUDED.expires_at,
-       razorpay_order_id   = EXCLUDED.razorpay_order_id,
-       razorpay_payment_id = EXCLUDED.razorpay_payment_id,
-       pending_plan_id     = NULL,
-       pending_plan_at     = NULL`,
-    [uid, planId, expiresAt, razorpayOrderId, razorpayPaymentId],
-  );
+    await client.query("BEGIN");
 
-  // Reset usage tracking for new period
-  await query(
-    `INSERT INTO usage_tracking
-       (user_uid, period_start, period_end, deep_scans_used, light_scans_used, reports_used)
-     VALUES ($1, NOW(), $2, 0, 0, 0)
-     ON CONFLICT (user_uid, period_start) DO UPDATE SET
-       deep_scans_used  = 0,
-       light_scans_used = 0,
-       reports_used     = 0,
-       updated_at       = NOW()`,
-    [uid, expiresAt],
-  );
+    await client.query(
+      `INSERT INTO user_subscriptions
+         (user_uid, plan_id, status, started_at, expires_at,
+          razorpay_order_id, razorpay_payment_id, pending_plan_id)
+       VALUES ($1, $2, 'active', NOW(), $3, $4, $5, NULL)
+       ON CONFLICT (user_uid) DO UPDATE SET
+         plan_id             = EXCLUDED.plan_id,
+         status              = 'active',
+         started_at          = NOW(),
+         expires_at          = EXCLUDED.expires_at,
+         razorpay_order_id   = EXCLUDED.razorpay_order_id,
+         razorpay_payment_id = EXCLUDED.razorpay_payment_id,
+         pending_plan_id     = NULL`,
+      [uid, planId, expiresAt, razorpayOrderId, razorpayPaymentId],
+    );
 
-  // Reset today's daily usage for the new plan
-  await query(
-    `INSERT INTO daily_usage (user_uid, date, deep_scans_used, light_scans_used, reports_used)
-     VALUES ($1, CURRENT_DATE, 0, 0, 0)
-     ON CONFLICT (user_uid, date) DO UPDATE SET
-       deep_scans_used  = 0,
-       light_scans_used = 0,
-       reports_used     = 0,
-       updated_at       = NOW()`,
-    [uid],
-  );
+    await client.query(
+      `INSERT INTO usage_tracking
+         (user_uid, period_start, period_end, deep_scans_used, light_scans_used, reports_used)
+       VALUES ($1, NOW(), $2, 0, 0, 0)
+       ON CONFLICT (user_uid, period_start) DO UPDATE SET
+         deep_scans_used  = 0,
+         light_scans_used = 0,
+         reports_used     = 0,
+         updated_at       = NOW()`,
+      [uid, expiresAt],
+    );
+
+    await client.query(
+      `INSERT INTO daily_usage (user_uid, date, deep_scans_used, light_scans_used, reports_used)
+       VALUES ($1, CURRENT_DATE, 0, 0, 0)
+       ON CONFLICT (user_uid, date) DO UPDATE SET
+         deep_scans_used  = 0,
+         light_scans_used = 0,
+         reports_used     = 0,
+         updated_at       = NOW()`,
+      [uid],
+    );
+
+    await client.query("COMMIT");
+  } catch (txErr) {
+    await client.query("ROLLBACK");
+    throw txErr;
+  } finally {
+    client.release();
+  }
 
   const action = !hasActivePlan ? "activated"
     : newSortOrder > currentSortOrder ? "upgraded"
     : "renewed";
-
-  await query("COMMIT");
-  } catch (txErr) {
-    await query("ROLLBACK");
-    throw txErr;
-  }
 
   return { immediate: true, message: `Plan ${action} successfully.` };
 }

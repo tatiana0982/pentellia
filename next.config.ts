@@ -37,6 +37,19 @@ const nextConfig: NextConfig = {
       : false,
   },
 
+  // Proxy Flask/tools calls server-side — eliminates mixed-content errors.
+  // Browser hits /api/tools-proxy/* (HTTPS), Next.js forwards to TOOLS_BASE_URL (HTTP, server only).
+  async rewrites() {
+    const toolsBase = process.env.TOOLS_BASE_URL;
+    if (!toolsBase) return [];
+    return [
+      {
+        source: "/api/tools-proxy/:path*",
+        destination: `${toolsBase}/:path*`,
+      },
+    ];
+  },
+
   images: {
     unoptimized: false,
     remotePatterns: [
