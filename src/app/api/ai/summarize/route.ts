@@ -1,4 +1,3 @@
-// src/app/api/ai/summarize/route.ts
 // IMPORTANT: NO export const runtime = "edge" — must use Node.js runtime.
 
 import { NextRequest, NextResponse } from "next/server";
