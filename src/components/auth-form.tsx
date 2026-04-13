@@ -473,7 +473,7 @@ export default function AuthForm({
       <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r border-white/5">
         <div className="absolute inset-0 bg-[#0B0C15]" />
         <div className="absolute inset-0 z-0 opacity-40">
-          <img src="/aldiyar-LbMpHvKkbQg-unsplash.jpg" alt="Cybersecurity Background" className="object-cover h-full w-full" />
+          <img src="/login.jpg" alt="Cybersecurity Background" className="object-cover h-full w-full" />
           <div className="absolute inset-0" />
         </div>
         <Link href="/" className="relative z-20 flex items-center text-lg font-medium">

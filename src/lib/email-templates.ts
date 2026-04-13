@@ -6,8 +6,11 @@
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pentellia.io";
 const SUPPORT_EMAIL = "pentellia@encoderspro.com";
 const YEAR = new Date().getFullYear();
+
+// ─────────────────────────────────────────────────────────────────────
 // BASE LAYOUT
 // Shared shell used by every template. Accepts a content block.
+// ─────────────────────────────────────────────────────────────────────
 
 function base(options: {
   previewText: string;
@@ -77,9 +80,16 @@ function base(options: {
                 <tr>
                   <td>
                     <a href="${APP_URL}" style="text-decoration:none;display:inline-block;">
-                      <span style="font-size:20px;font-weight:700;letter-spacing:-0.5px;color:#ffffff;">
-                        <span style="color:${accent};">&#9632;</span>&nbsp;Pentellia
-                      </span>
+                      <!--[if mso]>
+                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Pentellia</span>
+                      <![endif]-->
+                      <!--[if !mso]><!-->
+                      <img src="${APP_URL}/pentellia-logo-email.png"
+                           alt="Pentellia"
+                           width="140" height="34"
+                           style="display:block;border:0;outline:none;text-decoration:none;max-width:140px;height:auto;"
+                      />
+                      <!--<![endif]-->
                     </a>
                   </td>
                   <td align="right">
@@ -131,6 +141,24 @@ function base(options: {
                      <hr style="border:0;border-top:1px solid rgba(255,255,255,0.04);margin:0 0 14px 0;" />`
                   : ""
               }
+              <!-- Footer logo -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:16px;">
+                <tr>
+                  <td>
+                    <a href="${APP_URL}" style="text-decoration:none;display:inline-block;">
+                      <img src="${APP_URL}/pentellia-logo-email.png"
+                           alt="Pentellia"
+                           width="100" height="24"
+                           style="display:block;border:0;outline:none;text-decoration:none;max-width:100px;height:auto;opacity:0.5;"
+                      />
+                    </a>
+                  </td>
+                  <td align="right">
+                    <p style="margin:0;font-size:11px;color:#3a3a5a;">&copy; ${YEAR} Pentellia. All rights reserved.</p>
+                  </td>
+                </tr>
+              </table>
+              <!-- Footer links -->
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
                   <td>
@@ -139,13 +167,16 @@ function base(options: {
                       <a href="${APP_URL}" style="color:#4a4a7a;text-decoration:none;">${APP_URL}</a>
                       &nbsp;&bull;&nbsp;
                       <a href="mailto:${SUPPORT_EMAIL}" style="color:#4a4a7a;text-decoration:none;">${SUPPORT_EMAIL}</a>
+                      &nbsp;&bull;&nbsp;
+                      <a href="${APP_URL}/dashboard/support" style="color:#4a4a7a;text-decoration:none;">Support</a>
                     </p>
-                  </td>
-                  <td align="right">
-                    <p style="margin:0;font-size:11px;color:#3a3a5a;">&copy; ${YEAR} Pentellia</p>
                   </td>
                 </tr>
               </table>
+              <p style="margin:12px 0 0 0;font-size:10px;color:#2e2e45;line-height:1.6;">
+                You received this email because you have an account at Pentellia.<br />
+                This is an automated message &mdash; please do not reply directly to this email.
+              </p>
             </td>
           </tr>
 
@@ -157,7 +188,10 @@ function base(options: {
 </body>
 </html>`;
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // SHARED COMPONENTS
+// ─────────────────────────────────────────────────────────────────────
 
 function para(text: string, muted = false): string {
   const color = muted ? "#8a8aaa" : "#c8c8e0";
@@ -279,7 +313,10 @@ function featureList(items: string[]): string {
       ${listItems}
     </table>`;
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 1. WELCOME — sent on first sign-up
+// ─────────────────────────────────────────────────────────────────────
 
 export function welcomeEmail(firstName: string): string {
   return base({
@@ -299,7 +336,10 @@ export function welcomeEmail(firstName: string): string {
     footerNote: `You received this message because an account was created at Pentellia using this email address. If this was not you, please contact us immediately.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 2. OTP — email verification on signup
+// ─────────────────────────────────────────────────────────────────────
 
 export function verifyEmailOtpEmail(firstName: string, otp: string): string {
   return base({
@@ -316,7 +356,10 @@ export function verifyEmailOtpEmail(firstName: string, otp: string): string {
     footerNote: `This is an automated security message. Do not reply to this email.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 3. FORGOT PASSWORD — OTP to reset password
+// ─────────────────────────────────────────────────────────────────────
 
 export function forgotPasswordOtpEmail(firstName: string, otp: string): string {
   return base({
@@ -334,7 +377,10 @@ export function forgotPasswordOtpEmail(firstName: string, otp: string): string {
     footerNote: `This is an automated security message from Pentellia. Do not reply to this email.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 4. PASSWORD CHANGED — alert after password update
+// ─────────────────────────────────────────────────────────────────────
 
 export function passwordChangedEmail(
   firstName: string,
@@ -361,7 +407,10 @@ export function passwordChangedEmail(
     footerNote: `This security notification was sent to protect your Pentellia account. It cannot be disabled.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 5. LOGIN ALERT — new device or location
+// ─────────────────────────────────────────────────────────────────────
 
 export function loginAlertEmail(
   firstName: string,
@@ -390,7 +439,10 @@ export function loginAlertEmail(
     footerNote: `Login notifications help protect your account. Contact support to adjust your notification preferences.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 6. DOMAIN VERIFIED — domain ownership confirmed
+// ─────────────────────────────────────────────────────────────────────
 
 export function domainVerifiedEmail(firstName: string, domainName: string): string {
   return base({
@@ -415,7 +467,10 @@ export function domainVerifiedEmail(firstName: string, domainName: string): stri
     footerNote: `If you did not authorise this domain, contact us at ${SUPPORT_EMAIL} immediately.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 7. SCAN STARTED — confirmation when a scan is queued
+// ─────────────────────────────────────────────────────────────────────
 
 export function scanStartedEmail(
   firstName: string,
@@ -445,7 +500,10 @@ export function scanStartedEmail(
     footerNote: `Credits are non-refundable once a scan has been queued and accepted by the processing engine.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 8. SCAN COMPLETE — results available
+// ─────────────────────────────────────────────────────────────────────
 
 export function scanCompleteEmail(
   firstName: string,
@@ -483,7 +541,10 @@ export function scanCompleteEmail(
     footerNote: `Findings are provided for informational purposes. Always validate results in your specific environment before taking action.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 9. SCAN FAILED — scan encountered an error
+// ─────────────────────────────────────────────────────────────────────
 
 export function scanFailedEmail(
   firstName: string,
@@ -511,7 +572,10 @@ export function scanFailedEmail(
     footerNote: `For support, contact ${SUPPORT_EMAIL} with your scan ID and the error details shown above.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 10. CREDITS ADDED — successful wallet top-up
+// ─────────────────────────────────────────────────────────────────────
 
 export function creditsAddedEmail(
   firstName: string,
@@ -543,7 +607,10 @@ export function creditsAddedEmail(
     footerNote: `This is a confirmation of a charge processed via Razorpay. Retain this email for your records. For billing enquiries, contact ${SUPPORT_EMAIL}.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 11. LOW CREDITS REMINDER — balance below threshold
+// ─────────────────────────────────────────────────────────────────────
 
 export function lowCreditsEmail(
   firstName: string,
@@ -570,7 +637,10 @@ export function lowCreditsEmail(
     footerNote: `You are receiving this notice because your balance has dropped below the configured alert threshold. Manage your notification preferences in account settings.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 12. CREDITS EXHAUSTED — balance is zero
+// ─────────────────────────────────────────────────────────────────────
 
 export function creditsExhaustedEmail(firstName: string): string {
   return base({
@@ -590,7 +660,10 @@ export function creditsExhaustedEmail(firstName: string): string {
     footerNote: `Pentellia is a pay-as-you-go platform. There are no recurring charges. Credits are only consumed when scans are executed.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 13. AI SUMMARY GENERATED — report available
+// ─────────────────────────────────────────────────────────────────────
 
 export function aiSummaryGeneratedEmail(
   firstName: string,
@@ -613,7 +686,10 @@ export function aiSummaryGeneratedEmail(
     footerNote: `AI-generated summaries are produced by language models and should be reviewed by a qualified security professional before being relied upon for remediation decisions.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────
 // 14. GENERAL NOTIFICATION — used by the notifications system
+// ─────────────────────────────────────────────────────────────────────
 
 export function generalNotificationEmail(
   firstName: string,
