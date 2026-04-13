@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       `UPDATE user_subscriptions SET
          plan_id = pending_plan_id, status = 'active',
          started_at = NOW(), expires_at = $1,
-         pending_plan_id = NULL, pending_plan_at = NULL
+         pending_plan_id = NULL
        WHERE pending_plan_id IS NOT NULL AND expires_at <= NOW()
        RETURNING user_uid`,
       [newExpiry],
