@@ -10,20 +10,29 @@ import { checkUsageLimit } from "@/lib/subscription";
 import { classifyScan } from "@/lib/scan-classifier";
 
 // ── Resolve which Flask endpoint to hit ───────────────────────────────
-// discovery → POST /discovery  (interactive multi-phase)
+// discovery → POST /discovery  (interactive multi-phase asset discovery)
 // authtest  → POST /authtest   (interactive auth testing)
-// default   → POST /scan       (all other tools)
+// default   → POST /scan       (all other tools: jsspider, breachintel,
+//                               subdomainfinder, nmap, nuclei, etc.)
 function resolveFlaskEndpoint(
   base: string,
   tool: string,
   params: Record<string, any> | undefined,
 ): { endpoint: string; payload: object } {
-  if (params?.discovery === true) {
-    return { endpoint: `${base}/discovery`, payload: { params } };
+  const slug = tool.toLowerCase();
+
+  // discovery: routed to /discovery endpoint (interactive multi-phase)
+  if (slug === "discovery") {
+    return { endpoint: `${base}/discovery`, payload: { target: undefined, params } };
   }
-  if (params?.authtest === true || tool === "authtest") {
-    return { endpoint: `${base}/authtest`, payload: { params } };
+
+  // authtest: routed to /authtest endpoint (interactive auth testing)
+  if (slug === "authtest") {
+    return { endpoint: `${base}/authtest`, payload: { target: undefined, params } };
   }
+
+  // All other tools (jsspider, breachintel, subdomainfinder, nmap, etc.)
+  // use the standard /scan endpoint with { tool, target, params }
   return { endpoint: `${base}/scan`, payload: { tool, params } };
 }
 

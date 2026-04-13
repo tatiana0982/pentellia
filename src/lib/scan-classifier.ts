@@ -331,6 +331,11 @@ export function classifyScan(
   if (p.ports === "0-65535" || p.ports === "1-65535") return "deep";
   if (p.rate != null && p.rate > 5000) return "deep";
 
+  // ── Rule 16: breachintel ────────────────────────────────────────────
+  //   Purely passive breach database lookup — never touches target directly.
+  //   Always light regardless of query type (email/domain/username/auto).
+  if (slug === "breachintel") return "light";
+
   // ── Default ──────────────────────────────────────────────────────────
   return "light";
 }
