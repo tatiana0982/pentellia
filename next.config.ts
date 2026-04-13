@@ -4,17 +4,15 @@ const nextConfig: NextConfig = {
   // Puppeteer and Chromium must stay in Node.js runtime (not bundled)
   serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium-min"],
   outputFileTracingIncludes: {
-    "/api/pdf": ["./node_modules/@sparticuz/chromium-min/**/*"],
+    "/api/pdf":              ["./node_modules/@sparticuz/chromium-min/**/*"],
     "/api/invoice/download": ["./node_modules/@sparticuz/chromium-min/**/*"],
   },
 
   typescript: { ignoreBuildErrors: true },
   eslint:     { ignoreDuringBuilds: true },
 
-  // Compress responses
   compress: true,
 
-  // Faster builds + smaller bundles
   experimental: {
     optimizePackageImports: [
       "lucide-react",
@@ -30,21 +28,35 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Remove debug logs in production
   compiler: {
     removeConsole: process.env.NODE_ENV === "production"
-      ? { exclude: ["error"] }   // keep console.error only
+      ? { exclude: ["error"] }
       : false,
   },
 
-  // Proxy Flask/tools calls server-side — eliminates mixed-content errors.
-  // Browser hits /api/tools-proxy/* (HTTPS), Next.js forwards to TOOLS_BASE_URL (HTTP, server only).
+  // ── COOP headers — fixes Razorpay popup window.closed errors ──────────
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "Cross-Origin-Opener-Policy",  value: "same-origin-allow-popups" },
+          { key: "Cross-Origin-Embedder-Policy", value: "unsafe-none" },
+          { key: "X-Content-Type-Options",       value: "nosniff" },
+          { key: "X-Frame-Options",              value: "DENY" },
+          { key: "Referrer-Policy",              value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
+
+  // ── Tools proxy — server-side only, eliminates any mixed-content risk ──
   async rewrites() {
     const toolsBase = process.env.TOOLS_BASE_URL;
     if (!toolsBase) return [];
     return [
       {
-        source: "/api/tools-proxy/:path*",
+        source:      "/api/tools-proxy/:path*",
         destination: `${toolsBase}/:path*`,
       },
     ];

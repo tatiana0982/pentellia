@@ -80,6 +80,7 @@ function ChangePasswordSection() {
     try {
       const uRes  = await fetch("/api/users");
       const uData = await uRes.json();
+      if (!uData.success || !uData.user) throw new Error("Session expired. Please refresh.");
       const res   = await fetch("/api/auth/verify-otp", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: uData.user.email, otp, type: "forgot" }),
@@ -202,6 +203,7 @@ function DeleteAccountSection() {
     try {
       const uRes  = await fetch("/api/users");
       const uData = await uRes.json();
+      if (!uData.success || !uData.user) throw new Error("Session expired. Please refresh.");
       const res   = await fetch("/api/auth/send-otp", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: uData.user.email, type: "forgot" }),
@@ -220,6 +222,7 @@ function DeleteAccountSection() {
     try {
       const uRes  = await fetch("/api/users");
       const uData = await uRes.json();
+      if (!uData.success || !uData.user) throw new Error("Session expired. Please refresh.");
       const vRes  = await fetch("/api/auth/verify-otp", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: uData.user.email, otp, type: "forgot" }),

@@ -10,7 +10,6 @@ const inter = Inter({
   subsets:      ["latin"],
   variable:     "--font-sans",
   display:      "swap",
-  preload:      true,
   adjustFontFallback: true,
   fallback:     ["system-ui", "-apple-system", "Segoe UI", "sans-serif"],
 });
