@@ -3,6 +3,7 @@
 import { useWallet } from "@/providers/WalletProvider";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Check, Loader2, Zap, Shield, Crown, Building2,
   Clock, ChevronRight, ChevronDown, Download,
@@ -145,6 +146,7 @@ function PlanCard({ plan, isCurrentPlan, isPendingPlan, isBusy, onSubscribe }: {
 
 export default function SubscriptionPage() {
   const { refresh: refreshWallet } = useWallet();
+  const router = useRouter();
   const [plans,       setPlans]       = useState<Plan[]>([]);
   const [currentSub,  setCurrentSub]  = useState<CurrentSub | null>(null);
   const [usage,       setUsage]       = useState<UsageData | null>(null);
@@ -174,7 +176,7 @@ export default function SubscriptionPage() {
         // All payments get a download button — invoice route handles both
         // new payments (invoices table) and old payments (razorpay_orders fallback)
       }
-      if (userRes.success) {
+      if (userRes.success && userRes.user) {
         setUserEmail(userRes.user?.email ?? "");
         setUserName(`${userRes.user?.firstName ?? ""} ${userRes.user?.lastName ?? ""}`.trim());
       }
@@ -205,19 +207,32 @@ export default function SubscriptionPage() {
         name: "Pentellia", description: orderData.description, order_id: orderData.orderId,
         prefill: { name: userName, email: userEmail }, theme: { color: "#7C3AED" },
         handler: async (response: any) => {
-          const vRes  = await fetch("/api/subscription/verify-payment", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature, planId }),
-          });
-          const vData = await vRes.json();
-          if (vData.success) {
-            const msg = vData.immediate === false ? vData.message : "Subscription activated successfully!";
-            toast.success(msg);
-            setShowPlans(false);
-            await loadData();
-            refreshWallet();   // update header subscription banner + usage bars immediately
-          } else {
-            toast.error(vData.error || "Activation failed");
+          try {
+            const vRes  = await fetch("/api/subscription/verify-payment", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id:   response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature:  response.razorpay_signature,
+              }),
+            });
+            const vData = await vRes.json();
+            if (vData.success) {
+              const msg = vData.immediate === false
+                ? vData.message
+                : (vData.message || "Subscription activated! Check your email for the invoice.");
+              toast.success(msg, { duration: 6000 });
+              setShowPlans(false);
+              refreshWallet();
+              router.push("/dashboard");
+            } else {
+              toast.error(vData.error || "Activation failed. If payment was deducted, refresh the page.");
+            }
+          } catch (e) {
+            console.error("[SubscriptionPage] verify-payment error:", e);
+            toast.error("Network error. If payment was deducted, refresh the page.");
+          } finally {
+            setCheckingOut(null);
           }
         },
         modal: { ondismiss: () => setCheckingOut(null) },

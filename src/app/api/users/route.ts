@@ -34,7 +34,10 @@ const FIELD_MAP: Record<string, string> = {
 // ─── GET ─────────────────────────────────────────────────────────────
 export async function GET() {
   const uid = await getUid();
-  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Return 200 with null — never 401 on GET.
+  // Dashboard/subscription page calls this on mount; a 401 floods the console
+  // during Razorpay COOP popup isolation when cookies are briefly inaccessible.
+  if (!uid) return NextResponse.json({ success: false, user: null }, { status: 200 });
 
   try {
     const res = await query(

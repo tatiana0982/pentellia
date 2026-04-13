@@ -691,6 +691,34 @@ export function aiSummaryGeneratedEmail(
 // 14. GENERAL NOTIFICATION — used by the notifications system
 // ─────────────────────────────────────────────────────────────────────
 
+export function subscriptionActivatedEmail(
+  firstName: string, planName: string, amountInr: number,
+  validUntil: string, invoiceNumber: string, paymentId: string,
+): string {
+  const fmt = new Intl.NumberFormat("en-IN").format(amountInr);
+  return base({
+    previewText: `${planName} activated — valid until ${validUntil}`,
+    headerLabel: "Subscription Activated",
+    headerSubtitle: `Your ${planName} is now active.`,
+    accentColor: "#7c3aed",
+    content: `
+      ${para(`Hello ${firstName},`)}
+      ${para(`Your payment was successful and your subscription is now active.`)}
+      <table role="presentation" style="width:100%;border-collapse:collapse;margin:20px 0;border-radius:8px;overflow:hidden;border:1px solid #2a2a40;">
+        <tr style="background:#1a1a2e;"><td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:.05em;width:40%;">Plan</td><td style="padding:12px 16px;font-size:14px;color:#e2e8f0;font-weight:600;">${planName}</td></tr>
+        <tr style="background:#16162a;"><td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Amount Paid</td><td style="padding:12px 16px;font-size:14px;color:#a78bfa;font-weight:700;">&#8377;${fmt}</td></tr>
+        <tr style="background:#1a1a2e;"><td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Valid Until</td><td style="padding:12px 16px;font-size:14px;color:#86efac;font-weight:600;">${validUntil}</td></tr>
+        <tr style="background:#16162a;"><td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Invoice No.</td><td style="padding:12px 16px;font-size:13px;color:#e2e8f0;font-family:monospace;">${invoiceNumber}</td></tr>
+        <tr style="background:#1a1a2e;"><td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Payment ID</td><td style="padding:12px 16px;font-size:13px;color:#94a3b8;font-family:monospace;">${paymentId}</td></tr>
+      </table>
+      ${ctaButton("View Invoice & Dashboard", `${APP_URL}/subscription`)}
+      ${para(`Your invoice is available for download on the Billing page. Keep this email for your records.`, true)}
+      ${para(`If you did not make this payment, contact us immediately at <a href="mailto:${SUPPORT_EMAIL}" style="color:#f87171;">${SUPPORT_EMAIL}</a>.`, true)}
+    `,
+    footerNote: `Automated payment confirmation. Invoice: ${invoiceNumber}.`,
+  });
+}
+
 export function generalNotificationEmail(
   firstName: string,
   title: string,
