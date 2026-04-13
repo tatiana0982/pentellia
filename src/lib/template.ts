@@ -25,7 +25,7 @@ export function getPurpleReportHtml(data: any) {
   const exposureScore = Math.max(0, 100 - ((summary.affected_assets || 0) * 4));
 
   /* ================= CONFIG & HELPERS ================= */
-  const logoUrl = "https://pentellia.vercel.app/logo.png";
+  const logoUrl = "https://pentellia.io/logo.png";
 
   // Strict Pagination Bounds
   const PAGE_HEIGHT = 1122; // A4 at 96 DPI
