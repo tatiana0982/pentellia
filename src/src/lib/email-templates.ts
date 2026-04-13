@@ -692,18 +692,13 @@ export function aiSummaryGeneratedEmail(
 // ─────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────
-// SUBSCRIPTION ACTIVATED — sent on every successful payment
+// SUBSCRIPTION ACTIVATED — rich payment confirmation email
 // ─────────────────────────────────────────────────────────────────────
-
 export function subscriptionActivatedEmail(
-  firstName:     string,
-  planName:      string,
-  amountInr:     number,
-  validUntil:    string,   // e.g. "13 May 2026"
-  invoiceNumber: string,
-  paymentId:     string,
+  firstName: string, planName: string, amountInr: number,
+  validUntil: string, invoiceNumber: string, paymentId: string,
 ): string {
-  const formattedAmount = new Intl.NumberFormat("en-IN").format(amountInr);
+  const fmt = new Intl.NumberFormat("en-IN").format(amountInr);
   return base({
     previewText: `${planName} activated — valid until ${validUntil}`,
     headerLabel: "Subscription Activated",
@@ -711,34 +706,19 @@ export function subscriptionActivatedEmail(
     accentColor: "#7c3aed",
     content: `
       ${para(`Hello ${firstName},`)}
-      ${para(`Your payment was successful and your subscription has been activated. Here are the details:`)}
+      ${para(`Your payment was successful. Your subscription is now active. Here are your details:`)}
       <table role="presentation" style="width:100%;border-collapse:collapse;margin:20px 0;border-radius:8px;overflow:hidden;border:1px solid #2a2a40;">
-        <tr style="background:#1a1a2e;">
-          <td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;width:40%;">Plan</td>
-          <td style="padding:12px 16px;font-size:14px;color:#e2e8f0;font-weight:600;">${planName}</td>
-        </tr>
-        <tr style="background:#16162a;">
-          <td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Amount Paid</td>
-          <td style="padding:12px 16px;font-size:14px;color:#a78bfa;font-weight:700;">₹${formattedAmount}</td>
-        </tr>
-        <tr style="background:#1a1a2e;">
-          <td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Valid Until</td>
-          <td style="padding:12px 16px;font-size:14px;color:#86efac;font-weight:600;">${validUntil}</td>
-        </tr>
-        <tr style="background:#16162a;">
-          <td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Invoice No.</td>
-          <td style="padding:12px 16px;font-size:13px;color:#e2e8f0;font-family:monospace;">${invoiceNumber}</td>
-        </tr>
-        <tr style="background:#1a1a2e;">
-          <td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Payment ID</td>
-          <td style="padding:12px 16px;font-size:13px;color:#94a3b8;font-family:monospace;">${paymentId}</td>
-        </tr>
+        <tr style="background:#1a1a2e;"><td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;width:40%;">Plan</td><td style="padding:12px 16px;font-size:14px;color:#e2e8f0;font-weight:600;">${planName}</td></tr>
+        <tr style="background:#16162a;"><td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Amount Paid</td><td style="padding:12px 16px;font-size:14px;color:#a78bfa;font-weight:700;">&#8377;${fmt}</td></tr>
+        <tr style="background:#1a1a2e;"><td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Valid Until</td><td style="padding:12px 16px;font-size:14px;color:#86efac;font-weight:600;">${validUntil}</td></tr>
+        <tr style="background:#16162a;"><td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Invoice No.</td><td style="padding:12px 16px;font-size:13px;color:#e2e8f0;font-family:monospace;">${invoiceNumber}</td></tr>
+        <tr style="background:#1a1a2e;"><td style="padding:12px 16px;font-size:12px;color:#8888aa;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Payment ID</td><td style="padding:12px 16px;font-size:13px;color:#94a3b8;font-family:monospace;">${paymentId}</td></tr>
       </table>
       ${ctaButton("View Invoice & Dashboard", `${APP_URL}/subscription`)}
-      ${para(`Your invoice is available for download from the Billing &amp; Subscription page. Keep this email for your records.`, true)}
-      ${para(`If you did not make this payment or have any concerns, contact us immediately at <a href="mailto:${SUPPORT_EMAIL}" style="color:#f87171;">${SUPPORT_EMAIL}</a>.`, true)}
+      ${para(`Your invoice is available for download on the Billing page. Keep this email for your records.`, true)}
+      ${para(`If you did not make this payment, contact us immediately at <a href="mailto:${SUPPORT_EMAIL}" style="color:#f87171;">${SUPPORT_EMAIL}</a>.`, true)}
     `,
-    footerNote: `This is an automated payment confirmation from Pentellia. Invoice: ${invoiceNumber}.`,
+    footerNote: `Automated payment confirmation from Pentellia. Invoice: ${invoiceNumber}.`,
   });
 }
 

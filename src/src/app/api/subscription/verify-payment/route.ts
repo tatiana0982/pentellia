@@ -1,16 +1,19 @@
 // src/app/api/subscription/verify-payment/route.ts
-// Verifies Razorpay HMAC, activates subscription, stores invoice.
+//
+// DESIGN: Payment verification must NEVER depend on session auth.
+// The HMAC signature from Razorpay IS the authentication — if it passes,
+// the payment is legitimate. We look up the order by razorpay_order_id
+// (which is already tied to user_uid in razorpay_orders table).
+// This eliminates all 401/session-expiry failures during payment flows.
 
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { query } from "@/config/db";
-import { getUid } from "@/lib/auth";
 import { activateSubscription } from "@/lib/subscription";
-import { createNotification } from "@/lib/notifications";
-import { subscriptionActivatedEmail } from "@/lib/email-templates";
-import { sendEmail } from "@/lib/email";
 
-function verifySignature(orderId: string, paymentId: string, signature: string, secret: string): boolean {
+function verifySignature(
+  orderId: string, paymentId: string, signature: string, secret: string,
+): boolean {
   try {
     const expected = crypto.createHmac("sha256", secret).update(`${orderId}|${paymentId}`).digest("hex");
     const expBuf = Buffer.from(expected, "hex");
@@ -21,15 +24,34 @@ function verifySignature(orderId: string, paymentId: string, signature: string, 
 }
 
 async function generateInvoiceNumber(): Promise<string> {
-  const res = await query(`SELECT nextval('invoice_number_seq') AS n`);
-  const n   = String(res.rows[0].n).padStart(6, "0");
-  return `INV-${new Date().getFullYear()}-${n}`;
+  try {
+    const res = await query(`SELECT nextval('invoice_number_seq') AS n`);
+    const n   = String(res.rows[0].n).padStart(6, "0");
+    return `INV-${new Date().getFullYear()}-${n}`;
+  } catch {
+    const ts = Date.now().toString(36).toUpperCase().slice(-8);
+    return `INV-${new Date().getFullYear()}-${ts}`;
+  }
+}
+
+async function sendConfirmationEmail(
+  email: string, firstName: string, planName: string,
+  amountInr: number, validUntil: string, invoiceNumber: string, paymentId: string,
+): Promise<void> {
+  try {
+    const { sendEmail }                  = await import("@/lib/email");
+    const { subscriptionActivatedEmail } = await import("@/lib/email-templates");
+    await sendEmail(
+      email,
+      `Subscription Activated — ${planName} | ${invoiceNumber}`,
+      subscriptionActivatedEmail(firstName, planName, amountInr, validUntil, invoiceNumber, paymentId),
+    );
+  } catch (err) {
+    console.error("[VerifyPayment] Email failed:", err);
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const uid = await getUid();
-  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   let body: any;
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid request" }, { status: 400 }); }
@@ -46,38 +68,49 @@ export async function POST(req: NextRequest) {
   const secret = process.env.RAZORPAY_KEY_SECRET;
   if (!secret) return NextResponse.json({ error: "Payment service not configured" }, { status: 500 });
 
-  if (!verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature, secret)) {
+  // ── 1. HMAC check — this IS the auth ─────────────────────────────
+  if (!verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature, secret))
     return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
-  }
 
+  // ── 2. Look up order + user in one query — no session needed ─────
   const orderRes = await query(
-    `SELECT plan_id, amount_inr, status FROM razorpay_orders
-     WHERE razorpay_order_id = $1 AND user_uid = $2 LIMIT 1`,
-    [razorpay_order_id, uid],
+    `SELECT ro.user_uid, ro.plan_id, ro.amount_inr, ro.status,
+            u.email, u.first_name, u.last_name
+     FROM razorpay_orders ro
+     JOIN users u ON u.uid = ro.user_uid
+     WHERE ro.razorpay_order_id = $1 LIMIT 1`,
+    [razorpay_order_id],
   );
   if (!orderRes.rows.length) return NextResponse.json({ error: "Order not found" }, { status: 404 });
-  const order = orderRes.rows[0];
 
+  const order = orderRes.rows[0];
+  const uid   = order.user_uid;
+
+  // ── 3. Idempotency ────────────────────────────────────────────────
   if (order.status === "paid") {
-    const inv = await query(`SELECT id, invoice_number FROM invoices WHERE razorpay_payment_id = $1 LIMIT 1`, [razorpay_payment_id]);
+    const inv = await query(
+      `SELECT id, invoice_number FROM invoices WHERE razorpay_payment_id = $1 LIMIT 1`,
+      [razorpay_payment_id],
+    );
     return NextResponse.json({ success: true, message: "Already processed", invoiceId: inv.rows[0]?.id ?? null, invoiceNumber: inv.rows[0]?.invoice_number ?? null });
   }
 
   if (!order.plan_id) return NextResponse.json({ error: "Order missing plan_id" }, { status: 400 });
 
   try {
+    // ── 4. Mark paid ──────────────────────────────────────────────
     await query(
       `UPDATE razorpay_orders SET status = 'paid', razorpay_payment_id = $1, paid_at = NOW()
-       WHERE razorpay_order_id = $2 AND user_uid = $3`,
-      [razorpay_payment_id, razorpay_order_id, uid],
+       WHERE razorpay_order_id = $2`,
+      [razorpay_payment_id, razorpay_order_id],
     );
 
+    // ── 5. Activate subscription ──────────────────────────────────
     const result = await activateSubscription(uid, order.plan_id, razorpay_order_id, razorpay_payment_id);
 
-    const userRes   = await query(`SELECT CONCAT(first_name, ' ', last_name) AS name, email FROM users WHERE uid = $1 LIMIT 1`, [uid]);
-    const user      = userRes.rows[0];
-    const invoiceNo = await generateInvoiceNumber();
-
+    // ── 6. Invoice ────────────────────────────────────────────────
+    const invoiceNumber = await generateInvoiceNumber();
+    const customerName  = `${order.first_name || ""} ${order.last_name || ""}`.trim() || null;
     const invRes = await query(
       `INSERT INTO invoices
          (user_uid, razorpay_order_id, razorpay_payment_id, plan_id,
@@ -86,53 +119,48 @@ export async function POST(req: NextRequest) {
        ON CONFLICT (razorpay_payment_id) DO UPDATE SET status = 'paid'
        RETURNING id, invoice_number`,
       [uid, razorpay_order_id, razorpay_payment_id, order.plan_id,
-       order.amount_inr, invoiceNo, user?.name?.trim() || null, user?.email || null],
+       order.amount_inr, invoiceNumber, customerName, order.email],
     );
+    const invoiceId    = invRes.rows[0]?.id;
+    const finalInvoice = invRes.rows[0]?.invoice_number ?? invoiceNumber;
 
-    const invoiceId     = invRes.rows[0]?.id;
-    const invoiceNumber = invRes.rows[0]?.invoice_number;
+    // ── 7. Expiry string ──────────────────────────────────────────
+    const expiresAt  = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const validUntil = expiresAt.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
 
-    // ── DB notification (always) ─────────────────────────────────────
-    const notifMsg = result.immediate
-      ? `${order.plan_id.charAt(0).toUpperCase() + order.plan_id.slice(1)} plan activated. Valid until ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}. Invoice: ${invoiceNumber}.`
-      : result.message;
-    createNotification(uid, "Subscription Activated ✓", notifMsg, "success", false).catch(() => {});
+    // ── 8. DB notification (fire-and-forget) ─────────────────────
+    query(
+      `INSERT INTO notifications (user_uid, title, message, type) VALUES ($1, $2, $3, 'success')`,
+      [uid, "Subscription Activated ✓",
+       result.immediate
+         ? `${order.plan_id} plan active. Valid until ${validUntil}. Invoice: ${finalInvoice}.`
+         : result.message],
+    ).catch(() => {});
 
-    // ── Rich transactional email ──────────────────────────────────────
-    if (result.immediate) {
-      (async () => {
-        try {
-          const planRes = await query(
-            `SELECT name, price_inr FROM subscription_plans WHERE id = $1 LIMIT 1`,
-            [order.plan_id],
+    // ── 9. Confirmation email (fire-and-forget) ───────────────────
+    if (result.immediate && order.email) {
+      query(`SELECT name, price_inr FROM subscription_plans WHERE id = $1 LIMIT 1`, [order.plan_id])
+        .then(planRes => {
+          const plan = planRes.rows[0];
+          if (plan) sendConfirmationEmail(
+            order.email, order.first_name || "there", plan.name,
+            Number(plan.price_inr), validUntil, finalInvoice, razorpay_payment_id,
           );
-          const plan      = planRes.rows[0];
-          const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-          const validUntil = expiresAt.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
-          if (user?.email && plan) {
-            await sendEmail(
-              user.email,
-              `Subscription Activated — ${plan.name}`,
-              subscriptionActivatedEmail(
-                user.name?.split(" ")[0]?.trim() || "there",
-                plan.name,
-                Number(plan.price_inr),
-                validUntil,
-                invoiceNumber,
-                razorpay_payment_id,
-              ),
-            );
-          }
-        } catch (emailErr) {
-          console.error("[VerifyPayment] Email failed:", emailErr);
-        }
-      })();
+        }).catch(() => {});
     }
 
-    return NextResponse.json({ success: true, immediate: result.immediate, message: result.message, planId: order.plan_id, paymentId: razorpay_payment_id, invoiceId, invoiceNumber });
+    return NextResponse.json({
+      success:       true,
+      immediate:     result.immediate,
+      message:       result.immediate ? `Subscription activated! Valid until ${validUntil}.` : result.message,
+      planId:        order.plan_id,
+      paymentId:     razorpay_payment_id,
+      invoiceId,
+      invoiceNumber: finalInvoice,
+    });
 
   } catch (err: any) {
-    console.error("[VerifyPayment] Failed:", err?.message);
+    console.error("[VerifyPayment] Failed:", err?.message, err?.stack);
     return NextResponse.json({ error: "Failed to activate subscription" }, { status: 500 });
   }
 }

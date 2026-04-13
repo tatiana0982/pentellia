@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
-import { refreshSession } from "@/lib/refreshSession";
 
 interface Plan {
   id: string; name: string; price_inr: number;
@@ -194,10 +193,6 @@ export default function SubscriptionPage() {
   const handleSubscribe = async (planId: string) => {
     setCheckingOut(planId);
     try {
-      // Refresh session cookie before any payment API call —
-      // prevents 401s from stale tokens after Google login or long idle
-      await refreshSession();
-
       const orderRes  = await fetch("/api/subscription/create-order", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ planId }),
@@ -211,27 +206,28 @@ export default function SubscriptionPage() {
         prefill: { name: userName, email: userEmail }, theme: { color: "#7C3AED" },
         handler: async (response: any) => {
           try {
-            // Re-refresh after Razorpay popup closes — popup can take minutes
-            await refreshSession();
-
             const vRes  = await fetch("/api/subscription/verify-payment", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature, planId }),
+              body: JSON.stringify({
+                razorpay_order_id:  response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature:  response.razorpay_signature,
+              }),
             });
             const vData = await vRes.json();
             if (vData.success) {
               const msg = vData.immediate === false
                 ? vData.message
-                : "Subscription activated! A confirmation has been sent to your email.";
-              toast.success(msg, { duration: 5000 });
+                : (vData.message || "Subscription activated! Check your email for the invoice.");
+              toast.success(msg, { duration: 6000 });
               setShowPlans(false);
               await loadData();
               refreshWallet();
             } else {
-              toast.error(vData.error || "Activation failed. Contact support if payment was deducted.");
+              toast.error(vData.error || "Activation failed. If payment was deducted, it will reflect shortly — refresh the page.");
             }
           } catch {
-            toast.error("Network error during verification. Contact support if payment was deducted.");
+            toast.error("Network error. If payment was deducted, refresh the page in a moment.");
           } finally {
             setCheckingOut(null);
           }
