@@ -4,7 +4,7 @@
 // Tone: professional, credible, enterprise-grade — no emoji, no casual language
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pentellia.io";
-const SUPPORT_EMAIL = "pentellia@encoderspro.com";
+const SUPPORT_EMAIL = "encoderspro@v3rma.com";
 const YEAR = new Date().getFullYear();
 
 // ─────────────────────────────────────────────────────────────────────
@@ -80,16 +80,14 @@ function base(options: {
                 <tr>
                   <td>
                     <a href="${APP_URL}" style="text-decoration:none;display:inline-block;">
-                      <!--[if mso]>
-                      <span style="font-size:20px;font-weight:700;color:#ffffff;">Pentellia</span>
-                      <![endif]-->
-                      <!--[if !mso]><!-->
                       <img src="${APP_URL}/pentellia-logo-email.png"
                            alt="Pentellia"
                            width="140" height="34"
                            style="display:block;border:0;outline:none;text-decoration:none;max-width:140px;height:auto;"
                       />
-                      <!--<![endif]-->
+                      <!--[if !images]>
+                      <span style="font-size:20px;font-weight:700;color:#a78bfa;letter-spacing:-0.5px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">Pentellia</span>
+                      <![endif]-->
                     </a>
                   </td>
                   <td align="right">
@@ -151,6 +149,9 @@ function base(options: {
                            width="100" height="24"
                            style="display:block;border:0;outline:none;text-decoration:none;max-width:100px;height:auto;opacity:0.5;"
                       />
+                      <!--[if !images]>
+                      <span style="font-size:14px;font-weight:600;color:#4a4a7a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">Pentellia</span>
+                      <![endif]-->
                     </a>
                   </td>
                   <td align="right">
