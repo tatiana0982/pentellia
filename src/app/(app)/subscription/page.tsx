@@ -1,5 +1,7 @@
 "use client";
 
+import { useWallet } from "@/providers/WalletProvider";
+
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Check, Loader2, Zap, Shield, Crown, Building2,
@@ -142,6 +144,7 @@ function PlanCard({ plan, isCurrentPlan, isPendingPlan, isBusy, onSubscribe }: {
 }
 
 export default function SubscriptionPage() {
+  const { refresh: refreshWallet } = useWallet();
   const [plans,       setPlans]       = useState<Plan[]>([]);
   const [currentSub,  setCurrentSub]  = useState<CurrentSub | null>(null);
   const [usage,       setUsage]       = useState<UsageData | null>(null);
@@ -212,6 +215,7 @@ export default function SubscriptionPage() {
             toast.success(msg);
             setShowPlans(false);
             await loadData();
+            refreshWallet();   // update header subscription banner + usage bars immediately
           } else {
             toast.error(vData.error || "Activation failed");
           }

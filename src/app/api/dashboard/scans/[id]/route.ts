@@ -148,3 +148,58 @@ export async function DELETE(
   if (!res.rows.length) return NextResponse.json({ error: "Scan not found" }, { status: 404 });
   return NextResponse.json({ success: true });
 }
+
+// ── POST — CMS confirmation (webscan pauses for user consent) ─────────────────
+// Frontend sends { confirm: true/false, external_job_id } when user responds
+// to the "CMS detected — run deep scanner?" modal.
+// Forwards to Flask POST /confirm-cms/:job_id
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const uid = await getUid();
+  if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id: scanId } = await params;
+
+  // Verify scan belongs to this user
+  const scanRes = await query(
+    `SELECT external_job_id FROM scans
+     WHERE id = $1 AND user_uid = $2 AND deleted_at IS NULL LIMIT 1`,
+    [scanId, uid],
+  );
+  if (!scanRes.rows.length) return NextResponse.json({ error: "Scan not found" }, { status: 404 });
+
+  let body: any;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+
+  const confirm       = Boolean(body.confirm);
+  // Accept external_job_id from body (sent by frontend) OR fall back to DB value
+  const externalJobId = body.external_job_id || scanRes.rows[0].external_job_id;
+
+  const toolsBaseUrl = process.env.TOOLS_BASE_URL;
+  const apiKey       = process.env.TOOLS_API_KEY || "";
+
+  if (!toolsBaseUrl || !externalJobId) {
+    return NextResponse.json({ error: "Scan engine not configured or job ID missing" }, { status: 503 });
+  }
+
+  try {
+    const res = await fetch(`${toolsBaseUrl}/confirm-cms/${externalJobId}`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body:    JSON.stringify({ confirm }),
+      signal:  AbortSignal.timeout(10_000),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      return NextResponse.json({ error: data.error || "Flask CMS confirm failed" }, { status: res.status });
+    }
+
+    return NextResponse.json({ success: true, confirmed: confirm, message: data.message ?? (confirm ? "CMS scan activated" : "CMS scan bypassed") });
+  } catch (err: any) {
+    return NextResponse.json({ error: "Scan engine unreachable", detail: err?.message }, { status: 503 });
+  }
+}

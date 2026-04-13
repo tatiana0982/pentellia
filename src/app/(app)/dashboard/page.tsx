@@ -89,7 +89,7 @@ export default function DashboardPage() {
   const chartData      = (charts.exposureTrend ?? []).map(d => ({ date: d.date.slice(5), scans: d.scans }));
   const riskData       = (charts.riskDistribution ?? []).filter(d => d.value > 0);
   const topTargets     = charts.topTargets ?? [];
-  const totalFindings  = kpi.totalFindings; // single source of truth — matches riskDistribution chart sum
+  const totalFindings  = kpi.totalFindings || riskData.reduce((s, d) => s + d.value, 0);
 
   return (
     <div className="px-6 pt-6 pb-10 space-y-5 text-slate-200">
@@ -210,11 +210,30 @@ export default function DashboardPage() {
               <>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={riskData} cx="50%" cy="44%" innerRadius={50} outerRadius={68} paddingAngle={3} dataKey="value">
+                    <Pie
+                      data={riskData}
+                      cx="50%" cy="44%"
+                      innerRadius={50} outerRadius={68}
+                      paddingAngle={3}
+                      dataKey="value"
+                      nameKey="name"
+                    >
                       {riskData.map((e, i) => <Cell key={i} fill={e.fill} stroke="rgba(0,0,0,0.4)" strokeWidth={2} />)}
                     </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: "#0B0C15", borderColor: "rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "11px" }} />
-                    <Legend verticalAlign="bottom" height={26} iconType="circle" wrapperStyle={{ fontSize: "10px" }} />
+                    <Tooltip
+                      formatter={(value: number, name: string) => [value, name]}
+                      contentStyle={{
+                        backgroundColor: "#0B0C15",
+                        borderColor: "rgba(255,255,255,0.12)",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                        padding: "8px 12px",
+                      }}
+                      labelStyle={{ display: "none" }}
+                      itemStyle={{ color: "#e2e8f0", fontWeight: 500 }}
+                      cursor={false}
+                    />
+                    <Legend verticalAlign="bottom" height={26} iconType="circle" wrapperStyle={{ fontSize: "10px", color: "#94a3b8" }} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute top-[36%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
