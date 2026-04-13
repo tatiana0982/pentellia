@@ -28,7 +28,7 @@
 17. [Account Management](#17-account-management)
 18. [Performance Characteristics](#18-performance-characteristics)
 19. [Glossary](#19-glossary)
-20. [Diagram Index](#20-diagram-index)
+20. [Appendix: Detailed System Flow](#20-appendix-detailed-system-flows)
 
 ---
 
