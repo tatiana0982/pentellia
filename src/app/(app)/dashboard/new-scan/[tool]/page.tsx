@@ -224,7 +224,7 @@ export default function ToolScanPage() {
 
   if (loadingConfig) {
     return (
-      <div className="flex flex-col h-[calc(100vh-6rem)] space-y-6 animate-pulse p-4">
+      <div className="flex flex-col h-[calc(100vh-6rem)] space-y-6 animate-pulse px-8 pt-6 pb-10">
         <div className="space-y-4">
           <div className="h-4 w-24 bg-white/5 rounded"></div>
           <div className="flex justify-between">
@@ -243,7 +243,7 @@ export default function ToolScanPage() {
 
   if (!config && toolSlug !== "asset-discovery") {
     return (
-      <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400">
+      <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400 px-8 pt-6 pb-10">
         <AlertCircle className="h-12 w-12 mb-4 text-red-500" />
         <h2 className="text-xl font-bold text-white">Tool Not Found</h2>
         <p>The scanner "{toolSlug}" does not exist.</p>
@@ -255,7 +255,7 @@ export default function ToolScanPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] space-y-6 font-sans text-slate-200 overflow-y-auto custom-scrollbar">
+    <div className="flex flex-col h-[calc(100vh-6rem)] space-y-6 font-sans text-slate-200 overflow-y-auto custom-scrollbar px-8 pt-6 pb-10">
       {/* Header */}
       <div className="flex flex-col gap-4">
         <button
