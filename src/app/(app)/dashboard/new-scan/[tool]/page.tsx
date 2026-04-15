@@ -298,7 +298,7 @@ export default function ToolScanPage() {
                 <div className="relative">
                   <Input
                     id="target"
-                    placeholder="e.g. example.com, 192.168.1.1"
+                    placeholder={toolSlug === "breachintel" ? "e.g. user@example.com, domain.com" : "e.g. example.com, 192.168.1.1"}
                     className="h-12 bg-white/5 border-white/10 text-lg text-white placeholder:text-slate-600 focus-visible:ring-violet-500 pl-4"
                     value={target}
                     onChange={(e) => setTarget(e.target.value)}
