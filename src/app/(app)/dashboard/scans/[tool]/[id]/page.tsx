@@ -733,13 +733,13 @@ export default function ScanReportPage() {
             </div>
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" onClick={() => router.back()}
-                className="h-10 w-10 shrink-0 rounded bg-white/[0.02] border border-white/[0.07] hover:bg-white/10">
+                className="h-10 w-10 shrink-0 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/10">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div>
                 <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-3">
                   <span className="truncate max-w-xs">{scan.tool_name}</span>
-                  <Badge variant="outline" className="bg-white/[0.04] text-slate-500 border-white/[0.08] font-mono text-xs hidden sm:flex rounded-sm">v4.2.0</Badge>
+                  <Badge variant="outline" className="bg-white/5 text-slate-400 border-white/10 font-mono text-xs hidden sm:flex">v4.2.0</Badge>
                 </h1>
                 <p className="text-slate-500 text-xs font-mono mt-0.5">
                   Target: <span className="text-violet-300">{scan.target}</span>
@@ -749,7 +749,7 @@ export default function ScanReportPage() {
           </div>
 
           <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-            <div className="hidden xl:flex items-center gap-4 mr-2 px-3 py-1.5 bg-white/[0.02] border border-white/[0.06] rounded shrink-0">
+            <div className="hidden xl:flex items-center gap-4 mr-2 px-4 py-2 bg-white/[0.02] border border-white/5 rounded-2xl shrink-0">
               <div className="flex items-center gap-2">
                 <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-[10px] font-mono text-slate-500 uppercase">Sys: Optimal</span>
@@ -765,7 +765,7 @@ export default function ScanReportPage() {
             <Dialog open={isAiOpen} onOpenChange={setIsAiOpen}>
               <DialogTrigger asChild>
                 <Button onClick={handleAiBriefClick} disabled={!isCompleted}
-                  className="relative group bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white border-0 shadow-[0_0_20px_rgba(139,92,246,0.3)] px-5 h-9 rounded-md transition-all active:scale-95 disabled:opacity-30 overflow-hidden shrink-0">
+                  className="relative group bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white border-0 shadow-[0_0_20px_rgba(139,92,246,0.3)] px-6 h-11 rounded-xl transition-all active:scale-95 disabled:opacity-30 overflow-hidden shrink-0">
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
                   <BrainCircuit className="mr-2 h-4 w-4" />
                   <span className="font-semibold text-sm">{aiSummary ? "View Analysis" : "AI Analysis"}</span>
@@ -819,7 +819,7 @@ export default function ScanReportPage() {
             </Dialog>
 
             <Button variant="outline" onClick={handleExport} disabled={!isCompleted}
-              className="border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] rounded-md h-9 px-4 md:px-5 text-slate-400 font-medium transition-all shrink-0">
+              className="border-white/10 bg-white/[0.02] hover:bg-white/10 rounded-xl h-11 px-4 md:px-6 text-slate-300 font-medium transition-all shrink-0">
               <Download className="md:mr-2 h-4 w-4" />
               <span className="hidden md:inline">Export PDF</span>
             </Button>
@@ -834,7 +834,7 @@ export default function ScanReportPage() {
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-6 duration-1000">
             {/* Scan meta */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between border rounded-lg p-5 md:p-6 mb-6" style={{ backgroundColor: "#070810", borderColor: "rgba(255,255,255,0.06)" }}>
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-black/20 border border-white/10 rounded-2xl p-6 md:p-8 shadow-xl mb-8 backdrop-blur-md">
               <div className="flex items-center gap-4 mb-5 md:mb-0">
                 <div className="h-12 w-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
                   <Shield className="h-6 w-6 text-violet-400" />
@@ -861,7 +861,7 @@ export default function ScanReportPage() {
             </div>
 
             {/* Scan report */}
-            <div className="border rounded-lg p-4 md:p-6 overflow-x-auto" style={{ backgroundColor: "#070810", borderColor: "rgba(255,255,255,0.06)" }}>
+            <div className="bg-[#05050A]/40 border border-white/5 rounded-3xl md:rounded-[2.5rem] p-4 md:p-10 shadow-2xl backdrop-blur-md overflow-x-auto">
               {scan.tool_id === "discovery" || scan.tool_id === "asset-discovery" || scan.tool_name === "Asset Discovery" ? (
                 <AssetDiscoveryReport data={processedData} />
               ) : (
