@@ -166,7 +166,7 @@ export function CommonScanReport({
             icon={<FileText className="w-4 h-4" />}
           />
           <NavButton
-            label={`Findings (${primaryFindings.length + secondaryFindings.length})`}
+            label={`Findings (${allFindings.length})`}
             active={activeSection === "findings"}
             onClick={() => scrollToSection("findings")}
             icon={<AlertTriangle className="w-4 h-4" />}
@@ -306,11 +306,16 @@ export function CommonScanReport({
                 primaryFindings.map((finding: any, idx: number) => (
                   <ExpandableFindingCard key={idx} finding={finding} />
                 ))
-              ) : (severityFilter.size > 0 && !isAllSelected && !isOnlyLowInfoSelected) ? (
+              ) : !isAllSelected && !isOnlyLowInfoSelected && severityFilter.size > 0 ? (
                 <div className="p-8 text-center border border-dashed border-white/10 rounded-xl bg-white/[0.01]">
                   <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mx-auto mb-2" />
                   <h3 className="text-base font-medium text-white">No Issues Found</h3>
-                  <p className="text-slate-500 text-xs mt-1">No vulnerabilities match the current filter.</p>
+                  <p className="text-slate-500 text-xs mt-1">No vulnerabilities match the selected severity filter.</p>
+                </div>
+              ) : isAllSelected && primaryFindings.length === 0 && secondaryFindings.length > 0 ? (
+                <div className="p-6 border border-dashed border-slate-700/50 rounded-xl bg-white/[0.01] flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500/70 shrink-0" />
+                  <p className="text-sm text-slate-400">No critical, high, medium, or low severity findings. <span className="text-slate-300">Informational findings are listed below.</span></p>
                 </div>
               ) : null}
             </div>
