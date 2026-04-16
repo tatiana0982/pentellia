@@ -1,7 +1,7 @@
 # Pentellia Security Platform — Technical Reference
 
 **Document Version:** 1.0  
-**Classification:** Internal — Client Handover  
+**Classification:** Internal 
 **Prepared by:** Dev Jadiya
 **Status:** Production Ready
 
