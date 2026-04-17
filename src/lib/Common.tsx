@@ -177,10 +177,18 @@ export function CommonScanReport({
     return () => observer.disconnect();
   }, []);
 
+  // ADDED: back to top visibility
+  const [showBackTop, setShowBackTop] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowBackTop(window.scrollY > 400);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <div className="flex flex-col min-h-screen font-sans bg-[#0B0C15] text-slate-200 selection:bg-indigo-500/30">
+    <div className="flex flex-col min-h-screen font-sans bg-[#07040f] text-gray-200 selection:bg-indigo-500/30">
       {/* --- Sticky Navigation Header --- */}
-      <div className="sticky top-0 z-40 w-full bg-[#0B0C15]/95 backdrop-blur-xl border-b border-white/10 shadow-lg transition-all duration-300">
+      <div className="sticky top-0 z-40 w-full bg-[#07040f]/98 backdrop-blur-2xl border-b border-indigo-500/[0.12] shadow-[0_1px_0_0_rgba(99,102,241,0.08)] transition-all duration-300">
         <div className="flex items-center gap-2 px-6 h-16 overflow-x-auto no-scrollbar max-w-7xl mx-auto w-full">
           <NavButton
             label="Executive Summary"
@@ -203,20 +211,20 @@ export function CommonScanReport({
         </div>
       </div>
 
-      <div className="flex flex-col gap-16 p-6 pb-40 max-w-7xl mx-auto w-full mt-4">
+      <div className="flex flex-col gap-20 p-6 pb-40 max-w-7xl mx-auto w-full mt-4">
         {/* --- SECTION 1: EXECUTIVE SUMMARY --- */}
         <section id="executive" className="space-y-8 scroll-mt-28">
           <div className="space-y-2">
-            <h2 className="text-3xl font-bold text-white tracking-tight">
+            <h2 className="text-2xl font-semibold text-white tracking-tight">
               Executive Summary
             </h2>
-            <p className="text-slate-400">
+            <p className="text-white/40 text-sm">
               High-level overview of the security posture.
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-1 bg-[#0B0C15] border border-white/10 relative overflow-hidden flex flex-col justify-center">
+            <Card className="lg:col-span-1 bg-gradient-to-br from-[#0f0a1f] via-[#0b0c18] to-[#07040f] border border-indigo-500/20 relative overflow-hidden flex flex-col justify-center shadow-[0_0_0_1px_rgba(99,102,241,0.08),0_8px_32px_rgba(0,0,0,0.4)] hover:border-indigo-500/30 transition-all duration-200">
               <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/5 to-transparent pointer-events-none" />
               <CardContent className="p-8 text-center">
                 <div className="relative inline-flex items-center justify-center mb-4">
@@ -232,7 +240,7 @@ export function CommonScanReport({
                       <span className="text-5xl font-bold text-white block">
                         {riskScore}
                       </span>
-                      <span className="text-[10px] uppercase tracking-widest text-slate-500">
+                      <span className="text-[10px] uppercase tracking-widest text-white/25">
                         Risk Score
                       </span>
                     </div>
@@ -244,14 +252,14 @@ export function CommonScanReport({
               </CardContent>
             </Card>
 
-            <Card className="lg:col-span-2 bg-[#0B0C15] border border-white/10">
-              <CardHeader className="border-b border-white/5 pb-4">
-                <CardTitle className="text-base text-slate-200 flex items-center gap-2">
+            <Card className="lg:col-span-2 bg-gradient-to-br from-[#0b0c18] to-[#07040f] border border-indigo-500/[0.12] shadow-[0_0_0_1px_rgba(99,102,241,0.06),0_8px_32px_rgba(0,0,0,0.4)] hover:border-indigo-500/20 transition-all duration-200">
+              <CardHeader className="border-b border-indigo-500/[0.08] pb-4">
+                <CardTitle className="text-sm font-semibold text-white/80 flex items-center gap-2">
                   <Activity className="h-4 w-4 text-indigo-400" /> Assessment Overview
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
-                <div className="p-4 rounded-lg bg-white/[0.02] border border-white/5 text-sm text-slate-300 leading-relaxed font-light">
+                <div className="p-4 rounded-lg bg-indigo-500/[0.04] border border-indigo-500/[0.1] text-sm text-white/75 leading-relaxed">
                   {execSummary ||
                     "The automated assessment has concluded. Review the findings below for specific vulnerabilities and remediation steps."}
                 </div>
@@ -278,7 +286,7 @@ export function CommonScanReport({
                 {/* ADDED: intelligence link — assets + findings + top category */}
                 {(summary.affected_assets !== undefined || summary.top_categories?.length > 0) && (
                   <div className="flex flex-wrap items-center gap-3 pt-1">
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-white/35">
                       {summary.affected_assets || 0} asset(s) · {summary.total_findings || allFindings.length} finding(s)
                     </span>
                     {summary.top_categories?.length > 0 && (
@@ -299,7 +307,7 @@ export function CommonScanReport({
             {/* ADDED FIX 3: summary findings elevated above all other findings */}
             {allFindings.some((f: any) => f.category === "summary") && (
               <div className="space-y-3">
-                <h3 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest px-1">
+                <h3 className="text-[10px] font-bold text-indigo-400/80 uppercase tracking-widest px-1 flex items-center gap-2">
                   Intelligence Summary
                 </h3>
                 {allFindings
@@ -327,17 +335,17 @@ export function CommonScanReport({
               </div>
             )}
             <div className="flex flex-col gap-4">
-              <h2 className="text-2xl font-bold text-white tracking-tight">
+              <h2 className="text-xl font-semibold text-white tracking-tight">
                 Detailed Findings
                 {allFindings.length > 0 && (
-                  <span className="ml-3 text-sm font-normal text-slate-500">
+                  <span className="ml-3 text-sm font-normal text-white/30">
                     {allFindings.length} result{allFindings.length !== 1 ? "s" : ""}
                   </span>
                 )}
               </h2>
 
               {/* FILTER BAR */}
-              <div className="flex flex-wrap items-center gap-2 p-1 bg-white/[0.02] border border-white/5 rounded-lg w-fit">
+              <div className="flex flex-wrap items-center gap-2 p-1 bg-indigo-500/[0.04] border border-indigo-500/[0.12] rounded-lg w-fit">
                 <FilterButton
                   label="All Findings"
                   count={allFindings.length}
@@ -345,7 +353,7 @@ export function CommonScanReport({
                   onClick={selectAll}
                   variant="all"
                 />
-                <div className="w-px h-6 bg-white/10 mx-1" />
+                <div className="w-px h-6 bg-indigo-500/20 mx-1" />
                 <FilterButton
                   label="Critical"
                   count={counts.critical}
@@ -404,23 +412,23 @@ export function CommonScanReport({
               return (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 px-1">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Grouped Host View</span>
-                    <span className="text-[9px] text-slate-600">({multiIp.length} host{multiIp.length !== 1 ? "s" : ""})</span>
+                    <span className="text-[10px] font-bold text-indigo-400/70 uppercase tracking-widest">Grouped Host View</span>
+                    <span className="text-[9px] text-white/25">({multiIp.length} host{multiIp.length !== 1 ? "s" : ""})</span>
                   </div>
                   {multiIp.map(([ip, findings]) => (
-                    <div key={ip} className="rounded-xl border border-white/10 bg-[#0B0C15] overflow-hidden">
-                      <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5 bg-white/[0.02]">
-                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">Host</span>
+                    <div key={ip} className="rounded-xl border border-indigo-500/[0.15] bg-gradient-to-br from-[#0b0c18] to-[#08060f] overflow-hidden">
+                      <div className="flex items-center gap-3 px-5 py-3 border-b border-indigo-500/[0.1] bg-indigo-500/[0.04]">
+                        <span className="text-[10px] text-white/30 uppercase tracking-widest">Host</span>
                         <span className="text-sm font-mono font-bold text-white">{ip}</span>
-                        <span className="ml-auto text-[10px] text-slate-600">{findings.length} port{findings.length !== 1 ? "s" : ""}</span>
+                        <span className="ml-auto text-[10px] text-white/25">{findings.length} port{findings.length !== 1 ? "s" : ""}</span>
                       </div>
-                      <div className="divide-y divide-white/[0.04]">
+                      <div className="divide-y divide-white/[0.03]">
                         {findings.map((f: any, i: number) => (
                           <div key={i} className="flex items-center gap-4 px-5 py-2.5">
                             <span className="font-mono text-sm text-indigo-300 w-12 shrink-0">{f.evidence.additional.port}</span>
-                            <span className="text-xs text-slate-400">{f.evidence.additional.service || "—"}</span>
+                            <span className="text-xs text-white/50">{f.evidence.additional.service || "—"}</span>
                             {f.evidence.additional.country && (
-                              <span className="text-[10px] text-slate-600 ml-auto">{f.evidence.additional.country}</span>
+                              <span className="text-[10px] text-white/25 ml-auto">{f.evidence.additional.country}</span>
                             )}
                           </div>
                         ))}
@@ -460,10 +468,10 @@ export function CommonScanReport({
                       <ExpandableFindingCard key={idx} finding={finding} />
                     ))
                   ) : (severityFilter.size > 0 && !isAllSelected && !isOnlyLowInfoSelected) ? (
-                    <div className="p-8 text-center border border-dashed border-white/10 rounded-xl bg-white/[0.01]">
+                    <div className="p-8 text-center border border-dashed border-indigo-500/[0.12] rounded-xl bg-indigo-500/[0.02]">
                       <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mx-auto mb-2" />
-                      <h3 className="text-base font-medium text-white">No Issues Found</h3>
-                      <p className="text-slate-500 text-xs mt-1">No vulnerabilities match the current filter.</p>
+                      <h3 className="text-base font-medium text-white/80">No Issues Found</h3>
+                      <p className="text-white/30 text-xs mt-1">No vulnerabilities match the current filter.</p>
                     </div>
                   ) : null}
                 </div>
@@ -474,8 +482,8 @@ export function CommonScanReport({
             {secondaryFindings.length > 0 && (
               <div className="mt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex items-center gap-2 mb-4 px-1">
-                  <Info className="w-4 h-4 text-slate-400" />
-                  <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wide">
+                  <Info className="w-4 h-4 text-indigo-400/60" />
+                  <h3 className="text-sm font-semibold text-white/50 uppercase tracking-widest">
                     Informational & Low Severity
                   </h3>
                 </div>
@@ -491,9 +499,9 @@ export function CommonScanReport({
 
         {/* --- SECTION 3: METHODOLOGY --- */}
         <section id="methodology" className="space-y-8 scroll-mt-28">
-          <h2 className="text-2xl font-bold text-white tracking-tight">Scope & Methodology</h2>
+          <h2 className="text-xl font-semibold text-white tracking-tight">Scope & Methodology</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="bg-[#0B0C15] border border-white/10">
+            <Card className="bg-gradient-to-br from-[#0b0c18] to-[#07040f] border border-indigo-500/[0.12] shadow-[0_0_0_1px_rgba(99,102,241,0.06)] hover:border-indigo-500/20 transition-all duration-200">
               <CardHeader>
                 <CardTitle className="text-sm font-medium text-slate-300 flex items-center gap-2">
                   <Cpu className="w-4 h-4" /> Configuration Profile
@@ -525,7 +533,7 @@ export function CommonScanReport({
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-[#0B0C15] border border-white/10">
+            <Card className="bg-gradient-to-br from-[#0b0c18] to-[#07040f] border border-indigo-500/[0.12] shadow-[0_0_0_1px_rgba(99,102,241,0.06)] hover:border-indigo-500/20 transition-all duration-200">
               <CardHeader>
                 <CardTitle className="text-sm font-medium text-slate-300 flex items-center gap-2">
                   <Layers className="w-4 h-4" /> Execution Chain
@@ -589,8 +597,8 @@ export function CommonScanReport({
         ═══════════════════════════════════════════════════════════ */}
         {(owaspCompliance || sansCompliance) && (
           <section id="compliance" className="space-y-6 scroll-mt-28">
-            <h2 className="text-2xl font-bold text-white tracking-tight">Compliance & Framework Mapping</h2>
-            <p className="text-slate-500 text-sm">Automated mapping against OWASP Top 10 (2025) and SANS/CWE Top 25</p>
+            <h2 className="text-xl font-semibold text-white tracking-tight flex items-center gap-3">Compliance & Framework Mapping</h2>
+            <p className="text-white/40 text-sm">Automated mapping against OWASP Top 10 (2025) and SANS/CWE Top 25</p>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               {owaspCompliance && (
                 <ComplianceBlock
@@ -621,8 +629,8 @@ export function CommonScanReport({
         ═══════════════════════════════════════════════════════════ */}
         {(meta.scan_id || rawReference) && (
           <section className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Technical Metadata</h3>
-            <Card className="bg-[#0B0C15] border border-white/10">
+            <h3 className="text-xs font-bold text-white/30 uppercase tracking-widest">Technical Metadata</h3>
+            <Card className="bg-gradient-to-br from-[#0b0c18] to-[#07040f] border border-indigo-500/[0.12] shadow-[0_0_0_1px_rgba(99,102,241,0.06)] hover:border-indigo-500/20 transition-all duration-200">
               <CardContent className="p-4">
                 <div className="space-y-3">
                   <ConfigRow label="Scan ID" value={meta.scan_id} mono />
@@ -641,6 +649,23 @@ export function CommonScanReport({
         )}
 
       </div>
+
+      {/* ADDED: Back to top floating button */}
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Back to top"
+        className={cn(
+          "fixed bottom-6 right-6 z-50 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300",
+          "bg-indigo-600/90 border border-indigo-500/60 text-white",
+          "shadow-[0_0_20px_rgba(99,102,241,0.4),0_4px_16px_rgba(0,0,0,0.4)]",
+          "hover:scale-110 hover:bg-indigo-500 hover:shadow-[0_0_28px_rgba(99,102,241,0.6)]",
+          showBackTop ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-4 pointer-events-none"
+        )}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+          <polyline points="18 15 12 9 6 15" />
+        </svg>
+      </button>
     </div>
   );
 }
@@ -673,14 +698,14 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
   return (
     // UPDATED: summary findings get indigo accent, clean findings get emerald, rest default
     <div className={cn(
-      "group rounded-xl border bg-[#0B0C15] overflow-hidden transition-all",
+      "group rounded-xl border bg-gradient-to-br from-[#0b0c18] to-[#08060f] overflow-hidden transition-all duration-200",
       isSummaryFinding
         ? "border-indigo-500/25 hover:border-indigo-500/40"
         : isClean
           ? "border-emerald-500/20 hover:border-emerald-500/35"
-          : "border-white/10 hover:border-white/20"
+          : "border-white/[0.07] hover:border-indigo-500/30 hover:shadow-[0_0_0_1px_rgba(99,102,241,0.1)]"
     )}>
-      <div className="p-6 cursor-pointer select-none flex flex-col md:flex-row gap-4 items-start" onClick={() => setExpanded(!expanded)}>
+      <div className="p-5 cursor-pointer select-none flex flex-col md:flex-row gap-4 items-start" onClick={() => setExpanded(!expanded)}>
         {/* UPDATED: clean findings get a shield icon instead of severity icon */}
         {isClean
           ? <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20 shrink-0">
@@ -711,7 +736,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                 {isSummaryFinding ? "Summary" : finding.category}
               </span>
             )}
-            <h4 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">{finding.title}</h4>
+            <h4 className="text-base font-semibold text-white/90 group-hover:text-indigo-300 transition-colors">{finding.title}</h4>
           </div>
           {/* ADDED: clean label subtitle + badge */}
           {isClean && (
@@ -729,16 +754,16 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
             </span>
           )}
           {!expanded && finding.description && (
-            <p className="text-sm text-slate-500 line-clamp-1">{finding.description}</p>
+            <p className="text-sm text-white/40 line-clamp-1 mt-0.5">{finding.description}</p>
           )}
         </div>
         <div className="flex items-center gap-6 shrink-0">
           {/* UPDATED: confidence with tooltip */}
           <div className="hidden md:block text-right" title="Confidence: likelihood accuracy of this finding (0-100%)">
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Confidence</div>
+            <div className="text-[10px] text-white/30 uppercase tracking-widest mb-1">Confidence</div>
             <ConfidenceBar score={finding.confidence} />
           </div>
-          {expanded ? <ChevronUp className="w-5 h-5 text-slate-500" /> : <ChevronDown className="w-5 h-5 text-slate-500" />}
+          {expanded ? <ChevronUp className="w-4 h-4 text-white/25" /> : <ChevronDown className="w-4 h-4 text-white/25" />}
         </div>
       </div>
 
@@ -758,22 +783,22 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
         };
 
         return (
-          <div className="p-6 pt-0 grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-top-2">
+          <div className="px-5 pb-5 pt-0 grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in slide-in-from-top-2">
             {/* Left: Description + NVD + Evidence */}
             <div className="lg:col-span-2 space-y-6">
 
               {/* Description */}
               <div>
-                <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Description</h5>
-                <p className="text-sm text-slate-300 leading-relaxed">{finding.description}</p>
+                <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-2">Description</h5>
+                <p className="text-sm text-white/70 leading-relaxed">{finding.description}</p>
               </div>
 
               {/* NVD / CVSS Block — only shown if nvd_enrichment exists */}
               {nvd && (
-                <div className="rounded-xl bg-[#07040f] border border-indigo-500/20 p-4 space-y-4">
+                <div className="rounded-xl bg-indigo-950/30 border border-indigo-500/20 p-4 space-y-4 shadow-[inset_0_1px_0_rgba(99,102,241,0.1)]">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="h-2 w-2 rounded-full bg-indigo-400" />
-                    <h5 className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
+                    <h5 className="text-[10px] font-bold text-indigo-300/90 uppercase tracking-widest">
                       NVD Vulnerability Intelligence
                     </h5>
                     {cveId && (
@@ -787,9 +812,9 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Base Score */}
                     {nvd.cvss_base_score !== undefined && nvd.cvss_base_score !== null && (
-                      <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/[0.03] border border-white/[0.07]">
                         <span className="text-2xl font-bold text-white">{nvd.cvss_base_score}</span>
-                        <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1">CVSS Base</span>
+                        <span className="text-[9px] uppercase tracking-widest text-white/25 mt-1">CVSS Base</span>
                       </div>
                     )}
 
@@ -799,23 +824,23 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                         <span className={`text-sm font-bold uppercase px-2 py-1 rounded border ${cvssColor(nvd.cvss_severity)}`}>
                           {nvd.cvss_severity}
                         </span>
-                        <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1">Severity</span>
+                        <span className="text-[9px] uppercase tracking-widest text-white/25 mt-1">Severity</span>
                       </div>
                     )}
 
                     {/* Exploitability Score */}
                     {nvd.exploitability_score !== undefined && (
-                      <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/[0.03] border border-white/[0.07]">
                         <span className="text-2xl font-bold text-orange-400">{nvd.exploitability_score}</span>
-                        <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1">Exploitability</span>
+                        <span className="text-[9px] uppercase tracking-widest text-white/25 mt-1">Exploitability</span>
                       </div>
                     )}
 
                     {/* Impact Score */}
                     {nvd.impact_score !== undefined && (
-                      <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-white/[0.03] border border-white/[0.07]">
                         <span className="text-2xl font-bold text-red-400">{nvd.impact_score}</span>
-                        <span className="text-[9px] uppercase tracking-wider text-slate-500 mt-1">Impact</span>
+                        <span className="text-[9px] uppercase tracking-widest text-white/25 mt-1">Impact</span>
                       </div>
                     )}
                   </div>
@@ -823,8 +848,8 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                   {/* CVSS v3 Vector String */}
                   {nvd.cvss_v3?.vector_string && (
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">CVSS v3 Vector</span>
-                      <div className="mt-1 font-mono text-[11px] text-indigo-300 bg-indigo-500/5 border border-indigo-500/15 rounded px-3 py-2 break-all">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/30">CVSS v3 Vector</span>
+                      <div className="mt-1 font-mono text-[11px] text-indigo-300/90 bg-indigo-500/[0.06] border border-indigo-500/[0.15] rounded-lg px-3 py-2 break-all">
                         {nvd.cvss_v3.vector_string}
                       </div>
                     </div>
@@ -833,7 +858,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                   {/* References */}
                   {refs.length > 0 && (
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-2">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/30 block mb-2">
                         References ({refs.length})
                       </span>
                       <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
@@ -877,13 +902,13 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                         {/* Affected hosts */}
                         {add.affected_hosts?.length > 0 && (
                           <div>
-                            <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Affected Hosts ({add.affected_hosts.length})</h5>
+                            <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-2">Affected Hosts ({add.affected_hosts.length})</h5>
                             <div className="space-y-2">
                               {add.affected_hosts.map((h: any, i: number) => (
-                                <div key={i} className="flex flex-wrap items-center gap-3 rounded-lg bg-[#05060A] border border-white/10 px-4 py-2.5">
-                                  <span className="font-mono text-sm text-white">{h.ip}:{h.port}</span>
-                                  <span className="text-xs text-slate-400">{h.service}</span>
-                                  {h.version && <span className="text-xs font-mono text-slate-500">v{h.version}</span>}
+                                <div key={i} className="flex flex-wrap items-center gap-3 rounded-lg bg-black/30 border border-white/[0.06] px-4 py-2.5">
+                                  <span className="font-mono text-sm text-indigo-200">{h.ip}:{h.port}</span>
+                                  <span className="text-xs text-white/50">{h.service}</span>
+                                  {h.version && <span className="text-xs font-mono text-white/30">v{h.version}</span>}
                                 </div>
                               ))}
                             </div>
@@ -895,13 +920,13 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                             {/* Affected products */}
                             {nvd.affected_products?.length > 0 && (
                               <div>
-                                <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Affected Products</h5>
+                                <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-2">Affected Products</h5>
                                 <div className="flex flex-wrap gap-1.5">
                                   {nvd.affected_products.slice(0, 8).map((p: string) => (
                                     <span key={p} className="text-[11px] font-mono px-2 py-0.5 rounded border text-slate-400 bg-white/[0.03] border-white/10">{p}</span>
                                   ))}
                                   {nvd.affected_products.length > 8 && (
-                                    <span className="text-[11px] text-slate-600">+{nvd.affected_products.length - 8} more</span>
+                                    <span className="text-[11px] text-white/25">+{nvd.affected_products.length - 8} more</span>
                                   )}
                                 </div>
                               </div>
@@ -910,7 +935,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                             {/* Weaknesses / CWE */}
                             {nvd.weaknesses?.length > 0 && (
                               <div>
-                                <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Weaknesses</h5>
+                                <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-2">Weaknesses</h5>
                                 <div className="flex flex-wrap gap-1.5">
                                   {nvd.weaknesses.map((w: string) => (
                                     <span key={w} className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded border text-orange-300 bg-orange-500/10 border-orange-500/20">{w}</span>
@@ -922,7 +947,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                             {/* GitHub POCs */}
                             {nvd.github_pocs?.length > 0 && (
                               <div>
-                                <h5 className="text-xs font-bold text-rose-500/70 uppercase mb-2">
+                                <h5 className="text-[10px] font-bold text-rose-400/70 uppercase tracking-widest mb-2">
                                   Public Exploit PoCs — GitHub ({nvd.github_pocs.length})
                                 </h5>
                                 <div className="space-y-2">
@@ -932,7 +957,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                                       <div className="flex-1 min-w-0">
                                         <p className="text-sm font-mono text-rose-300 group-hover:text-rose-200 truncate">{poc.name}</p>
                                         {poc.description && <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{poc.description}</p>}
-                                        {poc.language && <span className="text-[10px] text-slate-600">{poc.language}</span>}
+                                        {poc.language && <span className="text-[10px] text-white/25">{poc.language}</span>}
                                       </div>
                                       <div className="flex items-center gap-1 shrink-0">
                                         <span className="text-[11px] text-yellow-400">★</span>
@@ -947,7 +972,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                             {/* Exploit references */}
                             {nvd.exploit_references?.length > 0 && (
                               <div>
-                                <h5 className="text-xs font-bold text-orange-500/70 uppercase mb-2">Exploit References ({nvd.exploit_references.length})</h5>
+                                <h5 className="text-[10px] font-bold text-orange-400/70 uppercase tracking-widest mb-2">Exploit References ({nvd.exploit_references.length})</h5>
                                 <div className="space-y-1.5">
                                   {nvd.exploit_references.map((r: any, i: number) => (
                                     <a key={i} href={r.url} target="_blank" rel="noopener noreferrer"
@@ -965,7 +990,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                             {/* Patch references */}
                             {nvd.patch_references?.length > 0 && (
                               <div>
-                                <h5 className="text-xs font-bold text-emerald-500/70 uppercase mb-2">Patch References ({nvd.patch_references.length})</h5>
+                                <h5 className="text-[10px] font-bold text-emerald-400/70 uppercase tracking-widest mb-2">Patch References ({nvd.patch_references.length})</h5>
                                 <div className="space-y-1.5">
                                   {nvd.patch_references.slice(0, 4).map((r: any, i: number) => (
                                     <a key={i} href={r.url} target="_blank" rel="noopener noreferrer"
@@ -982,7 +1007,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
 
                             {/* Published / modified dates */}
                             {(nvd.published_date || nvd.last_modified) && (
-                              <div className="flex flex-wrap gap-4 text-xs text-slate-600">
+                              <div className="flex flex-wrap gap-4 text-xs text-white/25">
                                 {nvd.published_date && <span>Published: <span className="text-slate-500 font-mono">{nvd.published_date?.split("T")[0]}</span></span>}
                                 {nvd.last_modified && <span>Last modified: <span className="text-slate-500 font-mono">{nvd.last_modified?.split("T")[0]}</span></span>}
                               </div>
@@ -995,33 +1020,33 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                     {/* ── BREACH INTEL ── structured credential exposure */}
                     {isBreach && (
                       <div>
-                        <h5 className="text-xs font-bold text-slate-500 uppercase mb-3">Breach Record Details</h5>
-                        <div className="rounded-lg bg-[#05060A] border border-white/10 overflow-hidden">
+                        <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-3">Breach Record Details</h5>
+                        <div className="rounded-lg bg-black/30 border border-white/[0.06] overflow-hidden">
                           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y divide-white/5">
                             {add.source && (
                               <div className="p-3">
-                                <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-1">Source</p>
+                                <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest mb-1">Source</p>
                                 <p className="text-sm font-semibold text-rose-300">{add.source}</p>
                               </div>
                             )}
                             {add.record_count !== undefined && (
                               <div className="p-3">
-                                <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-1">Records</p>
+                                <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest mb-1">Records</p>
                                 <p className="text-2xl font-black text-white tabular-nums">{add.record_count}</p>
                               </div>
                             )}
                             {add.has_passwords !== undefined && (
                               <div className="p-3">
-                                <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-1">Passwords</p>
-                                <p className={`text-sm font-bold ${add.has_passwords ? "text-rose-400" : "text-slate-500"}`}>
+                                <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest mb-1">Passwords</p>
+                                <p className={`text-sm font-bold ${add.has_passwords ? "text-rose-400" : "text-white/35"}`}>
                                   {add.has_passwords ? "Exposed" : "Not found"}
                                 </p>
                               </div>
                             )}
                             {add.has_hashes !== undefined && (
                               <div className="p-3">
-                                <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-1">Hashes</p>
-                                <p className={`text-sm font-bold ${add.has_hashes ? "text-orange-400" : "text-slate-500"}`}>
+                                <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest mb-1">Hashes</p>
+                                <p className={`text-sm font-bold ${add.has_hashes ? "text-orange-400" : "text-white/35"}`}>
                                   {add.has_hashes ? "Present" : "None"}
                                 </p>
                               </div>
@@ -1029,7 +1054,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                           </div>
                           {add.fields_exposed?.length > 0 && (
                             <div className="p-3 border-t border-white/5">
-                              <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">Fields Exposed</p>
+                              <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest mb-2">Fields Exposed</p>
                               <div className="flex flex-wrap gap-1.5">
                                 {add.fields_exposed.map((f: string) => (
                                   <span key={f} className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded border text-rose-300 bg-rose-500/10 border-rose-500/20 uppercase">{f}</span>
@@ -1044,14 +1069,14 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                     {/* ── BREACH INTEL SUMMARY ── overall stats */}
                     {!isBreach && !isCVE && !isHost && !isStats && add.records_returned !== undefined && (
                       <div>
-                        <h5 className="text-xs font-bold text-slate-500 uppercase mb-3">Breach Intelligence Summary</h5>
+                        <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-3">Breach Intelligence Summary</h5>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {[
                             { k: "Total Results",   v: add.total_results   },
                             { k: "Records Returned",v: add.records_returned },
                             { k: "Source Count",    v: add.source_count    },
                           ].filter(r => r.v !== undefined).map(({ k, v }) => (
-                            <div key={k} className="rounded-lg bg-[#05060A] border border-white/10 p-3 text-center">
+                            <div key={k} className="rounded-lg bg-black/30 border border-white/[0.06] p-3 text-center">
                               <p className="text-2xl font-black text-white tabular-nums">{String(v)}</p>
                               <p className="text-[9px] text-slate-600 uppercase tracking-wider mt-1">{k}</p>
                             </div>
@@ -1073,7 +1098,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                     {/* ── SHODAN HOST ── IP, port, service, banner */}
                     {isHost && (
                       <div>
-                        <h5 className="text-xs font-bold text-slate-500 uppercase mb-3">Host Intelligence</h5>
+                        <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-3">Host Intelligence</h5>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {[
                             { k:"IP Address",   v:add.ip,           mono:true  },
@@ -1091,7 +1116,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                         </div>
                         {hasBanner && (
                           <div className="mt-3">
-                            <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">Service Banner</p>
+                            <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest mb-2">Service Banner</p>
                             <pre className="text-xs font-mono text-emerald-400/80 bg-[#05060A] border border-white/10 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
                               {add.banner_preview}
                             </pre>
@@ -1103,7 +1128,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                     {/* ── SHODAN STATS SUMMARY ── */}
                     {isStats && (
                       <div>
-                        <h5 className="text-xs font-bold text-slate-500 uppercase mb-3">Scan Statistics</h5>
+                        <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-3">Scan Statistics</h5>
                         {add.query && (
                           <div className="flex items-center justify-between gap-3 rounded-lg bg-[#05060A] border border-white/10 px-4 py-2.5 mb-3">
                             <div className="flex items-center gap-3">
@@ -1120,18 +1145,18 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                         )}
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-3">
                           {Object.entries(add.statistics).map(([k, v]) => (
-                            <div key={k} className="rounded-lg bg-[#05060A] border border-white/10 p-3 text-center">
+                            <div key={k} className="rounded-lg bg-black/30 border border-white/[0.06] p-3 text-center">
                               <p className="text-xl font-black text-white tabular-nums">{String(v)}</p>
                               {/* UPDATED: formatLabel — replace underscores + title case */}
-                              <p className="text-[9px] text-slate-600 uppercase tracking-wider mt-1.5 leading-tight">
+                              <p className="text-[9px] text-white/25 uppercase tracking-wider mt-1.5 leading-tight">
                                 {k.replace(/_/g," ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
                               </p>
                             </div>
                           ))}
                         </div>
                         {/* UPDATED: CVEs — always render, show zero state */}
-                        <div className="rounded-lg bg-[#05060A] border border-white/10 p-3">
-                          <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">
+                        <div className="rounded-lg bg-black/30 border border-white/[0.06] p-3">
+                          <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest mb-2">
                             {add.unique_cves?.length > 0 ? `CVEs Found (${add.unique_cves.length})` : "CVEs Detected"}
                           </p>
                           {add.unique_cves?.length > 0 ? (
@@ -1144,13 +1169,13 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                               ))}
                             </div>
                           ) : (
-                            <p className="text-xs text-slate-500">0 CVEs detected</p>
+                            <p className="text-xs text-white/30">0 CVEs detected</p>
                           )}
                         </div>
                         {/* UPDATED FIX 4: strict empty state — always render if field present */}
                         {add.exposed_services !== undefined && (
-                          <div className="rounded-lg bg-[#05060A] border border-white/10 p-3">
-                            <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">
+                          <div className="rounded-lg bg-black/30 border border-white/[0.06] p-3">
+                            <p className="text-[9px] font-bold text-white/25 uppercase tracking-widest mb-2">
                               Exposed Services {add.exposed_services?.length > 0 ? `(${add.exposed_services.length})` : ""}
                             </p>
                             {add.exposed_services?.length > 0 ? (
@@ -1160,19 +1185,19 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                                 ))}
                               </div>
                             ) : (
-                              <p className="text-xs text-slate-500">None detected</p>
+                              <p className="text-xs text-white/30">None detected</p>
                             )}
                           </div>
                         )}
                         {/* ADDED: vulnerable host count — always show */}
                         {add.vulnerable_host_count !== undefined && (
                           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#05060A] border border-white/10">
-                            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Vulnerable Hosts</span>
-                            <span className={add.vulnerable_host_count > 0 ? "text-sm font-black text-rose-400" : "text-sm font-black text-slate-400"}>
+                            <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Vulnerable Hosts</span>
+                            <span className={add.vulnerable_host_count > 0 ? "text-sm font-black text-rose-400" : "text-sm font-black text-white/55"}>
                               {add.vulnerable_host_count}
                             </span>
                             {add.vulnerable_host_count === 0 && (
-                              <span className="text-[10px] text-slate-600">— none affected</span>
+                              <span className="text-[10px] text-white/25">— none affected</span>
                             )}
                           </div>
                         )}
@@ -1182,7 +1207,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                     {/* UPDATED FIX 7: structured key-value grid fallback (not raw JSON dump) */}
                     {!isCVE && !isBreach && !isHost && !isStats && add.records_returned === undefined && finding.evidence && (
                       <div>
-                        <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Evidence</h5>
+                        <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-2">Evidence</h5>
                         {(() => {
                           const knownKeys = ["ip","port","service","statistics","cve_id","nvd_enrichment",
                             "banner_preview","country","organization","version","protocol",
@@ -1194,11 +1219,11 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                           const entries = Object.entries(displayData || {}).filter(([k]) => k !== "tool");
                           if (!entries.length) return null;
                           return (
-                            <div className="rounded-lg bg-[#05060A] border border-white/10 overflow-hidden">
+                            <div className="rounded-lg bg-black/30 border border-white/[0.06] overflow-hidden">
                               {entries.map(([k, v]) => (
-                                <div key={k} className="flex items-start gap-3 px-4 py-2 border-b border-white/[0.04] last:border-0">
-                                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider shrink-0 w-36 pt-0.5">{k.replace(/_/g," ")}</span>
-                                  <span className="text-[11px] font-mono text-slate-300 break-all">
+                                <div key={k} className="flex items-start gap-3 px-4 py-2 border-b border-white/[0.03] last:border-0">
+                                  <span className="text-[10px] font-bold text-white/25 uppercase tracking-wider shrink-0 w-36 pt-0.5">{k.replace(/_/g," ")}</span>
+                                  <span className="text-[11px] font-mono text-white/60 break-all">
                                     {typeof v === "object" ? JSON.stringify(v) : String(v)}
                                   </span>
                                 </div>
@@ -1214,18 +1239,18 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
             </div>
 
             {/* Right: Meta + Asset + Impact + Recommendation + Classification + Tags */}
-            <div className="space-y-6 border-t lg:border-t-0 lg:border-l border-white/5 pt-6 lg:pt-0 lg:pl-6">
+            <div className="space-y-5 border-t lg:border-t-0 lg:border-l border-indigo-500/[0.08] pt-5 lg:pt-0 lg:pl-6">
               {finding.affected_asset && (
                 <div>
-                  <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Affected Asset</h5>
-                  <div className="text-sm text-white bg-white/5 p-2 rounded border border-white/5 break-all font-mono">{finding.affected_asset}</div>
+                  <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-2">Affected Asset</h5>
+                  <div className="text-sm text-indigo-200 bg-indigo-500/[0.06] p-2 rounded border border-indigo-500/[0.12] break-all font-mono">{finding.affected_asset}</div>
                 </div>
               )}
 
               {finding.impact && (
                 <div>
-                  <h5 className="text-xs font-bold text-orange-500/80 uppercase mb-2">Impact</h5>
-                  <div className="text-sm text-slate-300 bg-orange-500/5 border border-orange-500/15 rounded p-3 leading-relaxed">
+                  <h5 className="text-[10px] font-bold text-orange-400/60 uppercase tracking-widest mb-2">Impact</h5>
+                  <div className="text-sm text-white/65 bg-orange-500/[0.06] border border-orange-500/[0.15] rounded-lg p-3 leading-relaxed">
                     {finding.impact}
                   </div>
                 </div>
@@ -1233,8 +1258,8 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
 
               {finding.recommendation && (
                 <div>
-                  <h5 className="text-xs font-bold text-emerald-500/80 uppercase mb-2">Recommended Action</h5>
-                  <div className="text-sm text-slate-300 bg-emerald-500/5 border border-emerald-500/15 rounded p-3 leading-relaxed">
+                  <h5 className="text-[10px] font-bold text-emerald-400/60 uppercase tracking-widest mb-2">Recommended Action</h5>
+                  <div className="text-sm text-white/65 bg-emerald-500/[0.06] border border-emerald-500/[0.15] rounded-lg p-3 leading-relaxed">
                     {finding.recommendation}
                   </div>
                 </div>
@@ -1242,17 +1267,17 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
 
               {(finding.owasp_category || finding.sans_category) && (
                 <div>
-                  <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Framework Mapping</h5>
+                  <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-2">Framework Mapping</h5>
                   <div className="space-y-2">
                     {finding.owasp_category && (
-                      <div className="rounded border border-white/5 bg-white/[0.02] px-3 py-2">
-                        <p className="text-[9px] text-slate-600 uppercase tracking-wider mb-0.5">OWASP 2025</p>
+                      <div className="rounded-lg border border-indigo-500/[0.1] bg-indigo-500/[0.04] px-3 py-2">
+                        <p className="text-[9px] text-white/25 uppercase tracking-wider mb-0.5">OWASP 2025</p>
                         <p className="text-xs text-purple-300 font-mono leading-snug">{finding.owasp_category}</p>
                       </div>
                     )}
                     {finding.sans_category && (
-                      <div className="rounded border border-white/5 bg-white/[0.02] px-3 py-2">
-                        <p className="text-[9px] text-slate-600 uppercase tracking-wider mb-0.5">SANS / CWE</p>
+                      <div className="rounded-lg border border-indigo-500/[0.1] bg-indigo-500/[0.04] px-3 py-2">
+                        <p className="text-[9px] text-white/25 uppercase tracking-wider mb-0.5">SANS / CWE</p>
                         <p className="text-xs text-purple-300 font-mono">{finding.sans_category}</p>
                       </div>
                     )}
@@ -1262,10 +1287,10 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
 
               {finding.tags?.length > 0 && (
                 <div>
-                  <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Tags</h5>
+                  <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-2">Tags</h5>
                   <div className="flex flex-wrap gap-1.5">
                     {finding.tags.map((t: string) => (
-                      <span key={t} className="text-[10px] font-mono px-2 py-0.5 rounded border text-slate-400 bg-white/[0.03] border-white/10">{t}</span>
+                      <span key={t} className="text-[10px] font-mono px-2 py-0.5 rounded border text-white/50 bg-indigo-500/[0.05] border-indigo-500/[0.12]">{t}</span>
                     ))}
                   </div>
                 </div>
@@ -1274,23 +1299,23 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
               {/* ADDED: source_tool */}
               {finding.source_tool && (
                 <div>
-                  <h5 className="text-xs font-bold text-slate-500 uppercase mb-1">Source Tool</h5>
-                  <p className="text-xs text-slate-400">{finding.source_tool}</p>
+                  <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-1">Source Tool</h5>
+                  <p className="text-xs text-white/60">{finding.source_tool}</p>
                 </div>
               )}
 
               {/* ADDED: category (if not already in badge) */}
               {finding.category && (
                 <div>
-                  <h5 className="text-xs font-bold text-slate-500 uppercase mb-1">Category</h5>
+                  <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-1">Category</h5>
                   <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded border text-slate-400 bg-white/[0.03] border-white/10 uppercase">{finding.category}</span>
                 </div>
               )}
 
               {finding.id && (
                 <div>
-                  <h5 className="text-xs font-bold text-slate-500 uppercase mb-1">Finding ID</h5>
-                  <p className="text-[11px] font-mono text-slate-600">{finding.id}</p>
+                  <h5 className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-1">Finding ID</h5>
+                  <p className="text-[11px] font-mono text-white/25">{finding.id}</p>
                 </div>
               )}
             </div>
@@ -1315,7 +1340,7 @@ function FilterButton({ label, count, active, onClick, variant }: any) {
     <button
       onClick={onClick}
       data-active={active}
-      className={cn("px-3 py-1.5 rounded-md text-xs font-medium border border-transparent transition-all cursor-pointer text-slate-500", styles[variant])}
+      className={cn("px-3 py-1.5 rounded-md text-xs font-medium border border-transparent transition-all cursor-pointer text-white/40", styles[variant])}
     >
       {label} <span className="text-[10px] opacity-70">({count})</span>
     </button>
@@ -1324,7 +1349,7 @@ function FilterButton({ label, count, active, onClick, variant }: any) {
 
 function NavButton({ label, onClick, active, icon }: any) {
   return (
-    <button onClick={onClick} className={cn("flex items-center px-6 h-10 rounded-full text-sm font-medium transition-all gap-2 border", active ? "bg-indigo-600 border-indigo-500 text-white shadow-lg" : "bg-white/5 border-white/5 text-slate-400 hover:text-white")}>
+    <button onClick={onClick} className={cn("flex items-center px-6 h-10 rounded-full text-sm font-medium transition-all gap-2 border", active ? "bg-indigo-600/90 border-indigo-500/80 text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]" : "bg-white/[0.03] border-white/[0.06] text-white/50 hover:text-white hover:bg-indigo-500/[0.08] hover:border-indigo-500/20 transition-all duration-150")}>
       {icon} {label}
     </button>
   );
@@ -1336,7 +1361,7 @@ function StatBox({ label, count, color }: any) {
     orange: "text-orange-400 border-orange-500/20 bg-orange-500/5",
     yellow: "text-yellow-400 border-yellow-500/20 bg-yellow-500/5",
     blue: "text-blue-400 border-blue-500/20 bg-blue-500/5",
-    slate: "text-slate-400 border-white/10 bg-white/5",
+    slate: "text-white/50 border-white/[0.06] bg-white/[0.03]",
   };
   return (
     <div className={cn("p-4 rounded-lg border flex flex-col items-center justify-center", colors[color])}>
@@ -1350,17 +1375,17 @@ function StatBox({ label, count, color }: any) {
 function ConfigRow({ label, value, mono }: { label: string; value?: string; mono?: boolean }) {
   if (!value) return null;
   return (
-    <div className="flex justify-between items-center py-2 border-b border-white/5 text-sm">
-      <span className="text-slate-500 shrink-0">{label}</span>
-      <span className={cn("truncate max-w-[220px] text-right", mono ? "text-slate-300 font-mono text-xs" : "text-slate-200")}>{value}</span>
+    <div className="flex justify-between items-center py-2.5 border-b border-white/[0.04] text-sm">
+      <span className="text-white/40 text-xs shrink-0">{label}</span>
+      <span className={cn("truncate max-w-[220px] text-right", mono ? "text-indigo-200 font-mono text-xs" : "text-white/80")}>{value}</span>
     </div>
   );
 }
 
 function SeverityIcon({ severity }: { severity: string }) {
   if (severity === "critical" || severity === "high" || severity === "medium")
-    return <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-white/5 border border-white/10"><AlertTriangle className={cn("w-5 h-5", severity === "critical" ? "text-red-500" : severity === "high" ? "text-orange-500" : "text-yellow-500")} /></div>;
-  return <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-white/5 border border-white/10"><Info className="w-5 h-5 text-blue-500" /></div>;
+    return <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-indigo-500/[0.08] border border-indigo-500/[0.15]"><AlertTriangle className={cn("w-5 h-5", severity === "critical" ? "text-red-500" : severity === "high" ? "text-orange-500" : "text-yellow-500")} /></div>;
+  return <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-indigo-500/[0.08] border border-indigo-500/[0.15]"><Info className="w-5 h-5 text-blue-500" /></div>;
 }
 
 function getRiskColorBorder(score: number) {
@@ -1374,7 +1399,7 @@ function ConfidenceBar({ score }: { score: number }) {
   const percentage = Math.round((score || 0) * 100);
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 w-16 bg-white/10 rounded-full overflow-hidden">
+      <div className="h-1.5 w-16 bg-white/[0.08] rounded-full overflow-hidden">
         <div className="h-full bg-emerald-500" style={{ width: `${percentage}%` }} />
       </div>
       <span className="text-xs text-slate-400 font-mono">{percentage}%</span>
@@ -1411,41 +1436,41 @@ function ComplianceBlock({ title, passed, failed, total, categories, type }: any
   };
 
   return (
-    <Card className="bg-[#0B0C15] border border-white/10 overflow-hidden">
+    <Card className="bg-gradient-to-br from-[#0b0c18] to-[#07040f] border border-indigo-500/[0.12] overflow-hidden shadow-[0_0_0_1px_rgba(99,102,241,0.06)]">
       <button className="w-full text-left" onClick={() => setOpen(!open)}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-slate-300">{title}</CardTitle>
+            <CardTitle className="text-sm font-semibold text-white/75">{title}</CardTitle>
             <div className="flex items-center gap-3">
               {failed > 0
                 ? <span className="text-[10px] font-black px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">{failed} FAILED</span>
                 : <span className="text-[10px] font-black px-2 py-0.5 rounded bg-white/5 text-slate-500 border border-white/10">{passed}/{total} PASS</span>
               }
-              {open ? <ChevronUp className="w-4 h-4 text-slate-600" /> : <ChevronDown className="w-4 h-4 text-slate-600" />}
+              {open ? <ChevronUp className="w-4 h-4 text-white/20" /> : <ChevronDown className="w-4 h-4 text-whate-600" />}
             </div>
           </div>
           {/* Progress bar */}
-          <div className="h-1 rounded-full bg-white/5 overflow-hidden mt-2">
+          <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden mt-2">
             <div className="h-full rounded-full bg-indigo-500/60" style={{ width: `${pct}%` }} />
           </div>
         </CardHeader>
       </button>
       {open && (
         <CardContent className="pt-0 px-0 pb-0">
-          <div className="divide-y divide-white/[0.04]">
+          <div className="divide-y divide-white/[0.03]">
             {entries.map(([name, data]: [string, any]) => (
-              <div key={name} className="flex items-center gap-3 px-6 py-2.5 hover:bg-white/[0.02] transition-colors">
+              <div key={name} className="flex items-center gap-3 px-6 py-2.5 hover:bg-indigo-500/[0.04] transition-colors">
                 <div className="shrink-0 w-3.5 h-3.5 flex items-center justify-center">
                   {data.safe
                     ? <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
                     : <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
                   }
                 </div>
-                <span className="text-[10px] font-black font-mono shrink-0 min-w-[42px]" style={{ color: data.safe ? "#4b5563" : "#f87171" }}>
+                <span className="text-[10px] font-black font-mono shrink-0 min-w-[42px]" style={{ color: data.safe ? "rgba(255,255,255,0.2)" : "#f87171" }}>
                   {getCode(name)}
                 </span>
                 <span className="text-[11px] flex-1 min-w-0 truncate" title={getLabel(name)}
-                  style={{ color: data.safe ? "#6b7280" : "#e2e8f0" }}>
+                  style={{ color: data.safe ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.85)" }}>
                   {getLabel(name)}
                 </span>
                 {data.count > 0 && (
@@ -1453,7 +1478,7 @@ function ComplianceBlock({ title, passed, failed, total, categories, type }: any
                 )}
                 <span className={cn(
                   "text-[9px] font-black uppercase px-1.5 py-0.5 rounded shrink-0",
-                  data.safe ? "bg-white/[0.04] text-slate-600" : "bg-red-500/10 text-red-400"
+                  data.safe ? "bg-white/[0.04] text-white/25" : "bg-red-500/10 text-red-400"
                 )}>
                   {data.safe ? "PASS" : "FAIL"}
                 </span>
