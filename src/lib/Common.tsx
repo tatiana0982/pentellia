@@ -763,6 +763,59 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                       </div>
                     </div>
                   )}
+                  {/* ADDED: Individual credential records table — injected by normalizer */}
+                  {add.records?.length > 0 && (
+                    <div style={{ marginTop:14 }}>
+                      <ELabel style={{ color:"rgba(248,113,113,0.6)" }}>
+                        Credential Records ({add.records.length})
+                      </ELabel>
+                      <div style={{ overflowX:"auto", borderRadius:8, border:"1px solid rgba(239,68,68,0.2)", marginTop:6 }}>
+                        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:11, fontFamily:"monospace" }}>
+                          <thead>
+                            <tr style={{ background:"rgba(239,68,68,0.08)", borderBottom:"1px solid rgba(239,68,68,0.15)" }}>
+                              {["#","Password","SHA1","Hash (truncated)","Source"].map(h => (
+                                <th key={h} style={{ padding:"7px 12px", textAlign:"left", fontSize:9, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(248,113,113,0.6)", whiteSpace:"nowrap" }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {add.records.map((r: any, i: number) => (
+                              <tr key={i} style={{ borderBottom:"1px solid rgba(255,255,255,0.04)", background: i%2===0 ? "rgba(0,0,0,0.2)" : "transparent" }}>
+                                <td style={{ padding:"6px 12px", color:"rgba(255,255,255,0.25)", fontSize:10 }}>{i+1}</td>
+                                <td style={{ padding:"6px 12px" }}>
+                                  {r.password ? (
+                                    <span style={{ color:"#fca5a5", fontWeight:600 }}>{r.password}</span>
+                                  ) : (
+                                    <span style={{ color:"rgba(255,255,255,0.2)", fontStyle:"italic" }}>hashed only</span>
+                                  )}
+                                </td>
+                                <td style={{ padding:"6px 12px" }}>
+                                  {r.sha1 ? (
+                                    <span style={{ color:"rgba(255,255,255,0.45)", fontSize:10 }} title={r.sha1}>
+                                      {String(r.sha1).slice(0,16)}…
+                                    </span>
+                                  ) : <span style={{ color:"rgba(255,255,255,0.15)" }}>—</span>}
+                                </td>
+                                <td style={{ padding:"6px 12px" }}>
+                                  {r.hash ? (
+                                    <span style={{ color:"rgba(255,255,255,0.35)", fontSize:10 }} title={r.hash}>
+                                      {String(r.hash).slice(0,20)}…
+                                    </span>
+                                  ) : <span style={{ color:"rgba(255,255,255,0.15)" }}>—</span>}
+                                </td>
+                                <td style={{ padding:"6px 12px" }}>
+                                  <span style={{ color:"#fb923c", fontSize:10 }}>{r.sources || r.source || "—"}</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p style={{ margin:"6px 0 0", fontSize:10, color:"rgba(255,255,255,0.2)" }}>
+                        ⚠ Credential data is for authorized security assessment only. Handle with strict confidentiality.
+                      </p>
+                    </div>
+                  )}
                 </EBlock>
               )}
 

@@ -104,7 +104,65 @@ export async function GET(
     const resultRes = await safeFetch(`${toolsBaseUrl}/results/${externalJobId}?normalized=true`, {
       headers: { "X-API-Key": apiKey },
     });
-    const result  = resultRes.ok && resultRes.json ? resultRes.json : { error: "Could not fetch results" };
+    let result: any = resultRes.ok && resultRes.json ? resultRes.json : { error: "Could not fetch results" };
+
+    // ── BREACH RECORDS INJECTION ──────────────────────────────────────────────
+    // Fetch raw (non-normalized) result to extract individual credential records
+    // and inject them into each breach finding's evidence for UI rendering.
+    // This is purely additive — normalized data is unchanged, records are added.
+    try {
+      const tool = (scan.tool_name || scan.scan_type || "").toLowerCase();
+      if (tool.includes("breach") && result?.findings?.length) {
+        const rawRes = await safeFetch(`${toolsBaseUrl}/results/${externalJobId}`, {
+          headers: { "X-API-Key": apiKey },
+        });
+        if (rawRes.ok && rawRes.json) {
+          // Raw result may be wrapped in { result: { results: [...] } } or have results at top level
+          const rawData = rawRes.json?.result ?? rawRes.json;
+          const rawRecords: any[] = rawData?.results ?? rawData?.data?.results ?? [];
+
+          if (rawRecords.length > 0) {
+            result = {
+              ...result,
+              findings: result.findings.map((finding: any) => {
+                const source = finding.evidence?.additional?.source;
+                if (!source) return finding;
+
+                // Match raw records to this finding's source
+                const matched = rawRecords.filter((r: any) => {
+                  const rSrc = String(r.sources ?? r.source ?? "");
+                  return rSrc === source || rSrc.includes(source) || source.includes(rSrc);
+                });
+
+                if (!matched.length) return finding;
+
+                return {
+                  ...finding,
+                  evidence: {
+                    ...finding.evidence,
+                    additional: {
+                      ...finding.evidence?.additional,
+                      records: matched.map((r: any) => ({
+                        password:      r.password      ?? null,
+                        sha1:          r.sha1          ?? null,
+                        hash:          r.hash          ?? null,
+                        sources:       r.sources       ?? r.source ?? null,
+                        hash_password: r.hash_password ?? false,
+                      })),
+                    },
+                  },
+                };
+              }),
+            };
+          }
+        }
+      }
+    } catch (injectErr) {
+      // Non-critical — if injection fails, proceed with normalized result as-is
+      console.warn("[breach-inject] Failed to inject raw records:", injectErr);
+    }
+    // ── END BREACH RECORDS INJECTION ─────────────────────────────────────────
+
     const updated = await query(
       `UPDATE scans SET status = 'completed', result = $1, completed_at = NOW()
        WHERE id = $2 RETURNING *`,
