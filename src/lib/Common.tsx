@@ -81,7 +81,17 @@ export function CommonScanReport({
     [severityFilter]
   );
 
-  // Split findings based on active filters
+  // ADDED: helper — treat "clean" info signals as primary findings
+  // In cybersecurity, "No Breach Data Found" is a meaningful security posture signal,
+  // not a low-value informational item. Promote them to primary.
+  const isCleanSignal = (f: any): boolean =>
+    !!f.title?.toLowerCase().includes("no breach") ||
+    !!f.title?.toLowerCase().includes("no findings") ||
+    !!f.title?.toLowerCase().includes("no exposure") ||
+    !!f.title?.toLowerCase().includes("clean") ||
+    !!f.tags?.includes("clean");
+
+  // UPDATED: Split findings — clean signals go to primary regardless of info severity
   const { primaryFindings, secondaryFindings } = useMemo(() => {
     const primary: any[] = [];
     const secondary: any[] = [];
@@ -90,7 +100,8 @@ export function CommonScanReport({
       const sev = (f.severity || "unknown").toLowerCase() as Severity;
 
       if (severityFilter.has(sev)) {
-        if (sev === "low" || sev === "info") {
+        // UPDATED: promote clean signals to primary even if severity is info/low
+        if ((sev === "low" || sev === "info") && !isCleanSignal(f)) {
           secondary.push(f);
         } else {
           primary.push(f);
@@ -100,6 +111,13 @@ export function CommonScanReport({
 
     return { primaryFindings: primary, secondaryFindings: secondary };
   }, [allFindings, severityFilter]);
+
+  // ADDED: true when ALL findings are clean/info with no critical/high/medium/low threats
+  const isAllCleanResult = useMemo(() =>
+    allFindings.length > 0 &&
+    counts.critical === 0 && counts.high === 0 && counts.medium === 0 && counts.low === 0 &&
+    allFindings.every((f: any) => isCleanSignal(f) || (f.severity || "info").toLowerCase() === "info"),
+  [allFindings, counts]);
 
   // Check if current filter only includes low/info to hide "No Issues Found" in primary section
   const isOnlyLowInfoSelected = useMemo(() => {
@@ -237,6 +255,16 @@ export function CommonScanReport({
                   {execSummary ||
                     "The automated assessment has concluded. Review the findings below for specific vulnerabilities and remediation steps."}
                 </div>
+                {/* ADDED: zero-risk posture confirmation strip */}
+                {riskScore <= 5 && allFindings.length > 0 && (
+                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04]">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <p className="text-xs text-emerald-300/80">
+                      <span className="font-semibold">Scan completed successfully</span> — no exposures detected.
+                      {allFindings.length} finding{allFindings.length !== 1 ? "s" : ""} confirmed clean security posture.
+                    </p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <StatBox label="Critical" count={summary.critical || 0} color="red" />
                   <StatBox label="High" count={summary.high || 0} color="orange" />
@@ -252,9 +280,29 @@ export function CommonScanReport({
         {/* --- SECTION 2: DETAILED FINDINGS --- */}
         <section id="findings" className="space-y-8 scroll-mt-28">
           <div className="flex flex-col gap-6">
+            {/* ADDED: clean result posture banner — only shown when scan is all-clear */}
+            {isAllCleanResult && (
+              <div className="flex items-start gap-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5">
+                <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-emerald-300">Scan Completed — No Exposures Detected</p>
+                  <p className="text-xs text-emerald-400/60 mt-0.5">
+                    This target was assessed and returned a clean security posture.
+                    All findings below represent confirmed negative results — a positive security signal.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col gap-4">
               <h2 className="text-2xl font-bold text-white tracking-tight">
                 Detailed Findings
+                {allFindings.length > 0 && (
+                  <span className="ml-3 text-sm font-normal text-slate-500">
+                    {allFindings.length} result{allFindings.length !== 1 ? "s" : ""}
+                  </span>
+                )}
               </h2>
 
               {/* FILTER BAR */}
@@ -487,6 +535,14 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
   const [expanded, setExpanded] = useState(false);
   const severity = (finding.severity || "info").toLowerCase();
 
+  // ADDED: detect clean signal for enhanced styling
+  const isClean =
+    !!finding.title?.toLowerCase().includes("no breach") ||
+    !!finding.title?.toLowerCase().includes("no findings") ||
+    !!finding.title?.toLowerCase().includes("no exposure") ||
+    !!finding.title?.toLowerCase().includes("clean") ||
+    !!finding.tags?.includes("clean");
+
   const sevStyles: any = {
     critical: "bg-red-500/10 text-red-400 border-red-500/20",
     high: "bg-orange-500/10 text-orange-400 border-orange-500/20",
@@ -496,17 +552,54 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
   };
 
   return (
-    <div className="group rounded-xl border border-white/10 bg-[#0B0C15] overflow-hidden hover:border-white/20 transition-all">
+    // UPDATED: clean findings get emerald border tint instead of default white/10
+    <div className={cn(
+      "group rounded-xl border bg-[#0B0C15] overflow-hidden transition-all",
+      isClean
+        ? "border-emerald-500/20 hover:border-emerald-500/35"
+        : "border-white/10 hover:border-white/20"
+    )}>
       <div className="p-6 cursor-pointer select-none flex flex-col md:flex-row gap-4 items-start" onClick={() => setExpanded(!expanded)}>
-        <SeverityIcon severity={severity} />
+        {/* UPDATED: clean findings get a shield icon instead of severity icon */}
+        {isClean
+          ? <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20 shrink-0">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            </div>
+          : <SeverityIcon severity={severity} />
+        }
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <Badge variant="outline" className={cn("text-[10px] uppercase font-bold px-2 py-0", sevStyles[severity])}>
-              {severity}
-            </Badge>
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            {/* UPDATED: clean findings show "Secure" badge instead of plain info */}
+            {isClean ? (
+              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                Secure
+              </span>
+            ) : (
+              <Badge variant="outline" className={cn("text-[10px] uppercase font-bold px-2 py-0", sevStyles[severity])}>
+                {severity}
+              </Badge>
+            )}
+            {/* ADDED: category badge in header */}
+            {finding.category && (
+              <span className="text-[10px] font-mono text-slate-600 border border-white/5 bg-white/[0.02] px-2 py-0.5 rounded uppercase tracking-wide">
+                {finding.category}
+              </span>
+            )}
             <h4 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">{finding.title}</h4>
           </div>
-          {!expanded && <p className="text-sm text-slate-500 line-clamp-1">{finding.description}</p>}
+          {/* ADDED: clean label subtitle */}
+          {isClean && (
+            <p className="text-xs text-emerald-400/60 font-medium mb-1">Secure / No Exposure Detected</p>
+          )}
+          {/* ADDED: source_tool visible in collapsed state */}
+          {!expanded && (
+            <div className="flex items-center gap-3">
+              {finding.description && <p className="text-sm text-slate-500 line-clamp-1 flex-1">{finding.description}</p>}
+              {finding.source_tool && (
+                <span className="text-[10px] font-mono text-slate-600 shrink-0">{finding.source_tool}</span>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-6 shrink-0">
           <div className="hidden md:block text-right">
