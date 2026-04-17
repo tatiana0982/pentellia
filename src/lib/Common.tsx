@@ -529,22 +529,145 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                 </div>
               )}
 
-              {/* Smart Evidence Renderer — detects breach intel, shodan host, stats, generic */}
+              {/* Smart Evidence Renderer — breach intel / CVE / shodan host / stats */}
               {(() => {
                 const add = finding.evidence?.additional || {};
-                const isBreach = finding.tags?.some((t: string) => ["breach","credentials","exposure"].includes(t)) || add.source || add.fields_exposed;
-                const isHost   = !!(add.ip || add.port || add.service) && !add.statistics;
-                const isStats  = !!add.statistics;
+                const isCVE    = !!add.nvd_enrichment || !!add.cve_id;
+                const isBreach = !isCVE && (finding.tags?.some((t: string) => ["breach","credentials"].includes(t)) || !!(add.source || add.fields_exposed));
+                const isHost   = !isCVE && !isBreach && !!(add.ip || add.port || add.service) && !add.statistics;
+                const isStats  = !isCVE && !isBreach && !!add.statistics;
                 const hasBanner = !!add.banner_preview;
+                const nvd      = add.nvd_enrichment;
 
                 return (
                   <>
-                    {/* BREACH INTEL — structured credential exposure display */}
-                    {isBreach && !isHost && !isStats && (
+                    {/* ── CVE VULNERABILITY ── Full NVD enrichment display */}
+                    {isCVE && (
+                      <div className="space-y-4">
+                        {/* Affected hosts */}
+                        {add.affected_hosts?.length > 0 && (
+                          <div>
+                            <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Affected Hosts ({add.affected_hosts.length})</h5>
+                            <div className="space-y-2">
+                              {add.affected_hosts.map((h: any, i: number) => (
+                                <div key={i} className="flex flex-wrap items-center gap-3 rounded-lg bg-[#05060A] border border-white/10 px-4 py-2.5">
+                                  <span className="font-mono text-sm text-white">{h.ip}:{h.port}</span>
+                                  <span className="text-xs text-slate-400">{h.service}</span>
+                                  {h.version && <span className="text-xs font-mono text-slate-500">v{h.version}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {nvd && (
+                          <>
+                            {/* Affected products */}
+                            {nvd.affected_products?.length > 0 && (
+                              <div>
+                                <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Affected Products</h5>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {nvd.affected_products.slice(0, 8).map((p: string) => (
+                                    <span key={p} className="text-[11px] font-mono px-2 py-0.5 rounded border text-slate-400 bg-white/[0.03] border-white/10">{p}</span>
+                                  ))}
+                                  {nvd.affected_products.length > 8 && (
+                                    <span className="text-[11px] text-slate-600">+{nvd.affected_products.length - 8} more</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Weaknesses / CWE */}
+                            {nvd.weaknesses?.length > 0 && (
+                              <div>
+                                <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Weaknesses</h5>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {nvd.weaknesses.map((w: string) => (
+                                    <span key={w} className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded border text-orange-300 bg-orange-500/10 border-orange-500/20">{w}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* GitHub POCs */}
+                            {nvd.github_pocs?.length > 0 && (
+                              <div>
+                                <h5 className="text-xs font-bold text-rose-500/70 uppercase mb-2">
+                                  Public Exploit PoCs — GitHub ({nvd.github_pocs.length})
+                                </h5>
+                                <div className="space-y-2">
+                                  {nvd.github_pocs.map((poc: any, i: number) => (
+                                    <a key={i} href={poc.url} target="_blank" rel="noopener noreferrer"
+                                      className="flex items-start justify-between gap-3 rounded-lg bg-rose-500/5 border border-rose-500/20 px-4 py-2.5 hover:bg-rose-500/10 transition-colors group">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-mono text-rose-300 group-hover:text-rose-200 truncate">{poc.name}</p>
+                                        {poc.description && <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{poc.description}</p>}
+                                        {poc.language && <span className="text-[10px] text-slate-600">{poc.language}</span>}
+                                      </div>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <span className="text-[11px] text-yellow-400">★</span>
+                                        <span className="text-[11px] font-bold text-slate-400 tabular-nums">{poc.stars}</span>
+                                      </div>
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Exploit references */}
+                            {nvd.exploit_references?.length > 0 && (
+                              <div>
+                                <h5 className="text-xs font-bold text-orange-500/70 uppercase mb-2">Exploit References ({nvd.exploit_references.length})</h5>
+                                <div className="space-y-1.5">
+                                  {nvd.exploit_references.map((r: any, i: number) => (
+                                    <a key={i} href={r.url} target="_blank" rel="noopener noreferrer"
+                                      className="flex items-start gap-2 text-[11px] text-orange-400 hover:text-orange-300 transition-colors">
+                                      <svg className="w-3 h-3 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                                      </svg>
+                                      <span className="break-all leading-snug">{r.url}</span>
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Patch references */}
+                            {nvd.patch_references?.length > 0 && (
+                              <div>
+                                <h5 className="text-xs font-bold text-emerald-500/70 uppercase mb-2">Patch References ({nvd.patch_references.length})</h5>
+                                <div className="space-y-1.5">
+                                  {nvd.patch_references.slice(0, 4).map((r: any, i: number) => (
+                                    <a key={i} href={r.url} target="_blank" rel="noopener noreferrer"
+                                      className="flex items-start gap-2 text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors">
+                                      <svg className="w-3 h-3 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                                      </svg>
+                                      <span className="break-all leading-snug">{r.url}</span>
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Published / modified dates */}
+                            {(nvd.published_date || nvd.last_modified) && (
+                              <div className="flex flex-wrap gap-4 text-xs text-slate-600">
+                                {nvd.published_date && <span>Published: <span className="text-slate-500 font-mono">{nvd.published_date?.split("T")[0]}</span></span>}
+                                {nvd.last_modified && <span>Last modified: <span className="text-slate-500 font-mono">{nvd.last_modified?.split("T")[0]}</span></span>}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ── BREACH INTEL ── structured credential exposure */}
+                    {isBreach && (
                       <div>
                         <h5 className="text-xs font-bold text-slate-500 uppercase mb-3">Breach Record Details</h5>
                         <div className="rounded-lg bg-[#05060A] border border-white/10 overflow-hidden">
-                          <div className="grid grid-cols-2 sm:grid-cols-3 divide-x divide-y divide-white/5">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y divide-white/5">
                             {add.source && (
                               <div className="p-3">
                                 <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-1">Source</p>
@@ -588,7 +711,36 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                       </div>
                     )}
 
-                    {/* SHODAN HOST — IP, port, service, org, country, banner */}
+                    {/* ── BREACH INTEL SUMMARY ── overall stats */}
+                    {!isBreach && !isCVE && !isHost && !isStats && add.records_returned !== undefined && (
+                      <div>
+                        <h5 className="text-xs font-bold text-slate-500 uppercase mb-3">Breach Intelligence Summary</h5>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {[
+                            { k: "Total Results",   v: add.total_results   },
+                            { k: "Records Returned",v: add.records_returned },
+                            { k: "Source Count",    v: add.source_count    },
+                          ].filter(r => r.v !== undefined).map(({ k, v }) => (
+                            <div key={k} className="rounded-lg bg-[#05060A] border border-white/10 p-3 text-center">
+                              <p className="text-2xl font-black text-white tabular-nums">{String(v)}</p>
+                              <p className="text-[9px] text-slate-600 uppercase tracking-wider mt-1">{k}</p>
+                            </div>
+                          ))}
+                        </div>
+                        {add.has_passwords !== undefined && (
+                          <div className="flex gap-4 mt-3 flex-wrap">
+                            <span className={`text-xs font-semibold px-3 py-1 rounded border ${add.has_passwords ? "text-rose-300 bg-rose-500/10 border-rose-500/20" : "text-slate-500 bg-white/5 border-white/10"}`}>
+                              Passwords {add.has_passwords ? "Exposed" : "Not Found"}
+                            </span>
+                            <span className={`text-xs font-semibold px-3 py-1 rounded border ${add.has_hashes ? "text-orange-300 bg-orange-500/10 border-orange-500/20" : "text-slate-500 bg-white/5 border-white/10"}`}>
+                              Hashes {add.has_hashes ? "Present" : "Not Found"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ── SHODAN HOST ── IP, port, service, banner */}
                     {isHost && (
                       <div>
                         <h5 className="text-xs font-bold text-slate-500 uppercase mb-3">Host Intelligence</h5>
@@ -600,7 +752,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                             { k:"Country",      v:add.country               },
                             { k:"Organization", v:add.organization, full:true  },
                             { k:"Version",      v:add.version||null, mono:true },
-                          ].filter(r => r.v != null && r.v !== "").map(({ k, v, mono, full }) => (
+                          ].filter(r => r.v != null && r.v !== "").map(({ k, v, mono, full }: any) => (
                             <div key={k} className={`rounded-lg bg-[#05060A] border border-white/10 p-3${full ? " col-span-2 sm:col-span-3" : ""}`}>
                               <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">{k}</p>
                               <p className={`text-sm text-white break-all leading-snug${mono ? " font-mono" : ""}`}>{String(v)}</p>
@@ -618,7 +770,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                       </div>
                     )}
 
-                    {/* SHODAN STATS — scan statistics summary */}
+                    {/* ── SHODAN STATS SUMMARY ── */}
                     {isStats && (
                       <div>
                         <h5 className="text-xs font-bold text-slate-500 uppercase mb-3">Scan Statistics</h5>
@@ -638,10 +790,13 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                         </div>
                         {add.unique_cves?.length > 0 && (
                           <div className="rounded-lg bg-[#05060A] border border-white/10 p-3">
-                            <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">CVEs Found</p>
+                            <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">CVEs Found ({add.unique_cves.length})</p>
                             <div className="flex flex-wrap gap-1.5">
                               {add.unique_cves.map((cve: string) => (
-                                <span key={cve} className="text-[11px] font-mono px-2 py-0.5 rounded border text-rose-400 bg-rose-500/10 border-rose-500/20">{cve}</span>
+                                <a key={cve} href={`https://nvd.nist.gov/vuln/detail/${cve}`} target="_blank" rel="noopener noreferrer"
+                                  className="text-[11px] font-mono px-2 py-0.5 rounded border text-rose-400 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20 transition-colors">
+                                  {cve}
+                                </a>
                               ))}
                             </div>
                           </div>
@@ -649,8 +804,8 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                       </div>
                     )}
 
-                    {/* GENERIC fallback — for any other tool not specifically handled */}
-                    {!isBreach && !isHost && !isStats && finding.evidence && (
+                    {/* ── GENERIC FALLBACK ── only if no specific renderer matched */}
+                    {!isCVE && !isBreach && !isHost && !isStats && add.records_returned === undefined && finding.evidence && (
                       <div>
                         <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Evidence</h5>
                         <div className="rounded-lg bg-[#05060A] border border-white/10 p-4 font-mono text-xs text-emerald-400/90 overflow-x-auto">
@@ -674,7 +829,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
 
               {finding.impact && (
                 <div>
-                  <h5 className="text-xs font-bold text-orange-500/70 uppercase mb-2">Impact</h5>
+                  <h5 className="text-xs font-bold text-orange-500/80 uppercase mb-2">Impact</h5>
                   <div className="text-sm text-slate-300 bg-orange-500/5 border border-orange-500/15 rounded p-3 leading-relaxed">
                     {finding.impact}
                   </div>
@@ -683,7 +838,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
 
               {finding.recommendation && (
                 <div>
-                  <h5 className="text-xs font-bold text-emerald-500/70 uppercase mb-2">Recommended Action</h5>
+                  <h5 className="text-xs font-bold text-emerald-500/80 uppercase mb-2">Recommended Action</h5>
                   <div className="text-sm text-slate-300 bg-emerald-500/5 border border-emerald-500/15 rounded p-3 leading-relaxed">
                     {finding.recommendation}
                   </div>
@@ -693,17 +848,17 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
               {(finding.owasp_category || finding.sans_category) && (
                 <div>
                   <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Framework Mapping</h5>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     {finding.owasp_category && (
                       <div className="rounded border border-white/5 bg-white/[0.02] px-3 py-2">
-                        <p className="text-[9px] text-slate-600 uppercase mb-0.5">OWASP</p>
-                        <p className="text-xs text-purple-300 font-mono">{finding.owasp_category}</p>
+                        <p className="text-[9px] text-slate-600 uppercase tracking-wider mb-0.5">OWASP 2025</p>
+                        <p className="text-xs text-purple-300 font-mono leading-snug">{finding.owasp_category}</p>
                       </div>
                     )}
                     {finding.sans_category && (
                       <div className="rounded border border-white/5 bg-white/[0.02] px-3 py-2">
-                        <p className="text-[9px] text-slate-600 uppercase mb-0.5">SANS/CWE</p>
-                        <p className="text-xs text-purple-300 font-mono">{finding.sans_category.split(":")[0]}</p>
+                        <p className="text-[9px] text-slate-600 uppercase tracking-wider mb-0.5">SANS / CWE</p>
+                        <p className="text-xs text-purple-300 font-mono">{finding.sans_category}</p>
                       </div>
                     )}
                   </div>
@@ -715,7 +870,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                   <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Tags</h5>
                   <div className="flex flex-wrap gap-1.5">
                     {finding.tags.map((t: string) => (
-                      <span key={t} className="text-[10px] font-mono px-2 py-0.5 rounded-sm border text-slate-400 bg-white/[0.03] border-white/10">{t}</span>
+                      <span key={t} className="text-[10px] font-mono px-2 py-0.5 rounded border text-slate-400 bg-white/[0.03] border-white/10">{t}</span>
                     ))}
                   </div>
                 </div>
@@ -723,8 +878,8 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
 
               {finding.id && (
                 <div>
-                  <h5 className="text-xs font-bold text-slate-500 uppercase mb-1.5">Finding ID</h5>
-                  <p className="text-[11px] font-mono text-slate-500">{finding.id}</p>
+                  <h5 className="text-xs font-bold text-slate-500 uppercase mb-1">Finding ID</h5>
+                  <p className="text-[11px] font-mono text-slate-600">{finding.id}</p>
                 </div>
               )}
             </div>
