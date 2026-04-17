@@ -43,6 +43,10 @@ export function CommonScanReport({
   const allFindings = data?.findings || [];
   const coverage = data?.tool_coverage || {};
   const execSummary = data?.executive_summary;
+  // ADDED: compliance and raw_reference
+  const owaspCompliance = data?.owasp_compliance || null;
+  const sansCompliance  = data?.sans_compliance  || null;
+  const rawReference    = data?.raw_reference    || null;
 
   // Risk Calculations
   const riskScore = summary.risk_score || 0;
@@ -146,7 +150,8 @@ export function CommonScanReport({
       });
     }, observerOptions);
 
-    ["executive", "findings", "methodology"].forEach((id) => {
+    // UPDATED: added compliance to scroll spy
+    ["executive", "findings", "methodology", "compliance"].forEach((id) => {
       const el = document.getElementById(id);
       if (el) observer.observe(el);
     });
@@ -348,7 +353,17 @@ export function CommonScanReport({
                 <div className="space-y-4">
                   <ConfigRow label="Target Scope" value={meta.target} />
                   <ConfigRow label="Scan Profile" value={meta.parameters?.scan_level || "Standard"} />
-                  <ConfigRow label="Execution Time" value={new Date(meta.started_at).toLocaleString()} />
+                  <ConfigRow label="Started" value={meta.started_at ? new Date(meta.started_at.replace(" ","T")).toLocaleString() : undefined} />
+                  {/* ADDED: completed_at, scan_id, all meta.parameters */}
+                  <ConfigRow label="Completed" value={meta.completed_at ? new Date(meta.completed_at.replace(" ","T")).toLocaleString() : undefined} />
+                  <ConfigRow label="Scan ID" value={meta.scan_id} mono />
+                  {meta.parameters?.query && <ConfigRow label="Query" value={meta.parameters.query} mono />}
+                  {meta.parameters?.limit !== undefined && <ConfigRow label="Limit" value={String(meta.parameters.limit)} mono />}
+                  {meta.parameters?.resolve_domain !== undefined && <ConfigRow label="Resolve Domain" value={String(meta.parameters.resolve_domain)} mono />}
+                  {meta.parameters?.scan_both !== undefined && <ConfigRow label="Scan Both" value={String(meta.parameters.scan_both)} mono />}
+                  {meta.parameters?.facets && <ConfigRow label="Facets" value={meta.parameters.facets} mono />}
+                  {meta.parameters?.country && <ConfigRow label="Country Filter" value={meta.parameters.country} mono />}
+                  {meta.parameters?.city && <ConfigRow label="City Filter" value={meta.parameters.city} mono />}
                 </div>
               </CardContent>
             </Card>
@@ -359,18 +374,108 @@ export function CommonScanReport({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {coverage.tools_executed?.map((tool: string) => (
-                    <div key={tool} className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded text-xs text-indigo-300 uppercase font-mono tracking-wide">
-                      <CheckCircle2 className="w-3 h-3 text-indigo-400" />
-                      {tool}
+                <div className="space-y-3">
+                  {/* Executed */}
+                  {coverage.tools_executed?.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {coverage.tools_executed.map((tool: string) => (
+                        <div key={tool} className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded text-xs text-indigo-300 uppercase font-mono tracking-wide">
+                          <CheckCircle2 className="w-3 h-3 text-indigo-400" />
+                          {tool}
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
+                  {/* ADDED: tools_failed */}
+                  {coverage.tools_failed?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold text-red-500/60 uppercase tracking-wider mb-1.5">Failed</p>
+                      <div className="flex flex-wrap gap-2">
+                        {coverage.tools_failed.map((tool: string) => (
+                          <div key={tool} className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-300 uppercase font-mono tracking-wide">
+                            <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                            {tool}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* ADDED: tools_skipped */}
+                  {coverage.tools_skipped?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold text-yellow-500/60 uppercase tracking-wider mb-1.5">Skipped</p>
+                      <div className="flex flex-wrap gap-2">
+                        {coverage.tools_skipped.map((tool: string) => (
+                          <div key={tool} className="flex items-center gap-2 px-3 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-xs text-yellow-300 uppercase font-mono tracking-wide">
+                            <span className="w-2 h-2 rounded-full bg-yellow-500 shrink-0" />
+                            {tool}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Fallback if all empty */}
+                  {!coverage.tools_executed?.length && !coverage.tools_failed?.length && !coverage.tools_skipped?.length && (
+                    <p className="text-xs text-slate-600 italic">Single-engine scan — no multi-tool coverage data.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
         </section>
+
+        {/* ═══════════════════════════════════════════════════════════
+            ADDED: COMPLIANCE & FRAMEWORK MAPPING
+        ═══════════════════════════════════════════════════════════ */}
+        {(owaspCompliance || sansCompliance) && (
+          <section id="compliance" className="space-y-6 scroll-mt-28">
+            <h2 className="text-2xl font-bold text-white tracking-tight">Compliance & Framework Mapping</h2>
+            <p className="text-slate-500 text-sm">Automated mapping against OWASP Top 10 (2025) and SANS/CWE Top 25</p>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {owaspCompliance && (
+                <ComplianceBlock
+                  title="OWASP Top 10 — 2025"
+                  passed={owaspCompliance.passed}
+                  failed={owaspCompliance.failed}
+                  total={owaspCompliance.total_categories}
+                  categories={owaspCompliance.categories}
+                  type="owasp"
+                />
+              )}
+              {sansCompliance && (
+                <ComplianceBlock
+                  title="SANS / CWE Top 25"
+                  passed={sansCompliance.passed}
+                  failed={sansCompliance.failed}
+                  total={sansCompliance.total_categories}
+                  categories={sansCompliance.categories}
+                  type="sans"
+                />
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════
+            ADDED: TECHNICAL METADATA
+        ═══════════════════════════════════════════════════════════ */}
+        {(meta.scan_id || rawReference) && (
+          <section className="space-y-4">
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Technical Metadata</h3>
+            <Card className="bg-[#0B0C15] border border-white/10">
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <ConfigRow label="Scan ID" value={meta.scan_id} mono />
+                  {rawReference?.location && <ConfigRow label="Result Location" value={rawReference.location} mono />}
+                  {rawReference?.stored !== undefined && (
+                    <ConfigRow label="Raw Results Stored" value={rawReference.stored ? "Yes" : "No"} />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        )}
+
       </div>
     </div>
   );
@@ -876,6 +981,22 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                 </div>
               )}
 
+              {/* ADDED: source_tool */}
+              {finding.source_tool && (
+                <div>
+                  <h5 className="text-xs font-bold text-slate-500 uppercase mb-1">Source Tool</h5>
+                  <p className="text-xs text-slate-400">{finding.source_tool}</p>
+                </div>
+              )}
+
+              {/* ADDED: category (if not already in badge) */}
+              {finding.category && (
+                <div>
+                  <h5 className="text-xs font-bold text-slate-500 uppercase mb-1">Category</h5>
+                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded border text-slate-400 bg-white/[0.03] border-white/10 uppercase">{finding.category}</span>
+                </div>
+              )}
+
               {finding.id && (
                 <div>
                   <h5 className="text-xs font-bold text-slate-500 uppercase mb-1">Finding ID</h5>
@@ -935,11 +1056,13 @@ function StatBox({ label, count, color }: any) {
   );
 }
 
-function ConfigRow({ label, value }: any) {
+// UPDATED: added mono + undefined guard
+function ConfigRow({ label, value, mono }: { label: string; value?: string; mono?: boolean }) {
+  if (!value) return null;
   return (
     <div className="flex justify-between items-center py-2 border-b border-white/5 text-sm">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-slate-200 font-mono truncate max-w-[200px]">{value}</span>
+      <span className="text-slate-500 shrink-0">{label}</span>
+      <span className={cn("truncate max-w-[220px] text-right", mono ? "text-slate-300 font-mono text-xs" : "text-slate-200")}>{value}</span>
     </div>
   );
 }
@@ -966,6 +1089,90 @@ function ConfidenceBar({ score }: { score: number }) {
       </div>
       <span className="text-xs text-slate-400 font-mono">{percentage}%</span>
     </div>
+  );
+}
+
+// ADDED: ComplianceBlock sub-component
+function ComplianceBlock({ title, passed, failed, total, categories, type }: any) {
+  const [open, setOpen] = useState(true);
+  const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
+  const entries = Object.entries(categories || {}).sort(([a], [b]) => {
+    const na = parseInt(a.match(/\d+/)?.[0] || "0");
+    const nb = parseInt(b.match(/\d+/)?.[0] || "0");
+    return na - nb;
+  });
+
+  const getCode = (key: string) => {
+    if (type === "owasp") return key.match(/(A\d+)/)?.[1] || key.split("-")[0];
+    return key.split(":")[0];
+  };
+
+  const getLabel = (key: string) => {
+    if (type === "owasp") {
+      const NAMES: Record<string, string> = {
+        A01: "Broken Access Control", A02: "Security Misconfiguration",
+        A03: "Software Supply Chain", A04: "Cryptographic Failures",
+        A05: "Injection", A06: "Insecure Design", A07: "Authentication Failures",
+        A08: "Data Integrity Failures", A09: "Logging & Alerting", A10: "SSRF",
+      };
+      return NAMES[getCode(key)] || key.split("-").slice(1).join(" ");
+    }
+    return key.split(":").slice(1).join(":").trim().slice(0, 60);
+  };
+
+  return (
+    <Card className="bg-[#0B0C15] border border-white/10 overflow-hidden">
+      <button className="w-full text-left" onClick={() => setOpen(!open)}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium text-slate-300">{title}</CardTitle>
+            <div className="flex items-center gap-3">
+              {failed > 0
+                ? <span className="text-[10px] font-black px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">{failed} FAILED</span>
+                : <span className="text-[10px] font-black px-2 py-0.5 rounded bg-white/5 text-slate-500 border border-white/10">{passed}/{total} PASS</span>
+              }
+              {open ? <ChevronUp className="w-4 h-4 text-slate-600" /> : <ChevronDown className="w-4 h-4 text-slate-600" />}
+            </div>
+          </div>
+          {/* Progress bar */}
+          <div className="h-1 rounded-full bg-white/5 overflow-hidden mt-2">
+            <div className="h-full rounded-full bg-indigo-500/60" style={{ width: `${pct}%` }} />
+          </div>
+        </CardHeader>
+      </button>
+      {open && (
+        <CardContent className="pt-0 px-0 pb-0">
+          <div className="divide-y divide-white/[0.04]">
+            {entries.map(([name, data]: [string, any]) => (
+              <div key={name} className="flex items-center gap-3 px-6 py-2.5 hover:bg-white/[0.02] transition-colors">
+                <div className="shrink-0 w-3.5 h-3.5 flex items-center justify-center">
+                  {data.safe
+                    ? <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                    : <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                  }
+                </div>
+                <span className="text-[10px] font-black font-mono shrink-0 min-w-[42px]" style={{ color: data.safe ? "#4b5563" : "#f87171" }}>
+                  {getCode(name)}
+                </span>
+                <span className="text-[11px] flex-1 min-w-0 truncate" title={getLabel(name)}
+                  style={{ color: data.safe ? "#6b7280" : "#e2e8f0" }}>
+                  {getLabel(name)}
+                </span>
+                {data.count > 0 && (
+                  <span className="text-[10px] font-bold shrink-0 text-red-400">×{data.count}</span>
+                )}
+                <span className={cn(
+                  "text-[9px] font-black uppercase px-1.5 py-0.5 rounded shrink-0",
+                  data.safe ? "bg-white/[0.04] text-slate-600" : "bg-red-500/10 text-red-400"
+                )}>
+                  {data.safe ? "PASS" : "FAIL"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      )}
+    </Card>
   );
 }
 
