@@ -265,13 +265,29 @@ export function CommonScanReport({
                     </p>
                   </div>
                 )}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {/* ADDED: summary-level metrics row */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3">
                   <StatBox label="Critical" count={summary.critical || 0} color="red" />
                   <StatBox label="High" count={summary.high || 0} color="orange" />
                   <StatBox label="Medium" count={summary.medium || 0} color="yellow" />
                   <StatBox label="Low" count={summary.low || 0} color="blue" />
                   <StatBox label="Info" count={summary.info || 0} color="slate" />
+                  <StatBox label="Total" count={summary.total_findings || allFindings.length} color="slate" />
+                  <StatBox label="Assets" count={summary.affected_assets || 0} color="slate" />
                 </div>
+                {/* ADDED: intelligence link — assets + findings + top category */}
+                {(summary.affected_assets !== undefined || summary.top_categories?.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <span className="text-xs text-slate-500">
+                      {summary.affected_assets || 0} asset(s) · {summary.total_findings || allFindings.length} finding(s)
+                    </span>
+                    {summary.top_categories?.length > 0 && (
+                      <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded border text-indigo-300 bg-indigo-500/10 border-indigo-500/20 uppercase">
+                        Top: {summary.top_categories[0]}
+                      </span>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -353,6 +369,53 @@ export function CommonScanReport({
               </div>
             </div>
 
+            {/* ADDED FIX 1: Grouped host view — only rendered when Shodan host findings exist
+                 Groups ip → [port, port] so duplicate IP cards collapse under one header.
+                 Rendering is ADDITIVE: the existing primaryFindings grid still runs below.
+                 When groupedHosts is empty, nothing extra renders. */}
+            {(() => {
+              const hostFindings = allFindings.filter(
+                (f: any) => f.evidence?.additional?.ip && f.evidence?.additional?.port && !f.evidence?.additional?.statistics
+              );
+              if (hostFindings.length < 2) return null;
+              const groups: Record<string, any[]> = {};
+              hostFindings.forEach((f: any) => {
+                const ip = f.evidence.additional.ip;
+                if (!groups[ip]) groups[ip] = [];
+                groups[ip].push(f);
+              });
+              const multiIp = Object.entries(groups).filter(([, arr]) => arr.length > 1);
+              if (multiIp.length === 0) return null;
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 px-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Grouped Host View</span>
+                    <span className="text-[9px] text-slate-600">({multiIp.length} host{multiIp.length !== 1 ? "s" : ""})</span>
+                  </div>
+                  {multiIp.map(([ip, findings]) => (
+                    <div key={ip} className="rounded-xl border border-white/10 bg-[#0B0C15] overflow-hidden">
+                      <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5 bg-white/[0.02]">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">Host</span>
+                        <span className="text-sm font-mono font-bold text-white">{ip}</span>
+                        <span className="ml-auto text-[10px] text-slate-600">{findings.length} port{findings.length !== 1 ? "s" : ""}</span>
+                      </div>
+                      <div className="divide-y divide-white/[0.04]">
+                        {findings.map((f: any, i: number) => (
+                          <div key={i} className="flex items-center gap-4 px-5 py-2.5">
+                            <span className="font-mono text-sm text-indigo-300 w-12 shrink-0">{f.evidence.additional.port}</span>
+                            <span className="text-xs text-slate-400">{f.evidence.additional.service || "—"}</span>
+                            {f.evidence.additional.country && (
+                              <span className="text-[10px] text-slate-600 ml-auto">{f.evidence.additional.country}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
             {/* PRIMARY FINDINGS */}
             <div className="grid gap-4">
               {primaryFindings.length > 0 ? (
@@ -405,6 +468,9 @@ export function CommonScanReport({
                   {/* ADDED: completed_at, scan_id, all meta.parameters */}
                   <ConfigRow label="Completed" value={meta.completed_at ? new Date(meta.completed_at.replace(" ","T")).toLocaleString() : undefined} />
                   <ConfigRow label="Scan ID" value={meta.scan_id} mono />
+                  {/* ADDED: scan category + scan type */}
+                  <ConfigRow label="Scan Category" value={meta.category} />
+                  <ConfigRow label="Scan Type" value={meta.scan_type} />
                   {meta.parameters?.query && <ConfigRow label="Query" value={meta.parameters.query} mono />}
                   {meta.parameters?.limit !== undefined && <ConfigRow label="Limit" value={String(meta.parameters.limit)} mono />}
                   {meta.parameters?.resolve_domain !== undefined && <ConfigRow label="Resolve Domain" value={String(meta.parameters.resolve_domain)} mono />}
@@ -462,7 +528,18 @@ export function CommonScanReport({
                       </div>
                     </div>
                   )}
-                  {/* Fallback if all empty */}
+                  {/* UPDATED: always show coverage counts summary */}
+                  <div className="flex flex-wrap gap-4 pt-1 border-t border-white/[0.04] mt-1">
+                    <span className="text-xs text-slate-600">
+                      Executed: <span className="text-slate-400 font-mono">{coverage.tools_executed?.length || 0}</span>
+                    </span>
+                    <span className="text-xs text-slate-600">
+                      Failed: <span className="font-mono" style={{color: (coverage.tools_failed?.length || 0) > 0 ? "#f87171" : undefined}}>{coverage.tools_failed?.length || 0}</span>
+                    </span>
+                    <span className="text-xs text-slate-600">
+                      Skipped: <span className="text-slate-400 font-mono">{coverage.tools_skipped?.length || 0}</span>
+                    </span>
+                  </div>
                   {!coverage.tools_executed?.length && !coverage.tools_failed?.length && !coverage.tools_skipped?.length && (
                     <p className="text-xs text-slate-600 italic">Single-engine scan — no multi-tool coverage data.</p>
                   )}
@@ -514,7 +591,11 @@ export function CommonScanReport({
               <CardContent className="p-4">
                 <div className="space-y-3">
                   <ConfigRow label="Scan ID" value={meta.scan_id} mono />
-                  {rawReference?.location && <ConfigRow label="Result Location" value={rawReference.location} mono />}
+                  {/* ADDED: scan category + scan type */}
+                  <ConfigRow label="Scan Category" value={meta.category} />
+                  <ConfigRow label="Scan Type" value={meta.scan_type} />
+                  {/* UPDATED: label renamed for clarity */}
+                  {rawReference?.location && <ConfigRow label="Raw Reference Location" value={rawReference.location} mono />}
                   {rawReference?.stored !== undefined && (
                     <ConfigRow label="Raw Results Stored" value={rawReference.stored ? "Yes" : "No"} />
                   )}
@@ -551,13 +632,18 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
     info: "bg-slate-500/10 text-slate-400 border-white/10",
   };
 
+  // ADDED: summary-category findings get accent distinction
+  const isSummaryFinding = finding.category === "summary";
+
   return (
-    // UPDATED: clean findings get emerald border tint instead of default white/10
+    // UPDATED: summary findings get indigo accent, clean findings get emerald, rest default
     <div className={cn(
       "group rounded-xl border bg-[#0B0C15] overflow-hidden transition-all",
-      isClean
-        ? "border-emerald-500/20 hover:border-emerald-500/35"
-        : "border-white/10 hover:border-white/20"
+      isSummaryFinding
+        ? "border-indigo-500/25 hover:border-indigo-500/40"
+        : isClean
+          ? "border-emerald-500/20 hover:border-emerald-500/35"
+          : "border-white/10 hover:border-white/20"
     )}>
       <div className="p-6 cursor-pointer select-none flex flex-col md:flex-row gap-4 items-start" onClick={() => setExpanded(!expanded)}>
         {/* UPDATED: clean findings get a shield icon instead of severity icon */}
@@ -579,17 +665,27 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                 {severity}
               </Badge>
             )}
-            {/* ADDED: category badge in header */}
+            {/* ADDED: category badge in header — summary gets indigo tint */}
             {finding.category && (
-              <span className="text-[10px] font-mono text-slate-600 border border-white/5 bg-white/[0.02] px-2 py-0.5 rounded uppercase tracking-wide">
-                {finding.category}
+              <span className={cn(
+                "text-[10px] font-mono px-2 py-0.5 rounded border uppercase tracking-wide",
+                isSummaryFinding
+                  ? "text-indigo-300 bg-indigo-500/10 border-indigo-500/20"
+                  : "text-slate-600 border-white/5 bg-white/[0.02]"
+              )}>
+                {isSummaryFinding ? "Summary" : finding.category}
               </span>
             )}
             <h4 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors">{finding.title}</h4>
           </div>
-          {/* ADDED: clean label subtitle */}
+          {/* ADDED: clean label subtitle + badge */}
           {isClean && (
-            <p className="text-xs text-emerald-400/60 font-medium mb-1">Secure / No Exposure Detected</p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-xs text-emerald-400/60 font-medium">Secure / No Exposure Detected</p>
+              <Badge className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0 h-auto">
+                Clean Result
+              </Badge>
+            </div>
           )}
           {/* ADDED: source_tool visible in collapsed state */}
           {!expanded && (
@@ -602,7 +698,8 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
           )}
         </div>
         <div className="flex items-center gap-6 shrink-0">
-          <div className="hidden md:block text-right">
+          {/* UPDATED: confidence with tooltip */}
+          <div className="hidden md:block text-right" title="Confidence: likelihood accuracy of this finding (0-100%)">
             <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Confidence</div>
             <ConfidenceBar score={finding.confidence} />
           </div>
@@ -982,13 +1079,19 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                           {Object.entries(add.statistics).map(([k, v]) => (
                             <div key={k} className="rounded-lg bg-[#05060A] border border-white/10 p-3 text-center">
                               <p className="text-xl font-black text-white tabular-nums">{String(v)}</p>
-                              <p className="text-[9px] text-slate-600 uppercase tracking-wider mt-1.5 leading-tight">{k.replace(/_/g," ")}</p>
+                              {/* UPDATED: formatLabel — replace underscores + title case */}
+                              <p className="text-[9px] text-slate-600 uppercase tracking-wider mt-1.5 leading-tight">
+                                {k.replace(/_/g," ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                              </p>
                             </div>
                           ))}
                         </div>
-                        {add.unique_cves?.length > 0 && (
-                          <div className="rounded-lg bg-[#05060A] border border-white/10 p-3">
-                            <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">CVEs Found ({add.unique_cves.length})</p>
+                        {/* UPDATED: CVEs — always render, show zero state */}
+                        <div className="rounded-lg bg-[#05060A] border border-white/10 p-3">
+                          <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">
+                            {add.unique_cves?.length > 0 ? `CVEs Found (${add.unique_cves.length})` : "CVEs Detected"}
+                          </p>
+                          {add.unique_cves?.length > 0 ? (
                             <div className="flex flex-wrap gap-1.5">
                               {add.unique_cves.map((cve: string) => (
                                 <a key={cve} href={`https://nvd.nist.gov/vuln/detail/${cve}`} target="_blank" rel="noopener noreferrer"
@@ -997,6 +1100,35 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                                 </a>
                               ))}
                             </div>
+                          ) : (
+                            <p className="text-xs text-slate-500">0 CVEs detected</p>
+                          )}
+                        </div>
+                        {/* ADDED: exposed services — show even when empty */}
+                        {add.exposed_services !== undefined && (
+                          <div className="rounded-lg bg-[#05060A] border border-white/10 p-3">
+                            <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">Exposed Services</p>
+                            {add.exposed_services?.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {add.exposed_services.map((s: string, i: number) => (
+                                  <span key={i} className="text-[11px] font-mono px-2 py-0.5 rounded border text-slate-300 bg-white/[0.04] border-white/10">{s}</span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-slate-500">No exposed services</p>
+                            )}
+                          </div>
+                        )}
+                        {/* ADDED: vulnerable host count — always show */}
+                        {add.vulnerable_host_count !== undefined && (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#05060A] border border-white/10">
+                            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Vulnerable Hosts</span>
+                            <span className={add.vulnerable_host_count > 0 ? "text-sm font-black text-rose-400" : "text-sm font-black text-slate-400"}>
+                              {add.vulnerable_host_count}
+                            </span>
+                            {add.vulnerable_host_count === 0 && (
+                              <span className="text-[10px] text-slate-600">— none affected</span>
+                            )}
                           </div>
                         )}
                       </div>
