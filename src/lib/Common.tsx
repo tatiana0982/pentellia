@@ -296,6 +296,21 @@ export function CommonScanReport({
         {/* --- SECTION 2: DETAILED FINDINGS --- */}
         <section id="findings" className="space-y-8 scroll-mt-28">
           <div className="flex flex-col gap-6">
+            {/* ADDED FIX 3: summary findings elevated above all other findings */}
+            {allFindings.some((f: any) => f.category === "summary") && (
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest px-1">
+                  Intelligence Summary
+                </h3>
+                {allFindings
+                  .filter((f: any) => f.category === "summary")
+                  .map((f: any) => (
+                    <ExpandableFindingCard key={f.id || f.title} finding={f} />
+                  ))
+                }
+              </div>
+            )}
+
             {/* ADDED: clean result posture banner — only shown when scan is all-clear */}
             {isAllCleanResult && (
               <div className="flex items-start gap-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5">
@@ -417,19 +432,43 @@ export function CommonScanReport({
             })()}
 
             {/* PRIMARY FINDINGS */}
-            <div className="grid gap-4">
-              {primaryFindings.length > 0 ? (
-                primaryFindings.map((finding: any, idx: number) => (
-                  <ExpandableFindingCard key={idx} finding={finding} />
-                ))
-              ) : (severityFilter.size > 0 && !isAllSelected && !isOnlyLowInfoSelected) ? (
-                <div className="p-8 text-center border border-dashed border-white/10 rounded-xl bg-white/[0.01]">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mx-auto mb-2" />
-                  <h3 className="text-base font-medium text-white">No Issues Found</h3>
-                  <p className="text-slate-500 text-xs mt-1">No vulnerabilities match the current filter.</p>
+            {/* ADDED FIX 2: exclude host findings already shown in grouped view */}
+            {(() => {
+              const _hostIPs = new Set(
+                allFindings
+                  .filter((f: any) => f.evidence?.additional?.ip && f.evidence?.additional?.port && !f.evidence?.additional?.statistics)
+                  .map((f: any) => f.evidence.additional.ip)
+              );
+              const _grouped = allFindings.filter((f: any) => {
+                const ip = f.evidence?.additional?.ip;
+                return ip && _hostIPs.has(ip) && !f.evidence?.additional?.statistics;
+              });
+              // only exclude when there's actually a multi-port group to show
+              const _groupMap: Record<string, number> = {};
+              _grouped.forEach((f: any) => { const ip = f.evidence.additional.ip; _groupMap[ip] = (_groupMap[ip] || 0) + 1; });
+              const _hasMulti = Object.values(_groupMap).some(c => c > 1);
+              const filteredPrimaryFindings = _hasMulti
+                ? primaryFindings.filter((f: any) => {
+                    const ip = f.evidence?.additional?.ip;
+                    return !ip || !_groupMap[ip] || _groupMap[ip] < 2;
+                  })
+                : primaryFindings;
+              return (
+                <div className="grid gap-4">
+                  {filteredPrimaryFindings.length > 0 ? (
+                    filteredPrimaryFindings.map((finding: any, idx: number) => (
+                      <ExpandableFindingCard key={idx} finding={finding} />
+                    ))
+                  ) : (severityFilter.size > 0 && !isAllSelected && !isOnlyLowInfoSelected) ? (
+                    <div className="p-8 text-center border border-dashed border-white/10 rounded-xl bg-white/[0.01]">
+                      <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mx-auto mb-2" />
+                      <h3 className="text-base font-medium text-white">No Issues Found</h3>
+                      <p className="text-slate-500 text-xs mt-1">No vulnerabilities match the current filter.</p>
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
+              );
+            })()}
 
             {/* SECONDARY FINDINGS — expandable cards same as primary */}
             {secondaryFindings.length > 0 && (
@@ -471,13 +510,18 @@ export function CommonScanReport({
                   {/* ADDED: scan category + scan type */}
                   <ConfigRow label="Scan Category" value={meta.category} />
                   <ConfigRow label="Scan Type" value={meta.scan_type} />
-                  {meta.parameters?.query && <ConfigRow label="Query" value={meta.parameters.query} mono />}
-                  {meta.parameters?.limit !== undefined && <ConfigRow label="Limit" value={String(meta.parameters.limit)} mono />}
-                  {meta.parameters?.resolve_domain !== undefined && <ConfigRow label="Resolve Domain" value={String(meta.parameters.resolve_domain)} mono />}
-                  {meta.parameters?.scan_both !== undefined && <ConfigRow label="Scan Both" value={String(meta.parameters.scan_both)} mono />}
-                  {meta.parameters?.facets && <ConfigRow label="Facets" value={meta.parameters.facets} mono />}
-                  {meta.parameters?.country && <ConfigRow label="Country Filter" value={meta.parameters.country} mono />}
-                  {meta.parameters?.city && <ConfigRow label="City Filter" value={meta.parameters.city} mono />}
+                  {/* UPDATED FIX 8: exhaustive Object.entries loop — no missed parameters */}
+                  {Object.entries(meta.parameters || {})
+                    .filter(([k]) => k !== "scan_level") // already shown as Scan Profile above
+                    .map(([k, v]) => (
+                      <ConfigRow
+                        key={k}
+                        label={k.replace(/_/g," ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                        value={String(v)}
+                        mono
+                      />
+                    ))
+                  }
                 </div>
               </CardContent>
             </Card>
@@ -528,21 +572,12 @@ export function CommonScanReport({
                       </div>
                     </div>
                   )}
-                  {/* UPDATED: always show coverage counts summary */}
-                  <div className="flex flex-wrap gap-4 pt-1 border-t border-white/[0.04] mt-1">
-                    <span className="text-xs text-slate-600">
-                      Executed: <span className="text-slate-400 font-mono">{coverage.tools_executed?.length || 0}</span>
-                    </span>
-                    <span className="text-xs text-slate-600">
-                      Failed: <span className="font-mono" style={{color: (coverage.tools_failed?.length || 0) > 0 ? "#f87171" : undefined}}>{coverage.tools_failed?.length || 0}</span>
-                    </span>
-                    <span className="text-xs text-slate-600">
-                      Skipped: <span className="text-slate-400 font-mono">{coverage.tools_skipped?.length || 0}</span>
-                    </span>
+                  {/* UPDATED FIX 1: strict JSON-only counts — no assumption messages */}
+                  <div className="space-y-2 pt-2 border-t border-white/[0.04] mt-1">
+                    <ConfigRow label="Tools Executed" value={String(coverage.tools_executed?.length || 0)} mono />
+                    <ConfigRow label="Tools Failed"   value={String(coverage.tools_failed?.length   || 0)} mono />
+                    <ConfigRow label="Tools Skipped"  value={String(coverage.tools_skipped?.length  || 0)} mono />
                   </div>
-                  {!coverage.tools_executed?.length && !coverage.tools_failed?.length && !coverage.tools_skipped?.length && (
-                    <p className="text-xs text-slate-600 italic">Single-engine scan — no multi-tool coverage data.</p>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -687,14 +722,14 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
               </Badge>
             </div>
           )}
-          {/* ADDED: source_tool visible in collapsed state */}
-          {!expanded && (
-            <div className="flex items-center gap-3">
-              {finding.description && <p className="text-sm text-slate-500 line-clamp-1 flex-1">{finding.description}</p>}
-              {finding.source_tool && (
-                <span className="text-[10px] font-mono text-slate-600 shrink-0">{finding.source_tool}</span>
-              )}
-            </div>
+          {/* UPDATED FIX 6: source_tool as badge near title + description line */}
+          {finding.source_tool && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded border bg-purple-500/10 text-purple-300 border-purple-500/20 uppercase w-fit">
+              {finding.source_tool}
+            </span>
+          )}
+          {!expanded && finding.description && (
+            <p className="text-sm text-slate-500 line-clamp-1">{finding.description}</p>
           )}
         </div>
         <div className="flex items-center gap-6 shrink-0">
@@ -1070,9 +1105,17 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                       <div>
                         <h5 className="text-xs font-bold text-slate-500 uppercase mb-3">Scan Statistics</h5>
                         {add.query && (
-                          <div className="flex items-center gap-3 rounded-lg bg-[#05060A] border border-white/10 px-4 py-2.5 mb-3">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Query</span>
-                            <span className="text-sm font-mono text-indigo-300">{add.query}</span>
+                          <div className="flex items-center justify-between gap-3 rounded-lg bg-[#05060A] border border-white/10 px-4 py-2.5 mb-3">
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">Query</span>
+                              <span className="text-sm font-mono text-indigo-300">{add.query}</span>
+                            </div>
+                            {/* ADDED FIX 5: derived insight when statistics exist */}
+                            {add.statistics && (
+                              <span className="text-xs text-indigo-400 shrink-0">
+                                {add.statistics.unique_ips ?? add.unique_ips ?? 0} host(s) · {add.statistics.unique_ports ?? 0} port(s)
+                              </span>
+                            )}
                           </div>
                         )}
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-3">
@@ -1104,10 +1147,12 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                             <p className="text-xs text-slate-500">0 CVEs detected</p>
                           )}
                         </div>
-                        {/* ADDED: exposed services — show even when empty */}
+                        {/* UPDATED FIX 4: strict empty state — always render if field present */}
                         {add.exposed_services !== undefined && (
                           <div className="rounded-lg bg-[#05060A] border border-white/10 p-3">
-                            <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">Exposed Services</p>
+                            <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2">
+                              Exposed Services {add.exposed_services?.length > 0 ? `(${add.exposed_services.length})` : ""}
+                            </p>
                             {add.exposed_services?.length > 0 ? (
                               <div className="flex flex-wrap gap-1.5">
                                 {add.exposed_services.map((s: string, i: number) => (
@@ -1115,7 +1160,7 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                                 ))}
                               </div>
                             ) : (
-                              <p className="text-xs text-slate-500">No exposed services</p>
+                              <p className="text-xs text-slate-500">None detected</p>
                             )}
                           </div>
                         )}
@@ -1134,13 +1179,33 @@ function ExpandableFindingCard({ finding }: { finding: any }) {
                       </div>
                     )}
 
-                    {/* ── GENERIC FALLBACK ── only if no specific renderer matched */}
+                    {/* UPDATED FIX 7: structured key-value grid fallback (not raw JSON dump) */}
                     {!isCVE && !isBreach && !isHost && !isStats && add.records_returned === undefined && finding.evidence && (
                       <div>
                         <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Evidence</h5>
-                        <div className="rounded-lg bg-[#05060A] border border-white/10 p-4 font-mono text-xs text-emerald-400/90 overflow-x-auto">
-                          <RecursiveEvidence data={finding.evidence} />
-                        </div>
+                        {(() => {
+                          const knownKeys = ["ip","port","service","statistics","cve_id","nvd_enrichment",
+                            "banner_preview","country","organization","version","protocol",
+                            "source","fields_exposed","has_passwords","has_hashes","record_count",
+                            "records_returned","source_count","total_results","unique_sources"];
+                          const allKeys = Object.keys(add);
+                          const hasUnknown = allKeys.some(k => !knownKeys.includes(k));
+                          const displayData = hasUnknown ? add : finding.evidence;
+                          const entries = Object.entries(displayData || {}).filter(([k]) => k !== "tool");
+                          if (!entries.length) return null;
+                          return (
+                            <div className="rounded-lg bg-[#05060A] border border-white/10 overflow-hidden">
+                              {entries.map(([k, v]) => (
+                                <div key={k} className="flex items-start gap-3 px-4 py-2 border-b border-white/[0.04] last:border-0">
+                                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider shrink-0 w-36 pt-0.5">{k.replace(/_/g," ")}</span>
+                                  <span className="text-[11px] font-mono text-slate-300 break-all">
+                                    {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </>
