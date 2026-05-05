@@ -80,10 +80,28 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { tool, target, params } = body;
+    const { tool, target, params: rawParams } = body;
 
     if (!tool || !target) {
       return NextResponse.json({ error: "Missing tool or target" }, { status: 400 });
+    }
+
+    // For webscan: extend the engine's CMS confirmation window from the
+    // default 60s to 10 minutes. Phase 4 of run_webscan() registers the
+    // CMS confirmation in the bespoke _cms_confirmations dict, calls
+    // wait_for_cms_confirmation(timeout=cms_confirm_timeout), and on timeout
+    // calls cleanup_cms_confirmation() which deletes the dict entry. With
+    // a 60s default the modal would open mid-Phase-4, the user would see
+    // it for maybe 50s after polling lag, and any later click hits a
+    // cleaned-up dict and gets "No CMS confirmation pending" — exactly
+    // the failure mode that's been showing up in production. 600s gives
+    // realistic headroom; users typically respond in seconds, so the
+    // worst case (Activate clicked, scan continues with WPScan) still
+    // resolves immediately because respond_to_cms_confirmation breaks
+    // the wait loop on the first poll.
+    const params: Record<string, any> = { ...(rawParams ?? {}) };
+    if (String(tool).toLowerCase() === "webscan" && params.cms_confirm_timeout == null) {
+      params.cms_confirm_timeout = 600;
     }
 
     const toolsBaseUrl = process.env.TOOLS_BASE_URL;

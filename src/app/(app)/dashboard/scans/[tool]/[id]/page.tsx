@@ -531,10 +531,37 @@ export default function ScanReportPage() {
           if (pending.length === 1) cmsConfFromArray = pending[0];
         }
 
+        // ── Stale-modal guard ──────────────────────────────────────────
+        // Phase 4 has a hard 60-second window on the engine
+        // (wait_for_cms_confirmation, f.py line ~903). After timeout the
+        // engine runs cleanup_cms_confirmation() which deletes the dict
+        // entry and clears the cms_confirmation_pending flag. If the modal
+        // is still showing at that point, any click gets "No CMS
+        // confirmation pending for this job" because the dict entry is
+        // gone. Close the modal as soon as we observe either:
+        //   (a) the legacy flag has dropped AND there's no CMS entry in
+        //       the standard confirmations array (engine moved past Phase 4)
+        //   (b) the scan has reached a terminal state (completed/failed/
+        //       cancelled) — no Phase 4 at all anymore
+        // We mark cmsRespondedRef so the modal won't reopen on subsequent
+        // polls; close silently because no user action is required.
+        const scanIsTerminal = ["completed", "failed", "cancelled"]
+          .includes(scanData.status);
+
+        if (
+          showCmsModalRef.current &&
+          !cmsRespondedRef.current &&
+          (scanIsTerminal || (!cmsConfFromArray && !cmsLegacyFlag))
+        ) {
+          setShowCmsModal(false);
+          cmsRespondedRef.current = true;
+        }
+
         if (
           (cmsConfFromArray || cmsLegacyFlag) &&
           !showCmsModalRef.current &&
-          !cmsRespondedRef.current
+          !cmsRespondedRef.current &&
+          !scanIsTerminal
         ) {
           // Resolve detected CMS name: legacy field first, otherwise parse from message.
           let detected: string | undefined = data.pythonStatus?.detected_cms;
