@@ -755,53 +755,44 @@ export default function ScanReportPage() {
   };
 
   // ── CMS confirmation handler ────────────────────────────────────────
-  // The Web Security Suite (WebScan) pauses at Phase 4 with a CMS_DETECTED
-  // confirmation. CMS confirmations on this engine live inside run_webscan()
-  // (per Confirmation Types Reference: "EXISTING IMPLEMENTATION in run_webscan()")
-  // which means they often DON'T appear in /confirmations/{job_id}, so we
-  // can't always capture a request_id during polling.
+  // The engine handles CMS confirmations through a bespoke `_cms_confirmations`
+  // dict (f.py lines 835–940), NOT through the standard ConfirmationManager.
+  // The only endpoint that touches that dict is POST /confirm-cms/{job_id} with
+  // body { confirm: bool } — which the legacy /api/dashboard/scans/[id] route
+  // forwards to. Hitting /confirm-all or /confirm/{job}/{req} returns 200 OK
+  // but doesn't unblock the worker, so wait_for_cms_confirmation() times out
+  // and the result comes back with `skipped_reason: "User declined or
+  // confirmation timed out"` even though the user clicked Activate.
   //
-  // Routing strategy:
-  //   * request_id captured  → POST /confirm/{job_id}/{request_id}  (action=single)
-  //   * no request_id        → POST /confirm-all/{job_id}           (action=all)
-  //     The broadcast endpoint applies the response to every pending
-  //     confirmation on the job — at Phase 4 the only pending one is the CMS
-  //     confirmation, so it reliably unblocks the worker without a request_id.
-  //   * the legacy URL /api/dashboard/scans/[id] is no longer used by this
-  //     handler; it remains in place purely as a server-side safety net.
+  // Therefore: ALWAYS use the legacy URL for CMS regardless of whether we
+  // captured a request_id during polling. (The /confirm route is still the
+  // right path for discovery / authtest / any tool that goes through
+  // ConfirmationManager — see handleInteractiveConfirm below — but those are
+  // called from the running-state generic modal, not this CMS modal.)
   //
-  // "No pending" style replies from the engine mean the worker has already
-  // moved past Phase 4 (auto-skipped or processed). Clicking again can't help,
-  // so we close the modal and lock it shut. Real errors (network, 5xx, other
-  // 4xx reasons) keep the modal open and release the lock so retry works.
+  // Once the click is in flight we lock the modal closed via cmsRespondedRef
+  // so polling can't re-open it while the engine drains the bespoke dict.
+  // On a hard failure we release the lock so the user can retry.
   const handleCmsAction = async (confirm: boolean) => {
     if (!cmsDetails) return;
     setIsConfirming(true);
     cmsRespondedRef.current = true; // optimistic lock — released on retriable failure
     try {
-      const responseValue = confirm ? "confirm" : "skip";
-      const reqBody: Record<string, unknown> = cmsDetails.requestId
-        ? { action: "single", request_id: cmsDetails.requestId, response: responseValue }
-        : { action: "all", response: responseValue };
-
-      const res = await fetch(`/api/dashboard/scans/${scanId}/confirm`, {
+      const res = await fetch(`/api/dashboard/scans/${scanId}`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(reqBody),
+        body:    JSON.stringify({
+          confirm,
+          external_job_id: cmsDetails.jobId,
+        }),
       });
 
       if (res.ok) {
         toast.success(confirm ? "Deep scan modules activated" : "Bypassed");
         setShowCmsModal(false);
-        if (cmsDetails.requestId) {
-          const reqId = cmsDetails.requestId;
-          setConfirmations((p) => p.filter((c: any) => (c.request_id || c.id) !== reqId));
-        } else {
-          // action=all targeted every pending confirmation on this job.
-          setConfirmations([]);
-        }
         // Lock stays engaged — modal will not reopen even if polling still
-        // sees the legacy flag for a few seconds while the engine drains it.
+        // sees the legacy `cms_confirmation_pending` flag for a few seconds
+        // while the engine drains its bespoke dict and clears the flag.
         return;
       }
 
@@ -815,15 +806,15 @@ export default function ScanReportPage() {
 
       const lower = String(msg).toLowerCase();
       const movedPast =
-        // "No CMS confirmation pending for this job"
+        // "No CMS confirmation pending for this job" — bespoke dict cleaned
+        // up because cms_confirm_timeout (60s) fired before the click landed.
         (lower.includes("no") && lower.includes("pending")) ||
-        // "confirmation expired" / "already responded" / etc.
         lower.includes("expired") ||
         lower.includes("already") ||
         lower.includes("not found");
 
       if (movedPast) {
-        // Engine has moved past this phase — the click can't take effect, but
+        // Engine has moved past Phase 4 — the click can't take effect, but
         // the scan is continuing on its own. Close the modal silently so the
         // user isn't stuck staring at it. Lock stays engaged.
         setShowCmsModal(false);

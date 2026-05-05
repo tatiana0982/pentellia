@@ -211,15 +211,23 @@ export async function DELETE(
 // Frontend sends { confirm: true/false, external_job_id } when user responds
 // to the "CMS detected — run deep scanner?" modal.
 //
-// Routing strategy (resilient to engine version):
-//   1. Try the standard confirmation flow first:
-//        GET  /confirmations/{job_id}  → find pending CMS_DETECTED confirmation
-//        POST /confirm/{job_id}/{request_id}  body: {"response":"confirm"|"skip"}
-//      This is the spec'd path on current engines and is the only path that
-//      reliably unblocks the WebScan worker waiting at Phase 4.
-//   2. If no CMS confirmation can be located on the engine, fall back to the
-//      legacy POST /confirm-cms/{job_id} endpoint (older engines). Surfaces
-//      the engine's actual error message instead of a generic one.
+// IMPORTANT: This engine has TWO separate confirmation systems:
+//
+//   1. The standard ConfirmationManager  →  /confirmations, /confirm/{job}/{req},
+//      /confirm-all/{job}  — used by discovery, authtest, and any other tool
+//      that registers via ConfirmationManager. Has request_id support.
+//
+//   2. A bespoke _cms_confirmations dict (f.py lines 835–940) — used ONLY by
+//      Phase 4 of webscan for CMS_DETECTED. Registered via
+//      request_cms_confirmation() and polled by wait_for_cms_confirmation().
+//      The standard endpoints DO NOT touch this dict; the only endpoint that
+//      does is POST /confirm-cms/{job_id} with body { confirm: bool }.
+//
+// CMS confirmations therefore must go through the bespoke endpoint. Routing
+// them through /confirm-all/ returns 200 OK (because ConfirmationManager has
+// nothing to resolve) but leaves the bespoke dict untouched, so the worker
+// times out at cms_confirm_timeout (60s) with "User declined or confirmation
+// timed out" — exactly the failure mode this handler exists to avoid.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -251,110 +259,10 @@ export async function POST(
     return NextResponse.json({ error: "Scan engine not configured or job ID missing" }, { status: 503 });
   }
 
-  // ── Step 1: Discover the CMS confirmation request_id on the engine ─────────
-  // Look up the live confirmations list and pick the pending CMS one.
-  // Matching is permissive so it works whether the engine emits the type as
-  // "cms_detected", "CMS_DETECTED", or only signals it through the message.
-  let cmsRequestId: string | null = null;
-  try {
-    const confRes = await fetch(`${toolsBaseUrl}/confirmations/${externalJobId}`, {
-      headers: { "X-API-Key": apiKey },
-      signal:  AbortSignal.timeout(5_000),
-    });
-    if (confRes.ok) {
-      const confJson = await confRes.json().catch(() => ({}));
-      const list: any[] = Array.isArray(confJson)
-        ? confJson
-        : Array.isArray(confJson?.confirmations)
-          ? confJson.confirmations
-          : [];
-
-      const isCms = (c: any) => {
-        const status = c?.status;
-        const isPending = !status || status === "pending";
-        if (!isPending) return false;
-        const t = String(c?.type   ?? "").toLowerCase();
-        const m = String(c?.message ?? c?.prompt ?? "").toLowerCase();
-        if (t === "cms_detected" || t.includes("cms")) return true;
-        if (m.includes("wordpress") || m.includes("drupal") || m.includes("joomla")) return true;
-        if (m.includes("wpscan")    || m.includes("droopescan") || m.includes("joomscan")) return true;
-        return false;
-      };
-
-      let match = list.find(isCms);
-      // If nothing matches by type/message but there is exactly one pending
-      // confirmation, treat that as the CMS one. This handles engines that
-      // emit a generic "type" while signalling CMS through state alone.
-      if (!match) {
-        const pending = list.filter((c: any) => !c?.status || c?.status === "pending");
-        if (pending.length === 1) match = pending[0];
-      }
-      if (match) cmsRequestId = match.request_id || match.id || null;
-    }
-  } catch { /* fall through to legacy */ }
-
-  // ── Step 2: Use the standard confirmation endpoint when we have an id ──────
-  if (cmsRequestId) {
-    try {
-      const newRes = await fetch(
-        `${toolsBaseUrl}/confirm/${externalJobId}/${cmsRequestId}`,
-        {
-          method:  "POST",
-          headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-          body:    JSON.stringify({ response: confirm ? "confirm" : "skip" }),
-          signal:  AbortSignal.timeout(10_000),
-        },
-      );
-      const newData = await newRes.json().catch(() => ({}));
-      if (newRes.ok) {
-        return NextResponse.json({
-          success:   true,
-          confirmed: confirm,
-          message:   newData.message ?? (confirm ? "CMS scan activated" : "CMS scan bypassed"),
-        });
-      }
-      // If the standard endpoint exists and rejected the response, surface that
-      // error directly — don't silently retry through the legacy path because
-      // it would re-send the same intent and the user would see flapping toasts.
-      return NextResponse.json(
-        { error: newData.error || newData.message || "Confirmation rejected by engine" },
-        { status: newRes.status },
-      );
-    } catch (err: any) {
-      // Network error on the new endpoint → fall through to broadcast/legacy.
-    }
-  }
-
-  // ── Step 2b: Broadcast endpoint — works without a request_id ───────────────
-  // CMS_DETECTED on this engine lives inside run_webscan() (see Confirmation
-  // Types Reference) and is NOT enumerable via /confirmations/{job_id}, so
-  // Step 1 will return empty for it even when the worker is parked at Phase 4.
-  // /confirm-all/{job_id} applies the response to every pending confirmation
-  // on the job — at Phase 4 the only pending one is the CMS confirmation, so
-  // this is the reliable path to unblock the worker without a request_id.
-  try {
-    const allRes = await fetch(`${toolsBaseUrl}/confirm-all/${externalJobId}`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
-      body:    JSON.stringify({ response: confirm ? "confirm" : "skip" }),
-      signal:  AbortSignal.timeout(10_000),
-    });
-    const allData = await allRes.json().catch(() => ({}));
-    if (allRes.ok) {
-      return NextResponse.json({
-        success:   true,
-        confirmed: confirm,
-        message:   allData.message ?? (confirm ? "CMS scan activated" : "CMS scan bypassed"),
-      });
-    }
-    // Fall through to legacy on rejection (older engines may not expose
-    // /confirm-all). The legacy path provides the final attempt + clear error.
-  } catch (err: any) {
-    // Network error → fall through to legacy.
-  }
-
-  // ── Step 3: Legacy fallback — only reached when neither the standard nor ──
-  // the broadcast endpoint succeeded (oldest engines).
+  // Direct call to the engine's bespoke CMS confirmation endpoint. This is
+  // what respond_to_cms_confirmation(job_id, confirm) is reached through, and
+  // it's the only path that lets wait_for_cms_confirmation() observe the
+  // user's response before its timeout fires.
   try {
     const res = await fetch(`${toolsBaseUrl}/confirm-cms/${externalJobId}`, {
       method:  "POST",
@@ -366,6 +274,9 @@ export async function POST(
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
+      // Surface the engine's actual error text so the UI can show a real
+      // reason (e.g. "No CMS confirmation pending for this job" — meaning the
+      // engine has already auto-skipped because the bespoke timeout fired).
       return NextResponse.json(
         { error: data.error || data.message || "CMS confirmation could not be delivered" },
         { status: res.status },
