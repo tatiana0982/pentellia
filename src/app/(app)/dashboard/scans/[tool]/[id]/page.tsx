@@ -426,7 +426,10 @@ export default function ScanReportPage() {
   const [showCmsModal,  setShowCmsModal]  = useState(false);
   // Keep ref in sync with state so polling closure can read it without restart
   useEffect(() => { showCmsModalRef.current = showCmsModal; }, [showCmsModal]);
-  const [cmsDetails,    setCmsDetails]    = useState<{ detected: string; jobId: string } | null>(null);
+  // requestId is the standard confirmation request_id from /confirmations/{job_id}.
+  // When present, we respond via POST /confirm/{job_id}/{request_id} (new flow).
+  // When absent (very old engines), we fall back to legacy /confirm-cms/{job_id}.
+  const [cmsDetails,    setCmsDetails]    = useState<{ detected: string; jobId: string; requestId?: string } | null>(null);
 
   // AI Summary — plain state, no custom hook
   const [aiSummary,    setAiSummary]    = useState<string>("");
@@ -485,8 +488,33 @@ export default function ScanReportPage() {
         if (data.confirmations?.length) setConfirmations(data.confirmations);
         if (data.aiSummary && isFirst) { setAiSummary(data.aiSummary); setAiFromCache(true); }
 
-        if (data.pythonStatus?.cms_confirmation_pending && !showCmsModalRef.current) {
-          setCmsDetails({ detected: data.pythonStatus.detected_cms || "Unknown CMS", jobId: data.pythonStatus.job_id });
+        // ── CMS confirmation detection ──────────────────────────────────
+        // Backend WebScan Phase 4 emits a CMS_DETECTED confirmation through
+        // the standard /confirmations/{job_id} endpoint (new flow). Older
+        // engines also set pythonStatus.cms_confirmation_pending (legacy flag).
+        // We accept either and prefer the standard array because it carries
+        // the request_id needed to respond via /confirm/{job_id}/{request_id}.
+        const cmsConfFromArray = (data.confirmations || []).find((c: any) => {
+          const t = String(c.type || "").toLowerCase();
+          const status = c.status;
+          const isPending = !status || status === "pending";
+          return isPending && t === "cms_detected";
+        });
+        const cmsLegacyFlag = data.pythonStatus?.cms_confirmation_pending;
+
+        if ((cmsConfFromArray || cmsLegacyFlag) && !showCmsModalRef.current) {
+          // Resolve detected CMS name: legacy field first, otherwise parse from message.
+          let detected: string | undefined = data.pythonStatus?.detected_cms;
+          if (!detected && cmsConfFromArray) {
+            const msg = String(cmsConfFromArray.message || cmsConfFromArray.prompt || "");
+            const m = msg.match(/(WordPress|Drupal|Joomla|SharePoint)/i);
+            if (m) detected = m[1];
+          }
+          setCmsDetails({
+            detected: detected || "Unknown CMS",
+            jobId:    data.pythonStatus?.job_id,
+            requestId: cmsConfFromArray?.request_id || cmsConfFromArray?.id,
+          });
           setShowCmsModal(true);
         }
 
@@ -693,13 +721,58 @@ export default function ScanReportPage() {
     }
   };
 
+  // ── CMS confirmation handler ────────────────────────────────────────
+  // The Web Security Suite (WebScan) pauses at Phase 4 with a CMS_DETECTED
+  // confirmation. Per the backend confirmation framework, the response must go to
+  // POST /confirm/{job_id}/{request_id} with body { response: "confirm" | "skip" }.
+  //
+  // When we have a request_id from /confirmations (new flow), we route through
+  // /api/dashboard/scans/[id]/confirm — which forwards to /confirm/{job_id}/{request_id}.
+  //
+  // If request_id is missing (very old engine emitting only the legacy flag), we
+  // fall back to the legacy POST /api/dashboard/scans/[id] → /confirm-cms/{job_id}.
   const handleCmsAction = async (confirm: boolean) => {
     if (!cmsDetails) return;
     setIsConfirming(true);
     try {
-      const res = await fetch(`/api/dashboard/scans/${scanId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm, external_job_id: cmsDetails.jobId }) });
-      if (res.ok) { toast.success(confirm ? "Deep scan modules activated" : "Bypassed"); setShowCmsModal(false); }
-    } catch { toast.error("Connection error"); } finally { setIsConfirming(false); }
+      let res: Response;
+      if (cmsDetails.requestId) {
+        // New flow — standard confirmation endpoint.
+        res = await fetch(`/api/dashboard/scans/${scanId}/confirm`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            action:     "single",
+            request_id: cmsDetails.requestId,
+            response:   confirm ? "confirm" : "skip",
+          }),
+        });
+      } else {
+        // Legacy fallback — only used if engine never surfaced a request_id.
+        res = await fetch(`/api/dashboard/scans/${scanId}`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ confirm, external_job_id: cmsDetails.jobId }),
+        });
+      }
+
+      if (res.ok) {
+        toast.success(confirm ? "Deep scan modules activated" : "Bypassed");
+        setShowCmsModal(false);
+        // Drop the resolved CMS confirmation from local state so the generic
+        // running-state modal doesn't pop up for it on the next poll tick.
+        if (cmsDetails.requestId) {
+          const reqId = cmsDetails.requestId;
+          setConfirmations((p) => p.filter((c: any) => (c.request_id || c.id) !== reqId));
+        }
+      } else {
+        toast.error("Confirmation failed");
+      }
+    } catch {
+      toast.error("Connection error");
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   const handleInteractiveConfirm = async (request_id: string, responseAction: string, actionType: "single" | "all" = "single") => {
