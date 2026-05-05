@@ -321,12 +321,40 @@ export async function POST(
         { status: newRes.status },
       );
     } catch (err: any) {
-      // Network error on the new endpoint → fall through to legacy.
+      // Network error on the new endpoint → fall through to broadcast/legacy.
     }
   }
 
-  // ── Step 3: Legacy fallback — only reached when the new flow couldn't ──────
-  // identify a request_id (older engines) or the new endpoint was unreachable.
+  // ── Step 2b: Broadcast endpoint — works without a request_id ───────────────
+  // CMS_DETECTED on this engine lives inside run_webscan() (see Confirmation
+  // Types Reference) and is NOT enumerable via /confirmations/{job_id}, so
+  // Step 1 will return empty for it even when the worker is parked at Phase 4.
+  // /confirm-all/{job_id} applies the response to every pending confirmation
+  // on the job — at Phase 4 the only pending one is the CMS confirmation, so
+  // this is the reliable path to unblock the worker without a request_id.
+  try {
+    const allRes = await fetch(`${toolsBaseUrl}/confirm-all/${externalJobId}`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
+      body:    JSON.stringify({ response: confirm ? "confirm" : "skip" }),
+      signal:  AbortSignal.timeout(10_000),
+    });
+    const allData = await allRes.json().catch(() => ({}));
+    if (allRes.ok) {
+      return NextResponse.json({
+        success:   true,
+        confirmed: confirm,
+        message:   allData.message ?? (confirm ? "CMS scan activated" : "CMS scan bypassed"),
+      });
+    }
+    // Fall through to legacy on rejection (older engines may not expose
+    // /confirm-all). The legacy path provides the final attempt + clear error.
+  } catch (err: any) {
+    // Network error → fall through to legacy.
+  }
+
+  // ── Step 3: Legacy fallback — only reached when neither the standard nor ──
+  // the broadcast endpoint succeeded (oldest engines).
   try {
     const res = await fetch(`${toolsBaseUrl}/confirm-cms/${externalJobId}`, {
       method:  "POST",

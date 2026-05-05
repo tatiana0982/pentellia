@@ -427,8 +427,10 @@ export default function ScanReportPage() {
   // Keep ref in sync with state so polling closure can read it without restart
   useEffect(() => { showCmsModalRef.current = showCmsModal; }, [showCmsModal]);
   // requestId is the standard confirmation request_id from /confirmations/{job_id}.
-  // When present, we respond via POST /confirm/{job_id}/{request_id} (new flow).
-  // When absent (very old engines), we fall back to legacy /confirm-cms/{job_id}.
+  // When present, we respond via POST /confirm/{job_id}/{request_id} (action=single).
+  // When absent (this engine's CMS confirmations live inside run_webscan() and
+  // aren't enumerable via /confirmations), we broadcast via /confirm-all/{job_id}
+  // (action=all) — at Phase 4 the only pending confirmation is the CMS one.
   const [cmsDetails,    setCmsDetails]    = useState<{ detected: string; jobId: string; requestId?: string } | null>(null);
 
   // AI Summary — plain state, no custom hook
@@ -754,67 +756,84 @@ export default function ScanReportPage() {
 
   // ── CMS confirmation handler ────────────────────────────────────────
   // The Web Security Suite (WebScan) pauses at Phase 4 with a CMS_DETECTED
-  // confirmation. Per the backend confirmation framework, the response must
-  // go to POST /confirm/{job_id}/{request_id} body { response: "confirm" | "skip" }.
+  // confirmation. CMS confirmations on this engine live inside run_webscan()
+  // (per Confirmation Types Reference: "EXISTING IMPLEMENTATION in run_webscan()")
+  // which means they often DON'T appear in /confirmations/{job_id}, so we
+  // can't always capture a request_id during polling.
   //
-  // When we have a request_id captured from /confirmations (new flow), we
-  // route through /api/dashboard/scans/[id]/confirm — which forwards to
-  // /confirm/{job_id}/{request_id}. When we don't, we hit the legacy URL
-  // /api/dashboard/scans/[id]; that route now resolves the request_id on
-  // the server side and uses the same /confirm endpoint, only falling back
-  // to /confirm-cms on truly old engines.
+  // Routing strategy:
+  //   * request_id captured  → POST /confirm/{job_id}/{request_id}  (action=single)
+  //   * no request_id        → POST /confirm-all/{job_id}           (action=all)
+  //     The broadcast endpoint applies the response to every pending
+  //     confirmation on the job — at Phase 4 the only pending one is the CMS
+  //     confirmation, so it reliably unblocks the worker without a request_id.
+  //   * the legacy URL /api/dashboard/scans/[id] is no longer used by this
+  //     handler; it remains in place purely as a server-side safety net.
   //
-  // Once the click is in flight we lock the modal closed via cmsRespondedRef
-  // so polling can't re-open it while the engine drains its pending state.
-  // On a hard failure we release the lock so the user can retry.
+  // "No pending" style replies from the engine mean the worker has already
+  // moved past Phase 4 (auto-skipped or processed). Clicking again can't help,
+  // so we close the modal and lock it shut. Real errors (network, 5xx, other
+  // 4xx reasons) keep the modal open and release the lock so retry works.
   const handleCmsAction = async (confirm: boolean) => {
     if (!cmsDetails) return;
     setIsConfirming(true);
-    cmsRespondedRef.current = true; // optimistic lock — released on failure below
+    cmsRespondedRef.current = true; // optimistic lock — released on retriable failure
     try {
-      let res: Response;
-      if (cmsDetails.requestId) {
-        // New flow — standard confirmation endpoint, request_id in hand.
-        res = await fetch(`/api/dashboard/scans/${scanId}/confirm`, {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({
-            action:     "single",
-            request_id: cmsDetails.requestId,
-            response:   confirm ? "confirm" : "skip",
-          }),
-        });
-      } else {
-        // No request_id captured client-side. Hit the legacy URL — the route
-        // handler now resolves the request_id server-side from /confirmations
-        // and uses the new /confirm/{job_id}/{request_id} endpoint internally.
-        res = await fetch(`/api/dashboard/scans/${scanId}`, {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ confirm, external_job_id: cmsDetails.jobId }),
-        });
-      }
+      const responseValue = confirm ? "confirm" : "skip";
+      const reqBody: Record<string, unknown> = cmsDetails.requestId
+        ? { action: "single", request_id: cmsDetails.requestId, response: responseValue }
+        : { action: "all", response: responseValue };
+
+      const res = await fetch(`/api/dashboard/scans/${scanId}/confirm`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(reqBody),
+      });
 
       if (res.ok) {
         toast.success(confirm ? "Deep scan modules activated" : "Bypassed");
         setShowCmsModal(false);
-        // Drop the resolved CMS confirmation from local state so any other
-        // pending-confirmation UI doesn't pop up for it on the next poll tick.
         if (cmsDetails.requestId) {
           const reqId = cmsDetails.requestId;
           setConfirmations((p) => p.filter((c: any) => (c.request_id || c.id) !== reqId));
+        } else {
+          // action=all targeted every pending confirmation on this job.
+          setConfirmations([]);
         }
         // Lock stays engaged — modal will not reopen even if polling still
         // sees the legacy flag for a few seconds while the engine drains it.
+        return;
+      }
+
+      // Non-OK: extract the engine's actual reason and decide if it's a
+      // retriable failure or a "the engine has already moved on" condition.
+      let msg = "Confirmation failed";
+      try {
+        const errData = await res.json();
+        msg = errData?.error || errData?.message || msg;
+      } catch { /* keep generic */ }
+
+      const lower = String(msg).toLowerCase();
+      const movedPast =
+        // "No CMS confirmation pending for this job"
+        (lower.includes("no") && lower.includes("pending")) ||
+        // "confirmation expired" / "already responded" / etc.
+        lower.includes("expired") ||
+        lower.includes("already") ||
+        lower.includes("not found");
+
+      if (movedPast) {
+        // Engine has moved past this phase — the click can't take effect, but
+        // the scan is continuing on its own. Close the modal silently so the
+        // user isn't stuck staring at it. Lock stays engaged.
+        setShowCmsModal(false);
+        toast(confirm ? "Engine already advanced past this phase" : "Bypassed", {
+          icon:  "ℹ️",
+          style: { background: "#0B0C15", color: "#fff", border: "1px solid rgba(139,92,246,0.3)" },
+        });
       } else {
-        // Hard failure — release the lock so the user can try again.
+        // Real, retriable failure — release the lock and keep modal open.
         cmsRespondedRef.current = false;
-        let msg = "Confirmation failed";
-        try {
-          const errData = await res.json();
-          if (errData?.error)   msg = errData.error;
-          else if (errData?.message) msg = errData.message;
-        } catch { /* keep generic message */ }
         toast.error(msg);
       }
     } catch {

@@ -61,9 +61,19 @@ export async function POST(
     });
 
     if (!pythonRes.ok) {
-      const err = await pythonRes.text();
+      // Surface the engine's actual error text so callers see the real reason
+      // (e.g. "No CMS confirmation pending for this job") instead of a generic
+      // "Confirmation failed" wrapper. Try JSON first, fall back to raw text.
+      let errMsg = "Confirmation failed";
+      const raw = await pythonRes.text();
+      try {
+        const parsed = JSON.parse(raw);
+        errMsg = parsed?.error || parsed?.message || raw || errMsg;
+      } catch {
+        if (raw) errMsg = raw;
+      }
       return NextResponse.json(
-        { error: "Confirmation failed", details: err },
+        { error: errMsg },
         { status: pythonRes.status },
       );
     }
