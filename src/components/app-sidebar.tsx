@@ -37,7 +37,7 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
 
   return (
     <aside className={cn(
-      "fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] border-r border-white/5 transition-all duration-300 ease-in-out",
+      "fixed left-0 top-16 z-90 h-[calc(100vh-4rem)] border-r border-white/5 transition-all duration-300 ease-in-out",
       "bg-[#0B0C15]/80 backdrop-blur-md supports-[backdrop-filter]:bg-[#0B0C15]/60",
       isSidebarOpen ? "w-64" : "w-[80px]",
     )}>

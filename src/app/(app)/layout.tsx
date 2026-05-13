@@ -39,7 +39,7 @@ function SubscriptionBanner() {
     );
   }
 
-  const daysLeft  = data.subscription.daysLeft ?? 0;
+  const daysLeft = data.subscription.daysLeft ?? 0;
   if (daysLeft > 3) return null;
   const isExpired = daysLeft === 0;
 
@@ -85,11 +85,11 @@ function InnerLayout({
 
       <Header toggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
 
-      <div className="relative z-10 flex h-full pt-16">
+      <div className="relative z-20 flex h-full pt-16">
         <AppSidebar isSidebarOpen={isSidebarOpen} />
 
         <main className={cn(
-          "flex-1 transition-all duration-300 ease-in-out h-full overflow-y-auto",
+          "relative z-20 flex-1 transition-all duration-300 ease-in-out h-full overflow-y-auto",
           isSidebarOpen ? "ml-64" : "ml-[80px]",
         )}>
           <SubscriptionBanner />

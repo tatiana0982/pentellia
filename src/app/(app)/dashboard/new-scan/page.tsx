@@ -18,7 +18,7 @@ interface SecurityTool {
   slug:        string;
 }
 
-const PINNED_TOOLS      = ["webscan", "cloudscan", "networkscan"];
+const PINNED_TOOLS      = ["webscan", "cloudscan", "networkscan", "breachintel"];
 const MAINTENANCE_TOOLS = ["gvm", "cvesearch"];
 
 // --- Skeleton ---
