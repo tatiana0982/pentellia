@@ -5,20 +5,21 @@ import { usePathname } from "next/navigation";
 import {
   Package, FileText, Shield, Blocks, Settings, LayoutDashboard,
   LifeBuoy, Plus, ChevronRight, FileCode2, Zap, ArrowUpRight,
-  CreditCard, CheckCircle2, AlertTriangle,
+  CreditCard, CheckCircle2, AlertTriangle, Radar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@/providers/WalletProvider";
 
 const navItems = [
-  { href: "/dashboard",              icon: LayoutDashboard, label: "Dashboard"    },
-  { href: "/dashboard/assets",       icon: Package,         label: "Assets"       },
-  { href: "/dashboard/scans",        icon: Shield,          label: "Scans"        },
-  { href: "/dashboard/reports",      icon: FileText,        label: "Reports"      },
-  { href: "/dashboard/integrations", icon: Blocks,          label: "Integrations" },
-  { href: "/dashboard/c2",           icon: FileCode2,       label: "Arsenal"      },
-  { href: "/account/user-settings",  icon: Settings,        label: "Settings"     },
+  { href: "/dashboard",                      icon: LayoutDashboard, label: "Dashboard"      },
+  { href: "/dashboard/assets",               icon: Package,         label: "Assets"         },
+  { href: "/dashboard/scans",                icon: Shield,          label: "Scans"          },
+  { href: "/dashboard/new-scan/breachintel", icon: Radar,           label: "PentelliaRadar" },
+  { href: "/dashboard/reports",              icon: FileText,        label: "Reports"        },
+  { href: "/dashboard/integrations",         icon: Blocks,          label: "Integrations"   },
+  { href: "/dashboard/c2",                   icon: FileCode2,       label: "Arsenal"        },
+  { href: "/account/user-settings",          icon: Settings,        label: "Settings"       },
 ];
 
 export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
@@ -43,19 +44,35 @@ export function AppSidebar({ isSidebarOpen }: { isSidebarOpen: boolean }) {
     )}>
       <div className="flex h-full flex-col">
 
-        {/* ── New Scan CTA ── */}
-        <div className="p-4">
-          <Link
-            href="/dashboard/new-scan"
-            className={cn(
-              "group flex items-center justify-center w-full rounded-md bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_2px_12px_rgba(124,58,237,0.25)] transition-all hover:from-violet-500 hover:to-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
-              isSidebarOpen ? "h-10 px-4" : "h-10 w-10 p-0",
-            )}
-          >
-            <Plus className={cn("pointer-events-none h-5 w-5 transition-transform group-hover:rotate-90", isSidebarOpen && "mr-2")} />
-            {isSidebarOpen && <span className="pointer-events-none font-semibold">New Scan</span>}
-          </Link>
-        </div>
+{/* ── New Scan CTA ── */}
+<div className="p-4">
+  <Link
+    href="/dashboard/new-scan"
+    aria-label="New Scan"
+    prefetch={false}
+    className={cn(
+      "group relative flex h-10 items-center justify-center rounded-md bg-gradient-to-r from-violet-600 to-indigo-600 font-semibold text-white shadow-[0_2px_12px_rgba(124,58,237,0.25)] outline-none transition-all duration-200 ease-out cursor-pointer select-none isolate overflow-hidden",
+      "hover:from-violet-500 hover:to-indigo-500 hover:shadow-[0_4px_20px_rgba(124,58,237,0.4)]",
+      "active:scale-[0.97] active:shadow-[0_1px_6px_rgba(124,58,237,0.3)]",
+      "focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0C15]",
+      isSidebarOpen ? "w-full px-4" : "w-10",
+    )}
+  >
+    {/* Full-area click hitbox — guarantees every pixel routes through this Link */}
+    <span className="absolute inset-0 z-10" aria-hidden="true" />
+
+    <Plus
+      aria-hidden="true"
+      className={cn(
+        "pointer-events-none relative h-5 w-5 shrink-0 transition-transform duration-300 ease-out group-hover:rotate-90",
+        isSidebarOpen && "mr-2",
+      )}
+    />
+    {isSidebarOpen && (
+      <span className="pointer-events-none relative">New Scan</span>
+    )}
+  </Link>
+</div>
 
         {/* ── Navigation ── */}
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">

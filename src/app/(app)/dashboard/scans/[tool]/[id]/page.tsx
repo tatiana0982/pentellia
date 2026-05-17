@@ -32,14 +32,14 @@ import { triggerNotificationRefresh, triggerFullRefresh } from "@/lib/events";
 type ScanStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "paused";
 
 interface ScanResult {
-  id: string;
-  status: ScanStatus;
-  target: string;
-  tool_name: string;
-  tool_id?: string;
-  created_at: string;
+  id:            string;
+  status:        ScanStatus;
+  target:        string;
+  tool_name:     string;
+  tool_id?:      string;
+  created_at:    string;
   completed_at?: string;
-  result?: any;
+  result?:       any;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -101,10 +101,10 @@ const AIRichRenderer = ({ content }: { content: string }) => (
 function AiSummarySection({
   summary, isGenerating, isLoadedFromCache, onGenerate,
 }: {
-  summary: string;
-  isGenerating: boolean;
+  summary:           string;
+  isGenerating:      boolean;
   isLoadedFromCache: boolean;
-  onGenerate: () => void;
+  onGenerate:        () => void;
 }) {
   return (
     <div className="mt-12 bg-[#05050A]/80 border border-indigo-500/25 rounded-[2.5rem] backdrop-blur-xl relative overflow-hidden">
@@ -271,7 +271,7 @@ function getStepProgress(scan: ScanResult): { pct: number | null; label: string;
     return { pct: raw, label: scan.result?.progress?.current_description || "", indeterminate: false };
   }
   // Status-only — no fake math
-  if (scan.status === "queued") return { pct: null, label: "Queued — waiting for engine...", indeterminate: true };
+  if (scan.status === "queued")  return { pct: null, label: "Queued — waiting for engine...",   indeterminate: true };
   if (scan.status === "running") return { pct: null, label: scan.result?.progress?.current_description || "Running intelligence modules...", indeterminate: true };
   return { pct: null, label: "Initializing...", indeterminate: true };
 }
@@ -281,32 +281,10 @@ function RunningStateView({ scan, confirmations, onConfirm, isConfirming }: {
   onConfirm: (reqId: string, response: string, action?: "single" | "all") => void;
 }) {
   const [logsOpen, setLogsOpen] = useState(true);
-  const { pct: realPct, label: stepLabel, indeterminate } = getStepProgress(scan);
-  const currentStep = scan.result?.progress?.current_description || stepLabel || "Initializing Scan Core...";
+  const { pct, label: stepLabel, indeterminate } = getStepProgress(scan);
+  const currentStep    = scan.result?.progress?.current_description || stepLabel || "Initializing Scan Core...";
   const completedTools: string[] = scan.result?.progress?.completed_steps || [];
-  const pendingConf = confirmations.find((c: any) => c.status === "pending");
-
-  // ── Slow, Realistic Simulated Progress ──────────────────────────────
-  const [simulatedPct, setSimulatedPct] = useState(0);
-
-  useEffect(() => {
-    // Only simulate if the backend ISN'T providing a real %, and the scan is running
-    if (realPct !== null || scan.status !== "running") return;
-
-    const interval = setInterval(() => {
-      setSimulatedPct((prev) => {
-        // Target 95% and move at 1% of the remaining distance per second.
-        const remaining = 95 - prev;
-        return prev + (remaining * 0.01);
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [realPct, scan.status]);
-
-  const isSimulating = realPct === null && scan.status === "running";
-  const displayPct = realPct !== null ? realPct : (scan.status === "running" ? simulatedPct : null);
-  // ───────────────────────────────────────────────────────────────────
+  const pendingConf    = confirmations.find((c: any) => c.status === "pending");
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in zoom-in-95 duration-1000 mt-6 md:mt-10">
@@ -329,25 +307,16 @@ function RunningStateView({ scan, confirmations, onConfirm, isConfirming }: {
             </div>
           </div>
           <div className="max-w-2xl mx-auto px-2 space-y-4">
-            {/* Show real OR simulated % if available, otherwise just show queued state */}
-            {displayPct !== null ? (
+            {/* Show real % only if backend provides it, otherwise indeterminate */}
+            {pct !== null ? (
               <>
                 <div className="flex justify-between items-end">
-                  <div>
-                    <span className="text-slate-500 font-mono text-[10px] uppercase block">
-                      {isSimulating ? "Estimated Progress" : "Progress"}
-                    </span>
-                    {isSimulating && (
-                      <span className="text-fuchsia-400/80 font-mono text-[9px] animate-pulse">Calculating based on averages...</span>
-                    )}
-                  </div>
-                  <span className={`text-5xl font-black tabular-nums ${isSimulating ? "text-white/80" : "text-white"}`}>
-                    {Math.floor(displayPct)}<span className="text-violet-500 text-3xl">%</span>
-                  </span>
+                  <div><span className="text-slate-500 font-mono text-[10px] uppercase block">Progress</span></div>
+                  <span className="text-white text-5xl font-black tabular-nums">{Math.round(pct)}<span className="text-violet-500 text-3xl">%</span></span>
                 </div>
                 <div className="h-4 w-full bg-black/50 rounded-full overflow-hidden p-0.5 border border-white/10">
-                  <div className="h-full rounded-full transition-all duration-1000 ease-out relative overflow-hidden"
-                    style={{ width: `${displayPct}%`, backgroundImage: "linear-gradient(90deg, #6d28d9 0%, #a21caf 100%)" }}>
+                  <div className="h-full rounded-full transition-all duration-700 relative overflow-hidden"
+                    style={{ width: `${pct}%`, backgroundImage: "linear-gradient(90deg, #6d28d9 0%, #a21caf 100%)" }}>
                     <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.4)_50%,transparent_75%)] bg-[length:20px_20px] animate-[shimmer_1s_infinite_linear]" />
                   </div>
                 </div>
@@ -449,12 +418,12 @@ export default function ScanReportPage() {
   const router = useRouter();
   const scanId = params.id as string;
 
-  const [scan, setScan] = useState<ScanResult | null>(null);
+  const [scan,          setScan]          = useState<ScanResult | null>(null);
   const [confirmations, setConfirmations] = useState<any[]>([]);
-  const [polling, setPolling] = useState(true);
-  const [isAiOpen, setIsAiOpen] = useState(false);
-  const [isConfirming, setIsConfirming] = useState(false);
-  const [showCmsModal, setShowCmsModal] = useState(false);
+  const [polling,       setPolling]       = useState(true);
+  const [isAiOpen,      setIsAiOpen]      = useState(false);
+  const [isConfirming,  setIsConfirming]  = useState(false);
+  const [showCmsModal,  setShowCmsModal]  = useState(false);
   // Keep ref in sync with state so polling closure can read it without restart
   useEffect(() => { showCmsModalRef.current = showCmsModal; }, [showCmsModal]);
   // requestId is the standard confirmation request_id from /confirmations/{job_id}.
@@ -462,19 +431,19 @@ export default function ScanReportPage() {
   // When absent (this engine's CMS confirmations live inside run_webscan() and
   // aren't enumerable via /confirmations), we broadcast via /confirm-all/{job_id}
   // (action=all) — at Phase 4 the only pending confirmation is the CMS one.
-  const [cmsDetails, setCmsDetails] = useState<{ detected: string; jobId: string; requestId?: string } | null>(null);
+  const [cmsDetails,    setCmsDetails]    = useState<{ detected: string; jobId: string; requestId?: string } | null>(null);
 
   // AI Summary — plain state, no custom hook
-  const [aiSummary, setAiSummary] = useState<string>("");
+  const [aiSummary,    setAiSummary]    = useState<string>("");
   const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiFromCache, setAiFromCache] = useState(false);
-  const aiGeneratingRef = useRef(false);
-  const showCmsModalRef = useRef(false); // ref so polling doesn't restart on modal open
+  const [aiFromCache,  setAiFromCache]  = useState(false);
+  const aiGeneratingRef                 = useRef(false);
+  const showCmsModalRef                 = useRef(false); // ref so polling doesn't restart on modal open
   // Once the user has answered the CMS modal, lock it shut. The engine takes
   // a few seconds to clear pythonStatus.cms_confirmation_pending and to drop
   // the entry from /confirmations, during which polling would otherwise
   // re-trigger the modal. Reset only on hard failure so retries are possible.
-  const cmsRespondedRef = useRef(false);
+  const cmsRespondedRef                 = useRef(false);
 
   // ── Reliable polling — time-based intervals, stops on terminal state ─
   // Intervals: first 30s → every 2s | next 2min → every 5s | after → every 10s
@@ -488,13 +457,13 @@ export default function ScanReportPage() {
     // left over from any earlier scan navigation.
     cmsRespondedRef.current = false;
 
-    let stopped = false;
+    let stopped   = false;
     let timeoutId: NodeJS.Timeout;
     const startedAt = Date.now();
 
     const getDelay = () => {
       const elapsed = Date.now() - startedAt;
-      if (elapsed < 30_000) return 2_000;   // first 30s  → every 2s
+      if (elapsed < 30_000)  return 2_000;   // first 30s  → every 2s
       if (elapsed < 150_000) return 5_000;   // next 2min  → every 5s
       return 10_000;                          // after      → every 10s
     };
@@ -511,7 +480,7 @@ export default function ScanReportPage() {
         : `/api/dashboard/scans/${scanId}/stream`; // polling: checks Flask status
 
       try {
-        const res = await fetch(endpoint, { cache: "no-store" });
+        const res  = await fetch(endpoint, { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (stopped || !data.success) return;
@@ -544,16 +513,16 @@ export default function ScanReportPage() {
         const isCmsConf = (c: any): boolean => {
           const status = c?.status;
           if (status && status !== "pending") return false;
-          const t = String(c?.type ?? "").toLowerCase();
+          const t = String(c?.type    ?? "").toLowerCase();
           const m = String(c?.message ?? c?.prompt ?? "").toLowerCase();
           if (t === "cms_detected" || t.includes("cms")) return true;
           if (m.includes("wordpress") || m.includes("drupal") || m.includes("joomla")) return true;
-          if (m.includes("wpscan") || m.includes("droopescan") || m.includes("joomscan")) return true;
+          if (m.includes("wpscan")    || m.includes("droopescan") || m.includes("joomscan")) return true;
           return false;
         };
 
         let cmsConfFromArray = (data.confirmations || []).find(isCmsConf);
-        const cmsLegacyFlag = data.pythonStatus?.cms_confirmation_pending;
+        const cmsLegacyFlag  = data.pythonStatus?.cms_confirmation_pending;
 
         if (!cmsConfFromArray && cmsLegacyFlag) {
           const pending = (data.confirmations || []).filter(
@@ -598,12 +567,12 @@ export default function ScanReportPage() {
           let detected: string | undefined = data.pythonStatus?.detected_cms;
           if (!detected && cmsConfFromArray) {
             const msg = String(cmsConfFromArray.message || cmsConfFromArray.prompt || "");
-            const m = msg.match(/(WordPress|Drupal|Joomla|SharePoint)/i);
+            const m   = msg.match(/(WordPress|Drupal|Joomla|SharePoint)/i);
             if (m) detected = m[1];
           }
           setCmsDetails({
-            detected: detected || "Unknown CMS",
-            jobId: data.pythonStatus?.job_id,
+            detected:  detected || "Unknown CMS",
+            jobId:     data.pythonStatus?.job_id,
             requestId: cmsConfFromArray?.request_id || cmsConfFromArray?.id,
           });
           setShowCmsModal(true);
@@ -670,7 +639,7 @@ export default function ScanReportPage() {
 
     try {
       const res = await fetch("/api/ai/summarize", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           toolName: scan.tool_name,
@@ -699,10 +668,10 @@ export default function ScanReportPage() {
 
       if (!res.body) { toast.error("No stream received."); return; }
 
-      const reader = res.body.getReader();
+      const reader  = res.body.getReader();
       const decoder = new TextDecoder();
-      let full = "";
-      let buf = "";   // incomplete line buffer
+      let   full    = "";
+      let   buf     = "";   // incomplete line buffer
 
       while (true) {
         const { value, done } = await reader.read();
@@ -757,7 +726,7 @@ export default function ScanReportPage() {
             const b = (c.closest("div.border") || c) as HTMLElement;
             const t = Array.from(document.querySelectorAll("button")).find(
               (btn) => (btn.textContent?.includes("Low") || btn.textContent?.includes("Info")) &&
-                (btn.className.includes("text-indigo") || btn.className.includes("text-violet")),
+                       (btn.className.includes("text-indigo") || btn.className.includes("text-violet")),
             );
             b.style.display = t ? "none" : "";
           }
@@ -783,8 +752,8 @@ export default function ScanReportPage() {
         if (Array.isArray(obj)) { obj.forEach(traverse); return; }
         if (obj !== null && typeof obj === "object") {
           if (obj.description) obj.description = fmt(obj.description);
-          if (obj.desc) obj.desc = fmt(obj.desc);
-          if (obj.remediation) obj.remediation = fmt(obj.remediation);
+          if (obj.desc)        obj.desc         = fmt(obj.desc);
+          if (obj.remediation) obj.remediation  = fmt(obj.remediation);
           Object.values(obj).forEach(traverse);
         }
       };
@@ -837,9 +806,9 @@ export default function ScanReportPage() {
     cmsRespondedRef.current = true; // optimistic lock — released on retriable failure
     try {
       const res = await fetch(`/api/dashboard/scans/${scanId}`, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body:    JSON.stringify({
           confirm,
           external_job_id: cmsDetails.jobId,
         }),
@@ -877,7 +846,7 @@ export default function ScanReportPage() {
         // user isn't stuck staring at it. Lock stays engaged.
         setShowCmsModal(false);
         toast(confirm ? "Engine already advanced past this phase" : "Bypassed", {
-          icon: "ℹ️",
+          icon:  "ℹ️",
           style: { background: "#0B0C15", color: "#fff", border: "1px solid rgba(139,92,246,0.3)" },
         });
       } else {
@@ -904,7 +873,7 @@ export default function ScanReportPage() {
 
   if (!scan) return <GlobalLoadingState />;
 
-  const isActive = (["queued", "running", "paused"] as ScanStatus[]).includes(scan.status);
+  const isActive    = (["queued", "running", "paused"] as ScanStatus[]).includes(scan.status);
   const isCompleted = scan.status === "completed";
 
   return (

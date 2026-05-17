@@ -4,7 +4,7 @@
 // Tone: professional, credible, enterprise-grade — no emoji, no casual language
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pentellia.io";
-const SUPPORT_EMAIL = "encoderspro@v3rma.com";
+const SUPPORT_EMAIL = "pentellia-support@encoderspro.com";
 const YEAR = new Date().getFullYear();
 
 // ─────────────────────────────────────────────────────────────────────
@@ -25,12 +25,14 @@ function base(options: {
   const bar = options.topBarColor ?? accent;
 
   return `<!DOCTYPE html>
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" style="background-color:#05050a !important;">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="x-apple-disable-message-reformatting" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="supported-color-schemes" content="dark" />
   <title>${options.previewText}</title>
   <!--[if mso]>
   <noscript>
@@ -38,12 +40,49 @@ function base(options: {
   </noscript>
   <![endif]-->
   <style>
+    :root {
+      color-scheme: dark;
+      supported-color-schemes: dark;
+    }
+    html, body, #body {
+      background-color: #05050a !important;
+    }
     body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
     table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
     img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
-    body { margin: 0 !important; padding: 0 !important; background-color: #05050a; }
+    body { margin: 0 !important; padding: 0 !important; background-color: #05050a !important; }
     a { color: ${accent}; text-decoration: none; }
     a:hover { text-decoration: underline; }
+
+    /* Dark-mode hardening utility classes — preserve dark surfaces across clients */
+    .force-dark-bg { background-color: #05050a !important; }
+    .force-dark-card { background-color: #0b0c18 !important; }
+    .force-dark-footer { background-color: #080910 !important; }
+
+    /* iOS Mail dark mode */
+    u + #body .force-dark-bg,
+    u + #body .force-dark-bg > td { background-color: #05050a !important; }
+    u + #body .force-dark-card,
+    u + #body .force-dark-card > td { background-color: #0b0c18 !important; }
+    u + #body .force-dark-footer,
+    u + #body .force-dark-footer > td { background-color: #080910 !important; }
+
+    /* Outlook.com (OGSC) dark mode */
+    [data-ogsc] .force-dark-bg { background-color: #05050a !important; }
+    [data-ogsc] .force-dark-card { background-color: #0b0c18 !important; }
+    [data-ogsc] .force-dark-footer { background-color: #080910 !important; }
+    [data-ogsb] .force-dark-bg { background-color: #05050a !important; }
+    [data-ogsb] .force-dark-card { background-color: #0b0c18 !important; }
+    [data-ogsb] .force-dark-footer { background-color: #080910 !important; }
+
+    /* prefers-color-scheme dark — re-assert dark surfaces */
+    @media (prefers-color-scheme: dark) {
+      html, body, #body { background-color: #05050a !important; }
+      .force-dark-bg { background-color: #05050a !important; }
+      .force-dark-card { background-color: #0b0c18 !important; }
+      .force-dark-footer { background-color: #080910 !important; }
+    }
+
     @media only screen and (max-width: 600px) {
       .email-container { width: 100% !important; }
       .email-body-pad { padding: 32px 24px !important; }
@@ -52,7 +91,7 @@ function base(options: {
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background-color:#05050a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<body id="body" style="margin:0 !important;padding:0 !important;background-color:#05050a !important;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 
   <!-- Preview text (hidden) -->
   <div style="display:none;font-size:1px;color:#05050a;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">
@@ -60,9 +99,9 @@ function base(options: {
   </div>
 
   <!-- Outer wrapper -->
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+  <table role="presentation" class="force-dark-bg" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#05050a !important;">
     <tr>
-      <td align="center" style="padding:40px 16px 40px 16px;background-color:#05050a;">
+      <td align="center" class="force-dark-bg" style="padding:40px 16px 40px 16px;background-color:#05050a !important;">
 
         <!-- Email container -->
         <table class="email-container" role="presentation" width="560" cellspacing="0" cellpadding="0" border="0"
@@ -75,7 +114,7 @@ function base(options: {
 
           <!-- Header -->
           <tr>
-            <td style="background-color:#0b0c18;padding:36px 48px 32px 48px;border-left:1px solid rgba(124,58,237,0.15);border-right:1px solid rgba(124,58,237,0.15);">
+            <td class="force-dark-card" style="background-color:#0b0c18;padding:36px 48px 32px 48px;border-left:1px solid rgba(124,58,237,0.15);border-right:1px solid rgba(124,58,237,0.15);">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
                   <td>
@@ -102,7 +141,7 @@ function base(options: {
 
           <!-- Hero band -->
           <tr>
-            <td style="background:linear-gradient(135deg,#0f0b1f 0%,#120d22 50%,#0b0c18 100%);padding:40px 48px 36px 48px;border-left:1px solid rgba(124,58,237,0.15);border-right:1px solid rgba(124,58,237,0.15);">
+            <td class="force-dark-card" style="background:linear-gradient(135deg,#0f0b1f 0%,#120d22 50%,#0b0c18 100%);padding:40px 48px 36px 48px;border-left:1px solid rgba(124,58,237,0.15);border-right:1px solid rgba(124,58,237,0.15);">
               <p style="margin:0 0 6px 0;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:${accent};">
                 ${options.headerLabel}
               </p>
@@ -118,21 +157,21 @@ function base(options: {
 
           <!-- Body -->
           <tr>
-            <td class="email-body-pad" style="background-color:#0b0c18;padding:40px 48px;border-left:1px solid rgba(124,58,237,0.15);border-right:1px solid rgba(124,58,237,0.15);">
+            <td class="email-body-pad force-dark-card" style="background-color:#0b0c18;padding:40px 48px;border-left:1px solid rgba(124,58,237,0.15);border-right:1px solid rgba(124,58,237,0.15);">
               ${options.content}
             </td>
           </tr>
 
           <!-- Divider -->
           <tr>
-            <td style="background-color:#0b0c18;padding:0 48px;border-left:1px solid rgba(124,58,237,0.15);border-right:1px solid rgba(124,58,237,0.15);">
+            <td class="force-dark-card" style="background-color:#0b0c18;padding:0 48px;border-left:1px solid rgba(124,58,237,0.15);border-right:1px solid rgba(124,58,237,0.15);">
               <hr style="border:0;border-top:1px solid rgba(255,255,255,0.06);margin:0;" />
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="background-color:#080910;padding:28px 48px;border-left:1px solid rgba(124,58,237,0.12);border-right:1px solid rgba(124,58,237,0.12);border-bottom:1px solid rgba(124,58,237,0.12);border-radius:0 0 8px 8px;">
+            <td class="force-dark-footer" style="background-color:#080910;padding:28px 48px;border-left:1px solid rgba(124,58,237,0.12);border-right:1px solid rgba(124,58,237,0.12);border-bottom:1px solid rgba(124,58,237,0.12);border-radius:0 0 8px 8px;">
               ${
                 options.footerNote
                   ? `<p style="margin:0 0 14px 0;font-size:12px;color:#5a5a7a;line-height:1.6;">${options.footerNote}</p>
@@ -167,7 +206,7 @@ function base(options: {
                       Pentellia Security &mdash; Cybersecurity Intelligence Platform<br />
                       <a href="${APP_URL}" style="color:#4a4a7a;text-decoration:none;">${APP_URL}</a>
                       &nbsp;&bull;&nbsp;
-                      <a href="mailto:${SUPPORT_EMAIL}" style="color:#4a4a7a;text-decoration:none;">${SUPPORT_EMAIL}</a>
+                      <a href="mailto:${SUPPORT_EMAIL}" style="color:#4a4a7a !important;text-decoration:none;">${SUPPORT_EMAIL}</a>
                       &nbsp;&bull;&nbsp;
                       <a href="${APP_URL}/dashboard/support" style="color:#4a4a7a;text-decoration:none;">Support</a>
                     </p>
@@ -332,7 +371,7 @@ export function welcomeEmail(firstName: string): string {
         "Add credits to your wallet to run your first assessment",
       ])}
       ${ctaButton("Access Your Dashboard", `${APP_URL}/dashboard`)}
-      ${para(`If you have any questions or need assistance getting started, our team is available at <a href="mailto:${SUPPORT_EMAIL}" style="color:#a78bfa;">${SUPPORT_EMAIL}</a>.`, true)}
+      ${para(`If you have any questions or need assistance getting started, our team is available at <a href="mailto:${SUPPORT_EMAIL}" style="color:#a78bfa !important;">${SUPPORT_EMAIL}</a>.`, true)}
     `,
     footerNote: `You received this message because an account was created at Pentellia using this email address. If this was not you, please contact us immediately.`,
   });
@@ -372,7 +411,7 @@ export function forgotPasswordOtpEmail(firstName: string, otp: string): string {
       ${para(`Hello ${firstName},`)}
       ${para(`We received a request to reset the password associated with this email address. Use the passcode below to proceed. This code expires in <strong style="color:#c0c0d8;">10 minutes</strong>.`)}
       ${otpBox(otp)}
-      ${alertBox(`If you did not request a password reset, your account credentials may be at risk. We recommend logging in and reviewing your recent activity immediately. Contact us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#f87171;">${SUPPORT_EMAIL}</a> if you need assistance.`)}
+      ${alertBox(`If you did not request a password reset, your account credentials may be at risk. We recommend logging in and reviewing your recent activity immediately. Contact us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#f87171 !important;">${SUPPORT_EMAIL}</a> if you need assistance.`)}
       ${para(`Do not share this code with anyone. Pentellia staff will never request your passcode.`, true)}
     `,
     footerNote: `This is an automated security message from Pentellia. Do not reply to this email.`,
@@ -402,7 +441,7 @@ export function passwordChangedEmail(
         { label: "IP Address", value: ipAddress },
         { label: "Date & Time", value: timestamp },
       ], "#ef4444")}
-      ${alertBox(`If you did not change your password, your account may have been compromised. Please contact our security team immediately at <a href="mailto:${SUPPORT_EMAIL}" style="color:#f87171;">${SUPPORT_EMAIL}</a> and do not delay.`)}
+      ${alertBox(`If you did not change your password, your account may have been compromised. Please contact our security team immediately at <a href="mailto:${SUPPORT_EMAIL}" style="color:#f87171 !important;">${SUPPORT_EMAIL}</a> and do not delay.`)}
       ${ctaButton("Secure My Account", `${APP_URL}/account/user-settings`, "#dc2626")}
     `,
     footerNote: `This security notification was sent to protect your Pentellia account. It cannot be disabled.`,
@@ -434,7 +473,7 @@ export function loginAlertEmail(
         { label: "Device", value: userAgent.split(")")[0].replace("(", "").trim() || "Unknown" },
         { label: "Date & Time", value: timestamp },
       ], "#6366f1")}
-      ${warningBox(`If you do not recognise this sign-in, change your password immediately and contact our team at <a href="mailto:${SUPPORT_EMAIL}" style="color:#d4a84b;">${SUPPORT_EMAIL}</a>.`)}
+      ${warningBox(`If you do not recognise this sign-in, change your password immediately and contact our team at <a href="mailto:${SUPPORT_EMAIL}" style="color:#d4a84b !important;">${SUPPORT_EMAIL}</a>.`)}
       ${ctaButton("View Account Security", `${APP_URL}/account/login-history`, "#6366f1")}
     `,
     footerNote: `Login notifications help protect your account. Contact support to adjust your notification preferences.`,
@@ -656,7 +695,7 @@ export function creditsExhaustedEmail(firstName: string): string {
       ${alertBox(`Active monitoring and scheduled scans have been paused. Your existing scan history and reports remain fully accessible.`)}
       ${para(`To restore access to the full platform, add credits to your wallet. Scanning will resume automatically once your balance is replenished.`, true)}
       ${ctaButton("Restore Access", `${APP_URL}/subscription`, "#dc2626")}
-      ${para(`If you have questions about your usage or need assistance, contact our team at <a href="mailto:${SUPPORT_EMAIL}" style="color:#a78bfa;">${SUPPORT_EMAIL}</a>.`, true)}
+      ${para(`If you have questions about your usage or need assistance, contact our team at <a href="mailto:${SUPPORT_EMAIL}" style="color:#a78bfa !important;">${SUPPORT_EMAIL}</a>.`, true)}
     `,
     footerNote: `Pentellia is a pay-as-you-go platform. There are no recurring charges. Credits are only consumed when scans are executed.`,
   });
@@ -714,7 +753,7 @@ export function subscriptionActivatedEmail(
       </table>
       ${ctaButton("View Invoice & Dashboard", `${APP_URL}/subscription`)}
       ${para(`Your invoice is available for download on the Billing page. Keep this email for your records.`, true)}
-      ${para(`If you did not make this payment, contact us immediately at <a href="mailto:${SUPPORT_EMAIL}" style="color:#f87171;">${SUPPORT_EMAIL}</a>.`, true)}
+      ${para(`If you did not make this payment, contact us immediately at <a href="mailto:${SUPPORT_EMAIL}" style="color:#f87171 !important;">${SUPPORT_EMAIL}</a>.`, true)}
     `,
     footerNote: `Automated payment confirmation. Invoice: ${invoiceNumber}.`,
   });
@@ -735,7 +774,7 @@ export function generalNotificationEmail(
       ${para(`Hello ${firstName},`)}
       ${para(message)}
       ${ctaLabel && ctaHref ? ctaButton(ctaLabel, ctaHref) : ""}
-      ${para(`For assistance, contact us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#a78bfa;">${SUPPORT_EMAIL}</a>.`, true)}
+      ${para(`For assistance, contact us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#a78bfa !important;">${SUPPORT_EMAIL}</a>.`, true)}
     `,
   });
 }
